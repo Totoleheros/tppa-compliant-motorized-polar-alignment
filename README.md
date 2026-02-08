@@ -25,7 +25,7 @@ It runs on the *FYSETC E4 V1.0* (ESP32 + dual TMC2209) and emulates the "Avalon"
 
 ## 🖥️ Demo
 
-First functional prototype: <https://d.pr/v/Lk6GNp>
+First functional prototype: To come
 
 ---
 
@@ -130,18 +130,6 @@ constexpr uint16_t MICROSTEPPING_ALT = 4;  // SpreadCycle (Torque)
 constexpr float GEAR_RATIO_AZM = 100.0f;
 constexpr float ALT_MOTOR_GEARBOX = 496.0f;
 ```
-
----
-
-## 🛣 Roadmap
-
-* [x] **Silent Boot** to fix TPPA connection timeout.
-* [x] **Non-blocking motion engine** for zero-lag display.
-* [ ] Trapezoidal acceleration (currently fixed speed).
-* [ ] Low‑current sleep (`M18`) when idle.
-* [ ] Web Interface (WiFi) for manual adjustment without USB.
-
-Pull requests welcome!
 
 ---
 
