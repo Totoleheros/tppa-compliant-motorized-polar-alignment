@@ -112,22 +112,26 @@ To complete the assembly, you will need the following "vitamins":
 
 ## 🔌 Wiring & Configuration (CRITICAL)
 
-### ⚠️ Jumper Configuration (The "Address" Trap)
-Unlike OnStep or standard 3D printer setups, this firmware uses a **Shared UART Bus**.
-You **MUST NOT remove all jumpers**. You need to assign unique addresses to the drivers so the ESP32 can talk to them individually.
+### ⚠️ UART Jumper Setup
 
-Located under the TMC2209 drivers, set the jumpers (MS1/MS2) as follows:
+To enable communication between the ESP32 and the drivers, you **MUST** place the jumpers to activate "UART Mode", exactly as shown in the **FYSETC E4 Wiki**.
 
-| Axis | Socket | Target Address | Jumper Configuration |
-| :--- | :--- | :--- | :--- |
-| **AZIMUTH** | X (or 1) | **1** | MS1: **ON** (High) / MS2: **OFF** (Low) |
-| **ALTITUDE** | Y (or 2) | **2** | MS1: **OFF** (Low) / MS2: **ON** (High) |
-| *(Unused)* | Z / E | - | Remove drivers/jumpers |
+**1. Locate the Jumper Header:**
+Find the block of pins labeled with **TXD / RXD** (near the SCL/SDA pins).
+- ![E4 Jumpers](IMAGES/E4_Jumpers.jpg)
 
-### Wiring Resources
-- **FYSETC Wiki (E4 Board)**: [https://wiki.fysetc.com/docs/E4](https://wiki.fysetc.com/docs/E4)
-- *Note on OnStep guides:* You may find wiring diagrams for OnStep on the web. You can use them to locate pins (5V, GND, Endstops), but **DO NOT follow their jumper/firmware instructions**.
+**2. Place the Jumpers:**
+Place **2 jumper caps** horizontally on the bottom rows to bridge the communication lines.
+* **Without these jumpers**, the ESP32 cannot talk to the motors.
+* **Result:** This connects the drivers to the shared UART bus.
 
+> **Note on Addressing:**
+> Once these jumpers are in place, the firmware automatically targets the correct drivers using the board's internal routing:
+> * **Azimuth (Driver X):** Address 1
+> * **Altitude (Driver Y):** Address 2
+
+- **Reference Guide:**
+  See the "UART Mode" section in the official wiki: [https://wiki.fysetc.com/docs/E4](https://wiki.fysetc.com/docs/E4)
 ---
 
 ## 📸 Assembly Photos
