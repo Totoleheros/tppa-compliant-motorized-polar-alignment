@@ -42,7 +42,7 @@
 - Model: **NEMA17 + 5840 Worm Gearbox** (Self-locking/Autobloquant)
 - Prevents the mount from dropping under gravity.
 - Example: [AliExpress – ~20€](https://fr.aliexpress.com/item/1005008325671689.html)
-- ![Worm Gear Motor](IMAGES/worm-gear-motor.jpg)
+- ![Worm Gear Motor](IMAGES/WormGearMotor.jpg)
 
 ### 6. Structural Profile
 - Type: **15180 Aluminum Extrusion**
