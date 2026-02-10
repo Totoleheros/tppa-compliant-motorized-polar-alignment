@@ -49,6 +49,7 @@
 - Length: **250mm**
 - Used for the main chassis rigidity.
 - Cost: ~20€
+- ![15189](IMAGES/15180.jpg)
 
 ### 7. Orientation Ring (Bearing)
 - **Reference**: [igus PRT-02 LC J4](https://www.igus.fr/product/iglidur_PRT_02_LC_J4) (~63€)
