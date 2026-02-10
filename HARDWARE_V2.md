@@ -12,7 +12,7 @@
   👉 [Shapr3D Project Viewer](https://app.shapr3d.com/v/EaET3sDOzzE1rERJT5Xg-)
 
 - All 3D parts (STEP format) are included in the downloadable archive:
-  📦 `PolarAlignSTEP.zip`
+  📦 `PolarALIGN_V2_STEP.zip`
 
 ---
 
@@ -36,7 +36,7 @@
 ### 4. Heavy Duty Tilt Plate (Base Structure)
 - *Replaces the old cross-slide table for better stability.*
 - Example: [AliExpress – ~80€](https://fr.aliexpress.com/item/1005009718898462.html)
-- ![Tilt Plate](IMAGES/tilt-plate.jpg)
+- ![Tilt Plate](IMAGES/TiltPlate.jpg)
 
 ### 5. ALT Worm Gear Motor (Self-Locking)
 - Model: **NEMA17 + 5840 Worm Gearbox** (Self-locking/Autobloquant)
