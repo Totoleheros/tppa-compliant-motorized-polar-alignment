@@ -49,7 +49,7 @@
 - Length: **250mm**
 - Used for the main chassis rigidity.
 - Cost: ~20€
-- ![15189](IMAGES/15180.jpg)
+- ![15180](IMAGES/15180.jpg)
 
 ### 7. Orientation Ring (Bearing)
 - **Reference**: [igus PRT-02 LC J4](https://www.igus.fr/product/iglidur_PRT_02_LC_J4) (~63€)
@@ -99,7 +99,7 @@ To complete the assembly, you will need the following "vitamins":
 
 - **Material:** All 3D parts printed in **PLA (100% infill)** for maximum stiffness.
 - **CNC Machining (Recommended):**
-  - For heavy payloads (>10kg), it is highly recommended to CNC machine the load-bearing parts connecting the Tilt Plate to the Orientation Ring.
+  - For heavy payloads (>10kg), it is highly recommended to CNC machine the load-bearing parts (green in the image below) connecting the Tilt Plate to the Orientation Ring.
   - Estimated CNC cost: ~**90€**
 - ![Load-bearing Parts](IMAGES/load-bearing.jpg)
 
@@ -110,14 +110,23 @@ To complete the assembly, you will need the following "vitamins":
 
 ---
 
-## 🔌 Wiring Resources
+## 🔌 Wiring & Configuration (CRITICAL)
 
-- **OnStep E4 wiring inspiration**:
-  [OnStep Wiki – PDN & jumpers](https://onstep.groups.io/g/main/wiki/32747)
-  > *Remove all factory jumpers. Connect only Z-Min to PDN for UART setup.*
+### ⚠️ Jumper Configuration (The "Address" Trap)
+Unlike OnStep or standard 3D printer setups, this firmware uses a **Shared UART Bus**.
+You **MUST NOT remove all jumpers**. You need to assign unique addresses to the drivers so the ESP32 can talk to them individually.
 
-- **FYSETC Wiki (E4 Board)**:
-  [https://wiki.fysetc.com/docs/E4](https://wiki.fysetc.com/docs/E4)
+Located under the TMC2209 drivers, set the jumpers (MS1/MS2) as follows:
+
+| Axis | Socket | Target Address | Jumper Configuration |
+| :--- | :--- | :--- | :--- |
+| **AZIMUTH** | X (or 1) | **1** | MS1: **ON** (High) / MS2: **OFF** (Low) |
+| **ALTITUDE** | Y (or 2) | **2** | MS1: **OFF** (Low) / MS2: **ON** (High) |
+| *(Unused)* | Z / E | - | Remove drivers/jumpers |
+
+### Wiring Resources
+- **FYSETC Wiki (E4 Board)**: [https://wiki.fysetc.com/docs/E4](https://wiki.fysetc.com/docs/E4)
+- *Note on OnStep guides:* You may find wiring diagrams for OnStep on the web. You can use them to locate pins (5V, GND, Endstops), but **DO NOT follow their jumper/firmware instructions**.
 
 ---
 
