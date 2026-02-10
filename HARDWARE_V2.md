@@ -9,7 +9,7 @@
 ## 🧩 3D Model & Files
 
 - The full 3D design is available here:
-  👉 [Shapr3D Project Viewer](https://collaborate.shapr3d.com/v/ZjITyAcu-yg3d5nvveWZC)
+  👉 [Shapr3D Project Viewer](https://app.shapr3d.com/v/EaET3sDOzzE1rERJT5Xg-)
 
 - All 3D parts (STEP format) are included in the downloadable archive:
   📦 `PolarAlignSTEP.zip`
