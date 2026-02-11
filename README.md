@@ -20,6 +20,7 @@ It runs on the *FYSETC E4 V1.0* (ESP32 + dual TMC2209) and emulates the "Avalon"
 | **Protocol** | ✔ Immediate `ok` on `$J=`<br>✔ GRBL status frames (`<Idle|…|` / `<Run|…|`)<br>✔ Feed‑Hold `!` / Cycle‑Start `~` |
 | **Safety** | Software limits, Homing sensor support, Emergency Stop |
 | **Hardware** | Single FYSETC E4 board – WiFi-capable, integrated drivers |
+| **TO COME** | Addition of a MPU-6500 module (gyroscope) to have a live feedback of the real mouvement of the titl plate!! |
 
 ---
 
