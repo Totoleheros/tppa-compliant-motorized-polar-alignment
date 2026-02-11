@@ -32,11 +32,10 @@ First functional prototype: To come
 
 ## 🔩 Hardware Overview
 
-See **[`HARDWARE_V2.md`](./HARDWARE_V2.md)** for full assembly photos and wiring diagrams.
+See **[`HARDWARE.md`](./HARDWARE.md)** for full assembly photos and wiring diagrams.
 
 > ⚠️ **IMPORTANT WARNING**
-> **Please note that I have a major issue with the holding torque on the ALT axis in the current mechanical design.**
-> **I will post a revised design soon. DO NOT FOLLOW the current mechanical design blindly!!!**
+> **Please note that this is still an ongoing project !!!**
 
 | Part | Notes |
 |------|-------|
