@@ -22,7 +22,7 @@
 
 ### 1. Tripod Extension
 - Example: [AliExpress – 43€](https://fr.aliexpress.com/item/1005008669077575.html)
-- ![Tripod Extension](IMAGES/tripod-extension.jpg)
+- ![Tripod Extension](IMAGES/Parts/tripod-extension.jpg)
 
 ### 2. Harmonic Drive (AZM Reduction)
 - Model: **MINIF11-100** (Ratio 100:1)
