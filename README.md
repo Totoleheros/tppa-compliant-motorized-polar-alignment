@@ -155,6 +155,7 @@ constexpr uint16_t RMS_CURRENT_ALT = 800;
 constexpr float ALT_TOLERANCE_DEG = 0.05f;  // Acceptable error margin to declare a move "successful"
 constexpr uint8_t MAX_CORRECTIONS = 3;      // Max attempts to fix backlash/error before giving up
 
+```
 ---
 
 ## 📄 License
