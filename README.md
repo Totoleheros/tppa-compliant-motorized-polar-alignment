@@ -121,23 +121,39 @@ This is the hidden language your mount uses to talk to astrophotography software
 
 ---
 
+---
+
 ## 🛠️ Configuration Knobs
 
-Open **`polar-align-controller.ino`** to adjust mechanical settings if your build differs. 
-*Note: The `STEPS_PER_DEG_ALT` is just a theoretical starting point. The firmware will overwrite it with the real physical ratio in the EEPROM after its first successful movements.*
+Open **`PolarAlignVX.ino`** to adjust the physical properties of your specific build. Since every DIY mount is different, you might need to tweak these values before compiling:
 
 ```cpp
-/* ───── HARDWARE SETTINGS ───── */
-constexpr float MOTOR_FULL_STEPS = 200.0f;
-constexpr uint16_t MICROSTEPPING_AZM = 16; // StealthChop
-constexpr uint16_t MICROSTEPPING_ALT = 4;  // SpreadCycle (Torque)
+/* ───── HARDWARE SETTINGS (Immutable physical properties) ───── */
+constexpr float MOTOR_FULL_STEPS = 200.0f; // Standard 1.8° NEMA 17
+constexpr uint16_t MICROSTEPPING_AZM = 16; // StealthChop for smooth Azimuth
+constexpr uint16_t MICROSTEPPING_ALT = 4;  // SpreadCycle for high torque on Altitude
 
-// Gear Ratios (Theoretical)
-constexpr float GEAR_RATIO_AZM = 100.0f;
-constexpr float ALT_MOTOR_GEARBOX = 496.0f;
-constexpr float ALT_SCREW_PITCH_MM = 2.0f;
-constexpr float ALT_RADIUS_MM = 60.0f;
-```
+// Gear Ratios (Theoretical starting points)
+// Note: The firmware will dynamically adjust the ALT ratio and save it to EEPROM.
+constexpr float GEAR_RATIO_AZM = 100.0f;   // Harmonic drive ratio
+constexpr float ALT_MOTOR_GEARBOX = 496.0f;// Worm gearbox ratio
+constexpr float ALT_SCREW_PITCH_MM = 2.0f; // Lead screw pitch (T8 usually 2mm or 8mm)
+constexpr float ALT_RADIUS_MM = 60.0f;     // Distance from pivot axis to the lead screw
+
+// Axis Directions
+// -> Change to 'false' if your mount moves in the wrong direction!
+constexpr bool AXIS_REV_AZM = true;        
+constexpr bool AXIS_REV_ALT = true;        
+
+// Motor Currents (in mA)
+// -> Lower these values if your motors get too hot to touch.
+constexpr uint16_t RMS_CURRENT_AZM = 600;  
+constexpr uint16_t RMS_CURRENT_ALT = 800;  
+
+/* ───── FEEDBACK LOOP THRESHOLDS (For advanced users) ───── */
+// You can tighten or loosen the Active Feedback Loop behavior here:
+constexpr float ALT_TOLERANCE_DEG = 0.05f;  // Acceptable error margin to declare a move "successful"
+constexpr uint8_t MAX_CORRECTIONS = 3;      // Max attempts to fix backlash/error before giving up
 
 ---
 
