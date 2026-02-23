@@ -40,15 +40,17 @@
 
 ### 5. ALT Worm Gear Motor (Self-Locking)
 - Model: **NEMA17 + 5840 Worm Gearbox** (Self-locking/Autobloquant)
+- **Gear Ratio:** 1:100
 - Prevents the mount from dropping under gravity.
 - Example: [AliExpress – ~20€](https://fr.aliexpress.com/item/1005008325671689.html)
 - ![Worm Gear Motor](IMAGES/WormGearMotor.jpg)
 
-### 6. Structural Profile
-- Type: **15180 Aluminum Extrusion**
-- Length: **250mm**
-- Used for the main chassis rigidity.
-- Cost: ~20€
+### 6. Structural Profiles (Base Chassis)
+- Type: **15180 Aluminum Extrusion** (2 Plates needed)
+  - **Plate 1 (Main):** Length **250mm**, oriented North-South.
+  - **Plate 2 (Cross):** Orthogonal (East-West), aligned flush with the South end of Plate 1.
+- ⚠️ **CRITICAL WARNING:** The top and bottom faces of the 15180 profiles are **NOT interchangeable** (they have different slot spacing/patterns). Be absolutely sure of your orientation and assembly direction *before* drilling any holes!
+- Cost: ~40€ (for both)
 - ![15180](IMAGES/15180.jpg)
 
 ### 7. Orientation Ring (Bearing)
@@ -71,17 +73,25 @@
   - Specs: Waterproof, LED (3-24V), Latching/Reset, 12mm or 16mm.
   - Material: Nickel-plated Brass – *< 2€*
 
+### 10. Active Feedback Sensor (Gyroscope)
+- Model: **MPU-6500** (I2C interface)
+- Purpose: Acts as a digital plumb bob. It measures the real physical altitude angle of the tilt table in real-time, allowing the firmware to automatically correct any backlash or friction.
+- Cost: ~3€
+- ![MPU-6500](IMAGES/mpu6500.jpg)
+
 ---
 
 ## 🔩 Small Hardware & Fasteners
 
 To complete the assembly, you will need the following "vitamins":
 
-### Coupler (Crucial)
+### Coupler (Crucial DIY Modification Required!)
 - **Type:** Rigid Clamping Coupler (D25L35)
-- **Size:** **6mm to 8mm** (Connects T6 Screw to 8mm Motor Shaft)
-- *Note: Do not use flexible spider couplers or set-screw couplers.*
-- Example: "OKE DE-Couremplaçant Personnalisé à Arbre Rigide" – *~3.50€*
+- **Base Size to Buy:** **5mm to 8mm**
+- ⚠️ **THE 5.6mm TRAP:** The external input shaft on the Tilt Plate (where the original manual knob was attached) is **NOT a standard 5mm or 6mm**. It is a weird **5.6mm** diameter shaft driving the internal T8 screw. A standard 6mm coupler will slip, and a 5mm won't fit.
+- **The Fix:** You must buy a `5mm to 8mm` coupler and manually enlarge the 5mm hole. Use a tapping tool (thread maker) or a very precise 5.5mm/5.6mm drill bit to bore out the 5mm side until it perfectly grips the 5.6mm shaft.
+- *Note: Do not use flexible spider couplers or set-screw couplers. Rigidity is mandatory here.*
+- Example: "OKE DE-Coupler Rigid Shaft" – *~3.50€*
 
 ### Screws & Nuts
 - **Sliding T-Nuts:** M6 for 15180 profile (Pack of 200) – *~7€*
@@ -89,7 +99,7 @@ To complete the assembly, you will need the following "vitamins":
 
 ---
 
-### 💰 Estimated Total: ~**360€ - 380€**
+### 💰 Estimated Total: ~**380€ - 400€**
 
 *(Excluding 3D printing filament)*
 
@@ -104,9 +114,9 @@ To complete the assembly, you will need the following "vitamins":
 - ![Load-bearing Parts](IMAGES/load-bearing.jpg)
 
 ### 🧮 Total Budget (with CNC)
-- ~370€ Hardware
+- ~390€ Hardware
 - + ~90€ CNC Parts
-- 🟰 **~460€ Final Project Cost**
+- 🟰 **~480€ Final Project Cost**
 
 ---
 
@@ -132,6 +142,16 @@ Place **2 jumper caps** horizontally on the bottom rows to bridge the communicat
 
 - **Reference Guide:**
   See the "UART Mode" section in the official wiki: [https://wiki.fysetc.com/docs/E4](https://wiki.fysetc.com/docs/E4)
+
+### 📡 MPU-6500 I2C Wiring
+Connect the MPU-6500 module to the FYSETC E4 I2C pins using the following standardized wire colors:
+* 🔴 **Red:** VCC (3.3V)
+* 🟡 **Yellow:** GND
+* 🔵 **Blue:** SCL (E4 Pin 18)
+* 🟢 **Green:** SDA (E4 Pin 19)
+
+> 💡 **Anti-EMI Tip:** Keep the I2C wires (Blue/Green) as far away as possible from the stepper motor cables to prevent electromagnetic interference. If possible, twist the GND (Yellow) wire around the I2C lines to act as a shield.
+
 ---
 
 ## 📸 Assembly Photos
