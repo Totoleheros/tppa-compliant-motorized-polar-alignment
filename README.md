@@ -121,8 +121,6 @@ This is the hidden language your mount uses to talk to astrophotography software
 
 ---
 
----
-
 ## 🛠️ Configuration Knobs
 
 Open **`PolarAlignVX.ino`** to adjust the physical properties of your specific build. Since every DIY mount is different, you might need to tweak these values before compiling:
