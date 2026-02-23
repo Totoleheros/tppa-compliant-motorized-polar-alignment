@@ -27,25 +27,25 @@
 ### 2. Harmonic Drive (AZM Reduction)
 - Model: **MINIF11-100** (Ratio 100:1)
 - Example: [AliExpress – 58€](https://fr.aliexpress.com/item/1005007712296652.html)
-- ![Harmonic Drive](IMAGES/harmonic-drive.jpg)
+- ![Harmonic Drive](IMAGES/Parts/harmonic-drive.jpg)
 
 ### 3. Stepper Motor (AZM Drive)
 - **1x** Standard NEMA 17 for the Harmonic Drive input.
 - Model: **17HS19-2004S1** (or similar high torque)
 - Example: [Amazon – ~12€]
-- ![Stepper Motor](IMAGES/stepper.jpg)
+- ![Stepper Motor](IMAGES/Parts/stepper.jpg)
 
 ### 4. Heavy Duty Tilt Plate (Base Structure)
 - *Replaces the old cross-slide table for better stability.*
 - Example: [AliExpress – ~80€](https://fr.aliexpress.com/item/1005009718898462.html)
-- ![Tilt Plate](IMAGES/TiltPlate.jpg)
+- ![Tilt Plate](IMAGES/Parts/TiltPlate.jpg)
 
 ### 5. ALT Worm Gear Motor (Self-Locking)
 - Model: **NEMA17 + 5840 Worm Gearbox** (Self-locking/Autobloquant)
 - **Gear Ratio:** 1:100
 - Prevents the mount from dropping under gravity.
 - Example: [AliExpress – ~20€](https://fr.aliexpress.com/item/1005008325671689.html)
-- ![Worm Gear Motor](IMAGES/WormGearMotor.jpg)
+- ![Worm Gear Motor](IMAGES/Parts/WormGearMotor.jpg)
 
 ### 6. Structural Profiles (Base Chassis)
 - Type: **15180 Aluminum Extrusion** (2 Plates needed)
@@ -57,7 +57,7 @@
 
 ### 7. Orientation Ring (Bearing)
 - **Reference**: [igus PRT-02 LC J4](https://www.igus.fr/product/iglidur_PRT_02_LC_J4) (~63€)
-- ![Orientation Ring](IMAGES/orientation_ring.jpg)
+- ![Orientation Ring](IMAGES/Parts/orientation_ring.jpg)
 
 ---
 
@@ -67,7 +67,7 @@
 - Board: **FYSETC E4 V1.0** (⚠️ **Pin mapping differs** on V2.0!)
 - Features: WiFi + Bluetooth, 4x TMC2209, 240MHz.
 - Example: [AliExpress – ~30€](https://fr.aliexpress.com/item/1005001704413148.html)
-- ![FYSETC E4 Board](IMAGES/fysetc-e4.jpg)
+- ![FYSETC E4 Board](IMAGES/Parts/fysetc-e4.jpg)
 
 ### 9. Homing & Control
 - **Homing Sensor (ALT):** Model **V-156-1C25** (Long lever microswitch) – *< 2€*
@@ -79,7 +79,7 @@
 - Model: **MPU-6500** (I2C interface)
 - Purpose: Acts as a digital plumb bob. It measures the real physical altitude angle of the tilt table in real-time, allowing the firmware to automatically correct any backlash or friction.
 - Cost: ~3€
-- ![MPU-6500](IMAGES/MPU-6500.jpeg)
+- ![MPU-6500](IMAGES/Parts/MPU-6500.jpeg)
 
 ---
 
@@ -115,7 +115,7 @@ To complete the assembly, you will need the following "vitamins":
     1. The part connecting the Tilt Plate to the IGUS Orientation Ring.
     2. The junction plate connecting the IGUS Orientation Ring to the 250mm 15180 profile.
   - Estimated CNC cost: ~**90€**
-- ![Load-bearing Parts](IMAGES/CNC.jpeg)
+- ![Load-bearing Parts](IMAGES/Parts/CNC.jpeg)
 
 ### 🧮 Total Budget (with CNC)
 - ~390€ Hardware
@@ -132,7 +132,7 @@ To enable communication between the ESP32 and the drivers, you **MUST** place th
 
 **1. Locate the Jumper Header:**
 Find the block of pins labeled with **TXD / RXD** (near the SCL/SDA pins).
-- ![E4 Jumpers](IMAGES/E4_Jumpers.jpg)
+- ![E4 Jumpers](IMAGES/Parts/E4_Jumpers.jpg)
 
 **2. Place the Jumpers:**
 Place **2 jumper caps** horizontally on the bottom rows to bridge the communication lines.
