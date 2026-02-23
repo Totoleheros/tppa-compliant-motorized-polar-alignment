@@ -9,10 +9,12 @@
 ## 🧩 3D Model & Files
 
 - The full 3D design is available here:
-  👉 [Shapr3D Project Viewer](https://app.shapr3d.com/v/EaET3sDOzzE1rERJT5Xg-)
+  👉 [Shapr3D Project Viewer](https://app.shapr3d.com/v/xjBj0DmmQmfPPzAL_mYX5)
 
 - All 3D parts (STEP format) are included in the downloadable archive:
   📦 `PolarALIGN_V2_STEP.zip`
+
+- 🛠️ **Drilling Jig Included:** The 3D model archive now includes a custom **Drilling Jig (Gabarit de perçage)**. You can 3D print this tool to easily and accurately mark the drilling hole locations on the 200mm 15180 profile.
 
 ---
 
@@ -48,7 +50,7 @@
 ### 6. Structural Profiles (Base Chassis)
 - Type: **15180 Aluminum Extrusion** (2 Plates needed)
   - **Plate 1 (Main):** Length **250mm**, oriented North-South.
-  - **Plate 2 (Cross):** Orthogonal (East-West), aligned flush with the South end of Plate 1.
+  - **Plate 2 (Cross):** Orthogonal (East-West), aligned flush with the South end of Plate 1 (200mm length).
 - ⚠️ **CRITICAL WARNING:** The top and bottom faces of the 15180 profiles are **NOT interchangeable** (they have different slot spacing/patterns). Be absolutely sure of your orientation and assembly direction *before* drilling any holes!
 - Cost: ~40€ (for both)
 - ![15180](IMAGES/15180.jpg)
@@ -77,7 +79,7 @@
 - Model: **MPU-6500** (I2C interface)
 - Purpose: Acts as a digital plumb bob. It measures the real physical altitude angle of the tilt table in real-time, allowing the firmware to automatically correct any backlash or friction.
 - Cost: ~3€
-- ![MPU-6500](IMAGES/mpu6500.jpg)
+- ![MPU-6500](IMAGES/MPU-6500.jpg)
 
 ---
 
@@ -113,7 +115,7 @@ To complete the assembly, you will need the following "vitamins":
     1. The part connecting the Tilt Plate to the IGUS Orientation Ring.
     2. The junction plate connecting the IGUS Orientation Ring to the 250mm 15180 profile.
   - Estimated CNC cost: ~**90€**
-- ![Load-bearing Parts](IMAGES/cnc.jpg)
+- ![Load-bearing Parts](IMAGES/CNC.jpg)
 
 ### 🧮 Total Budget (with CNC)
 - ~390€ Hardware
