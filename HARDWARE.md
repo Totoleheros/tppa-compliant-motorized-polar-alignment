@@ -79,7 +79,7 @@
 - Model: **MPU-6500** (I2C interface)
 - Purpose: Acts as a digital plumb bob. It measures the real physical altitude angle of the tilt table in real-time, allowing the firmware to automatically correct any backlash or friction.
 - Cost: ~3€
-- ![MPU-6500](IMAGES/MPU-6500.jpg)
+- ![MPU-6500](IMAGES/MPU-6500.jpeg)
 
 ---
 
@@ -115,7 +115,7 @@ To complete the assembly, you will need the following "vitamins":
     1. The part connecting the Tilt Plate to the IGUS Orientation Ring.
     2. The junction plate connecting the IGUS Orientation Ring to the 250mm 15180 profile.
   - Estimated CNC cost: ~**90€**
-- ![Load-bearing Parts](IMAGES/CNC.jpg)
+- ![Load-bearing Parts](IMAGES/CNC.jpeg)
 
 ### 🧮 Total Budget (with CNC)
 - ~390€ Hardware
