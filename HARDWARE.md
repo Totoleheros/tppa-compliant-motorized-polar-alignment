@@ -12,7 +12,7 @@
   👉 [Shapr3D Project Viewer](https://app.shapr3d.com/v/xjBj0DmmQmfPPzAL_mYX5)
 
 - All 3D parts (STEP format) are included in the downloadable archive:
-  📦 `PolarALIGN_V2_STEP.zip`
+  📦 `PolarALIGN_V3_STEP.zip`
 
 - 🛠️ **Drilling Jig Included:** The 3D model archive now includes a custom **Drilling Jig (Gabarit de perçage)**. You can 3D print this tool to easily and accurately mark the drilling hole locations on the 200mm 15180 profile.
 
