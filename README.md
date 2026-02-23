@@ -66,3 +66,90 @@ See **[`HARDWARE.md`](./HARDWARE.md)** for full assembly photos, 3D files (inclu
    ```text
    Preferences → Additional Board URLs:
    [https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json](https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json)
+   ```
+   Boards Manager → *esp32* (≥ v2.0.17).
+
+2. **Install library**
+   * **TMCStepper** (latest version) via Library Manager.
+
+3. **Board menu settings**
+
+   | Option             | Value |
+   |--------------------|-------|
+   | Board              | **ESP32 Dev Module** |
+   | CPU Freq           | 240 MHz (WiFi/BT) |
+   | Flash Freq / Mode  | 80 MHz / DIO |
+   | Flash Size         | 4 MB |
+   | Partition Scheme   | Huge APP (3 MB / 1 MB SPIFFS) |
+   | Upload speed       | 115 200 bps |
+   | Port               | `COMx` / `/dev/tty.usbmodem…` |
+
+4. **Upload**
+   Compile ⇒ Upload.
+   > **Note:** On boot, the serial monitor will be completely empty for about 1 second (Silent Boot). Send `?` to wake it up or use the diagnostic commands below.
+
+---
+
+## 🧪 Serial Command Reference
+
+To test your mount, open the **Arduino IDE Serial Monitor**. 
+⚠️ **CRITICAL:** Set the baud rate to **`115200`** and the line ending to **`Newline`** (or `Both NL & CR`).
+
+### 1️⃣ Custom Diagnostic & Manual Control (For Makers)
+
+These commands were specifically built to help you test the mechanics and the Active Feedback Loop without needing N.I.N.A.
+
+| Command      | Action |
+|--------------|--------|
+| `HOME` (or `$H`) | **Trigger Homing & Tare:** The mount will move down until it hits the limit switch, perform a safety pull-off, define this point as `0.0°`, and perfectly tare the MPU-6500 Gyroscope. |
+| `DIAG` (or `MPU?`) | **Print System Diagnostic:** The ultimate debugging tool. It instantly prints the Limit Switch status, the Raw Gyroscope reading, the Tared physical angle, any I2C EMI errors, and the current active Gear Ratio learned from the EEPROM. |
+| `ALT:2.5`    | **Absolute Altitude Jog:** Commands the mount to go to an absolute altitude of `2.5°`. Watch the Serial Monitor to see the Active Feedback Loop in action as it performs micro-corrections to reach the exact target! |
+| `RST`        | **Soft Reset:** Instantly aborts any motion, clears the learning queues, and resets the state machine. |
+
+### 2️⃣ GRBL‑Style (Used by N.I.N.A / TPPA)
+
+This is the hidden language your mount uses to talk to astrophotography software.
+
+| Command                  | Meaning | Response |
+|--------------------------|---------|----------|
+| `$J=G53X+5.00F400`       | Absolute jog **+5.00 °** on **Azimuth** | `ok` |
+| `$J=G91G21Y-6.50F300`    | Relative jog **–6.50 °** on **Altitude** | `ok` |
+| `?`                      | Poll Status (used 10 times a second by N.I.N.A) | `<Idle\|MPos:…\|>` + `\n` |
+| `!` / `~`                | Feed‑Hold / Cycle-Resume | `ok` |
+
+> **Pro-Tip:** Keep **“Gear Ratio” = 1.0** in the TPPA settings; the firmware already includes all mechanical reductions and self-corrects the ratio anyway!
+
+---
+
+## 🛠️ Configuration Knobs
+
+Open **`polar-align-controller.ino`** to adjust mechanical settings if your build differs. 
+*Note: The `STEPS_PER_DEG_ALT` is just a theoretical starting point. The firmware will overwrite it with the real physical ratio in the EEPROM after its first successful movements.*
+
+```cpp
+/* ───── HARDWARE SETTINGS ───── */
+constexpr float MOTOR_FULL_STEPS = 200.0f;
+constexpr uint16_t MICROSTEPPING_AZM = 16; // StealthChop
+constexpr uint16_t MICROSTEPPING_ALT = 4;  // SpreadCycle (Torque)
+
+// Gear Ratios (Theoretical)
+constexpr float GEAR_RATIO_AZM = 100.0f;
+constexpr float ALT_MOTOR_GEARBOX = 496.0f;
+constexpr float ALT_SCREW_PITCH_MM = 2.0f;
+constexpr float ALT_RADIUS_MM = 60.0f;
+```
+
+---
+
+## 📄 License
+
+**MIT License** — do whatever you want, just keep the header.
+
+---
+
+## 🙏 Acknowledgements
+
+* **Stefan Berg** – author of the **Three-Point Polar Alignment** plug-in and core N.I.N.A. contributor; his support was key to cracking the handshake protocol.
+* **Avalon Instruments** – for the idea of a lean, GRBL-style alignment controller.
+* **Claude** & **Gemini** (AI) – for the non-blocking engine architecture, the I2C Gyroscopic Feedback Loop, and the hardcore debugging.
+* Maintained by **Antonino Nicoletti** ([antonino.antispam@free.fr]) – *clear skies!*
