@@ -109,9 +109,11 @@ To complete the assembly, you will need the following "vitamins":
 
 - **Material:** All 3D parts printed in **PLA (100% infill)** for maximum stiffness.
 - **CNC Machining (Recommended):**
-  - For heavy payloads (>10kg), it is highly recommended to CNC machine the load-bearing parts (green in the image below) connecting the Tilt Plate to the Orientation Ring.
+  - For heavy payloads (>10kg), it is highly recommended to CNC machine the **two main load-bearing parts** (highlighted in green in the image below):
+    1. The part connecting the Tilt Plate to the IGUS Orientation Ring.
+    2. The junction plate connecting the IGUS Orientation Ring to the 250mm 15180 profile.
   - Estimated CNC cost: ~**90€**
-- ![Load-bearing Parts](IMAGES/load-bearing.jpg)
+- ![Load-bearing Parts](IMAGES/cnc.jpg)
 
 ### 🧮 Total Budget (with CNC)
 - ~390€ Hardware
