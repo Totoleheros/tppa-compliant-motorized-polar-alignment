@@ -1,26 +1,25 @@
-# Serial Alt‑Az Polar Alignment Controller (ESP32 / GRBL)
+# Serial Alt‑Az Polar Alignment Controller (ESP32 / GRBL / MPU-6500)
 
-Minimal **GRBL‑style** firmware + hardware recipe for driving a two‑axis (Azimuth & Altitude) mount during polar‑alignment routines such as **TPPA** in **N.I.N.A.**
+Welcome to what is likely **the world's first motorized Polar Alignment mount featuring an active Gyroscopic Feedback Loop with Machine Learning ratio adaptation.**
 
-It runs on the *FYSETC E4 V1.0* (ESP32 + dual TMC2209) and emulates the "Avalon" protocol using a **non‑blocking motion engine** and a **strict request‑reply** serial architecture.
+This is a minimal **GRBL‑style** firmware + hardware recipe designed to drive a two‑axis (Azimuth & Altitude) mount during polar‑alignment routines such as **TPPA** in **N.I.N.A.**
 
-> **TL;DR** – Flash the sketch, wire the motors, set N.I.N.A. to talk to a **"Avalon Polar Alignment"**, **leave the TPPA “Gear Ratio” field at `1.0`**, and the routine will move your mount by up to **± 15 °**.
+It runs on the *FYSETC E4 V1.0* (ESP32 + dual TMC2209) and emulates the "Avalon" protocol using a **non‑blocking motion engine**.
+
+> **TL;DR** – Flash the sketch, wire the motors and the MPU-6500 gyroscope, set N.I.N.A. to talk to an **"Avalon Polar Alignment"**, **leave the TPPA “Gear Ratio” field at `1.0`**, and let the mount physically correct its own mechanical flaws in real-time.
 
 ---
 
-## 📦 Key Features
+## 🌟 Groundbreaking Features
 
-| Area            | What you get                                                                 |
-|-----------------|------------------------------------------------------------------------------|
-| **Silent Boot** | **Zero** serial output on boot to prevent connection timeouts (TPPA handshake fix) |
-| **Motion Engine**| **Non-blocking** pulse generation allowing real-time `?` query responses |
-| **Zero Lag** | Strict polling architecture: eliminates buffer desynchronization (fixes "0.1° vs 1.1°" display lag) |
-| **Precision** | Target snapping ensures exact final coordinates (no floating-point drift) |
-| **Driver layer**| UART control of two **TMC2209** drivers (StealthChop AZM / SpreadCycle ALT) |
-| **Protocol** | ✔ Immediate `ok` on `$J=`<br>✔ GRBL status frames (`<Idle|…|` / `<Run|…|`)<br>✔ Feed‑Hold `!` / Cycle‑Start `~` |
-| **Safety** | Software limits, Homing sensor support, Emergency Stop |
-| **Hardware** | Single FYSETC E4 board – WiFi-capable, integrated drivers |
-| **TO COME** | Addition of a MPU-6500 module (gyroscope) to have a live feedback of the real mouvement of the titl plate!! |
+| Feature | How it changes the game |
+|---------|-------------------------|
+| 🧠 **Machine Learning Ratio** | The firmware measures the *real* physical movement of the tilt-plate using the gyroscope and compares it to the theoretical motor steps. It **automatically calculates and saves a new perfect gear ratio** in its EEPROM after every movement. |
+| 🎯 **Active Feedback Loop** | Tired of mechanical backlash or friction ruining your polar alignment? The MPU-6500 acts as a digital plumb bob. If the mount didn't move enough due to backlash, the ESP32 knows it instantly and triggers a micro-correction until the exact requested angle is reached. |
+| 🛡️ **Anti-Crash & Auto-Recovery** | **Software Endstops** prevent the mount from diving below 0.0°. If you power on the mount while it's already resting on its physical limit switch, the system detects it and **automatically runs a homing/pull-off sequence at boot** to free itself safely. |
+| 📉 **Smart EMI / Friction Alarms** | The feedback loop is smart: if the I2C bus crashes due to EMI, or if the tilt-plate gets mechanically stuck (friction), the firmware will instantly abort the movement to prevent motor runaway or hardware damage, throwing a clear text alarm. |
+| 🔇 **Silent Boot** | **Zero** serial output on boot to prevent connection timeouts (TPPA handshake fix for N.I.N.A). |
+| ⚡ **Zero Lag Engine** | Strict polling architecture: non-blocking pulse generation eliminates buffer desynchronization (fixes the famous "0.1° vs 1.1°" display lag in N.I.N.A). |
 
 ---
 
@@ -32,33 +31,32 @@ First functional prototype: To come
 
 ## 🔩 Hardware Overview
 
-See **[`HARDWARE.md`](./HARDWARE.md)** for full assembly photos and wiring diagrams.
+See **[`HARDWARE.md`](./HARDWARE.md)** for full assembly photos, 3D files (including a drilling jig!), and detailed wiring diagrams.
 
 > ⚠️ **IMPORTANT WARNING**
-> **Please note that this is still an ongoing project !!!**
+> **Please note that this is still an ongoing open-source project!**
 
 | Part | Notes |
 |------|-------|
 | **FYSETC E4 V1.0** | ESP32‑WROOM‑32, 4 × on‑board TMC2209 – we use two of them (MOT‑X = Azimuth, MOT‑Y = Altitude) |
+| **MPU-6500 Module** | I2C Gyroscope/Accelerometer used for active Altitude feedback. |
 | **Stepper motors** | 1.8 ° NEMA‑17 recommended (e.g. 17HS19‑2004S1) |
 | **Supply** | 12 V DC (quiet) — 24 V also works if your mechanics can take it |
-| **USB cable** | USB‑C → host PC |
 
-### Default GPIO Map (Firmware v12.00)
+### Default GPIO Map (Firmware v14.x)
 
-| Signal   | Axis | ESP32 GPIO | E4 silkscreen | Notes |
-|----------|------|-----------|---------------|-------|
-| STEP     | AZM  | 27        | **MOT‑X** | |
-| DIR      | AZM  | 26        | **MOT‑X** | |
-| EN       | Both | 25        | `/ENABLE` | Active LOW |
-| UART RX  | AZM  | 21        | Shared Bus | **Set Addr 1 via jumpers** |
-| STEP     | ALT  | 33        | **MOT‑Y** | |
-| DIR      | ALT  | 32        | **MOT‑Y** | |
-| UART RX  | ALT  | 21        | Shared Bus | **Set Addr 2 via jumpers** |
-| SENSOR   | ALT  | 34        | Z-MIN | Limit Switch (Input Only) |
-| BUTTON   | HOME | 35        | Y-MIN | Manual Home (Input Only) |
-
-> **Note:** The UART pins (RX=21, TX=22) are shared. You **must** set the MS1/MS2 jumpers under the drivers to assign unique addresses (AZM=1, ALT=2).
+| Signal   | Axis / Role | ESP32 GPIO | E4 silkscreen | Notes |
+|----------|-------------|------------|---------------|-------|
+| STEP     | AZM         | 27         | **MOT‑X** | |
+| DIR      | AZM         | 26         | **MOT‑X** | |
+| EN       | Both        | 25         | `/ENABLE`     | Active LOW |
+| UART RX  | AZM & ALT   | 21         | Shared Bus    | **Set Addr 1 (AZM) & Addr 2 (ALT) via jumpers** |
+| STEP     | ALT         | 33         | **MOT‑Y** | |
+| DIR      | ALT         | 32         | **MOT‑Y** | |
+| SCL      | Gyroscope   | 18         | SCL           | I2C Clock (MPU-6500) |
+| SDA      | Gyroscope   | 19         | SDA           | I2C Data (MPU-6500) |
+| SENSOR   | ALT Limit   | 34         | Z-MIN         | Physical Limit Switch (Input Only) |
+| BUTTON   | Manual Home | 35         | Y-MIN         | Manual Home Button (Input Only) |
 
 ---
 
@@ -68,80 +66,3 @@ See **[`HARDWARE.md`](./HARDWARE.md)** for full assembly photos and wiring diagr
    ```text
    Preferences → Additional Board URLs:
    [https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json](https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json)
-   ```
-   Boards Manager → *esp32* (≥ v2.0.17).
-
-2. **Install library**
-   * **TMCStepper** (latest version) via Library Manager.
-
-3. **Board menu settings**
-
-   | Option             | Value |
-   |--------------------|-------|
-   | Board              | **ESP32 Dev Module** |
-   | CPU Freq           | 240 MHz (WiFi/BT) |
-   | Flash Freq / Mode  | 80 MHz / DIO |
-   | Flash Size         | 4 MB |
-   | Partition Scheme   | Huge APP (3 MB / 1 MB SPIFFS) |
-   | Upload speed       | 115 200 bps |
-   | Port               | `COMx` / `/dev/tty.usbmodem…` |
-
-4. **Upload**
-   Compile ⇒ Upload.
-   > **Note:** On boot, the serial monitor will be empty (Silent Boot). Send `?` to wake it up.
-
----
-
-## 🧪 Serial Command Reference
-
-### 1️⃣ GRBL‑Style (**used by TPPA**)
-
-| Command                  | Meaning | Response |
-|--------------------------|---------|----------|
-| `$J=G53X+5.00F400`       | Absolute jog **+5 °** on **Azimuth** | `ok` |
-| `$J=G91G21Y-6.50F300`    | Relative jog **–6.5 °** on **Altitude** | `ok` |
-| `?`                      | Poll Status | `<Idle\|MPos:…\|>` + `\n` |
-| `$X`                     | Unlock | `ok` |
-| `!` / `~`                | Feed‑Hold / Resume | `ok` |
-| `RST`                    | Soft Reset | `Grbl 1.1h...` |
-
-> **Tip:** Keep **“Gear Ratio” = 1.0** in the TPPA settings; the firmware already includes all mechanical reductions.
-
-### 2️⃣ Legacy Console (for manual USB testing)
-
-| Command      | Action |
-|--------------|--------|
-| `ALT:+2.5`   | Jog Altitude +2.5 ° |
-| `HOME`       | Trigger Homing Sequence |
-
----
-
-## 🛠️ Configuration Knobs
-
-Open **`polar-align-controller.ino`** to adjust mechanical settings if your build differs:
-
-```cpp
-/* ───── HARDWARE SETTINGS ───── */
-constexpr float MOTOR_FULL_STEPS = 200.0f;
-constexpr uint16_t MICROSTEPPING_AZM = 16; // StealthChop
-constexpr uint16_t MICROSTEPPING_ALT = 4;  // SpreadCycle (Torque)
-
-// Gear Ratios (Calibrated)
-constexpr float GEAR_RATIO_AZM = 100.0f;
-constexpr float ALT_MOTOR_GEARBOX = 496.0f;
-```
-
----
-
-## 📄 License
-
-**MIT License** — do whatever you want, just keep the header.
-
----
-
-## 🙏 Acknowledgements
-
-* **Stefan Berg** – author of the **Three-Point Polar Alignment** plug-in and core N.I.N.A. contributor; his support was key to cracking the handshake protocol.
-* **Avalon Instruments** – for the idea of a lean, GRBL-style alignment controller.
-* **Claude** & **Gemini** (AI) – for the non-blocking engine architecture & debugging.
-* Maintained by **Antonino Nicoletti** ([antonino.antispam@free.fr]) – *clear skies!*
