@@ -53,7 +53,7 @@
   - **Plate 2 (Cross):** Orthogonal (East-West), aligned flush with the South end of Plate 1 (200mm length).
 - ⚠️ **CRITICAL WARNING:** The top and bottom faces of the 15180 profiles are **NOT interchangeable** (they have different slot spacing/patterns). Be absolutely sure of your orientation and assembly direction *before* drilling any holes!
 - Cost: ~40€ (for both)
-- ![15180](IMAGES/15180.jpg)
+- ![15180](IMAGES/Parts/15180.jpg)
 
 ### 7. Orientation Ring (Bearing)
 - **Reference**: [igus PRT-02 LC J4](https://www.igus.fr/product/iglidur_PRT_02_LC_J4) (~63€)
