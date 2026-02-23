@@ -70,11 +70,14 @@ See **[`HARDWARE.md`](./HARDWARE.md)** for full assembly photos, 3D files (inclu
    [https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json](https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json)
    ```
    Boards Manager → *esp32* (≥ v2.0.17).
+   
+2. **Arduino code**
+   * Download the last version of the Arduino code in the **Arduino directory**.
 
-2. **Install library**
+3. **Install library**
    * **TMCStepper** (latest version) via Library Manager.
 
-3. **Board menu settings**
+4. **Board menu settings**
 
    | Option             | Value |
    |--------------------|-------|
@@ -86,7 +89,7 @@ See **[`HARDWARE.md`](./HARDWARE.md)** for full assembly photos, 3D files (inclu
    | Upload speed       | 115 200 bps |
    | Port               | `COMx` / `/dev/tty.usbmodem…` |
 
-4. **Upload**
+5. **Upload**
    Compile ⇒ Upload.
    > **Note:** On boot, the serial monitor will be completely empty for about 1 second (Silent Boot). Send `?` to wake it up or use the diagnostic commands below.
 
