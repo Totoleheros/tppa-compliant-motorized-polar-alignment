@@ -26,6 +26,7 @@ It runs on the *FYSETC E4 V1.0* (ESP32 + dual TMC2209) and emulates the "Avalon"
 ## 🖥️ Demo and Images
 
 First functional prototype: To come
+
 Check the IMAGES directory for 3D model images ('3D_Model') and images taken during the true assembly of the first prototype ('Real_World').
 
 ---
