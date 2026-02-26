@@ -109,6 +109,7 @@ These commands were specifically built to help you test the mechanics and the Ac
 | `HOME` (or `$H`) | **Trigger Homing & Tare:** The mount will move down until it hits the limit switch, perform a safety pull-off, define this point as `0.0°`, and perfectly tare the MPU-6500 Gyroscope. |
 | `DIAG` (or `MPU?`) | **Print System Diagnostic:** The ultimate debugging tool. It instantly prints the Limit Switch status, the Raw Gyroscope reading, the Tared physical angle, any I2C EMI errors, and the current active Gear Ratio learned from the EEPROM. |
 | `ALT:2.5`    | **Absolute Altitude Jog:** Commands the mount to go to an absolute altitude of `2.5°`. Watch the Serial Monitor to see the Active Feedback Loop in action as it performs micro-corrections to reach the exact target! |
+| `AZM:5.0`    | **Absolute Azimuth Jog:** Commands the mount to go to an absolute azimuth angle of `5.0°`. Note: **0.0°** is defined as the position of the mount at power-on. Positive values move East (Clockwise), negative values move West (Counter-Clockwise). |
 | `RST`        | **Soft Reset:** Instantly aborts any motion, clears the learning queues, and resets the state machine. |
 
 ### 2️⃣ GRBL‑Style (Used by N.I.N.A / TPPA)
