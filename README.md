@@ -130,7 +130,7 @@ This is the hidden language your mount uses to talk to astrophotography software
 
 ## 🛠️ Configuration Knobs
 
-Open **`polar-align-controller.ino`** to adjust the physical properties of your specific build. Since every DIY mount is different, you might need to tweak these values before compiling:
+Open **the last version of the Arduino code** to adjust the physical properties of your specific build. Since every DIY mount is different, you might need to tweak these values before compiling:
 
 ```cpp
 /* ───── HARDWARE SETTINGS (Immutable physical properties) ───── */
