@@ -19,7 +19,7 @@ It runs on the *FYSETC E4 V1.0* (ESP32 + dual TMC2209) and emulates the "Avalon"
 | 🛡️ **Anti-Crash & Auto-Recovery** | **Software Endstops** prevent the mount from diving below 0.0°. If you power on the mount while it's already resting on its physical limit switch, the system detects it and **automatically runs a homing/pull-off sequence at boot** to free itself safely. |
 | 📉 **Smart EMI / Friction Alarms** | The feedback loop is smart: if the I2C bus crashes due to EMI, or if the tilt-plate gets mechanically stuck (friction), the firmware will instantly abort the movement to prevent motor runaway or hardware damage, throwing a clear text alarm. |
 | 🔇 **Silent Boot** | **Zero** serial output on boot to prevent connection timeouts (TPPA handshake fix for N.I.N.A). |
-| ⚡ **Zero Lag Engine** | Strict polling architecture: non-blocking pulse generation eliminates buffer desynchronization (fixes the famous "0.1° vs 1.1°" display lag in N.I.N.A). |
+| ⚡ **Zero Lag Engine** | Strict polling architecture: non-blocking trapezoidal acceleration eliminates step-loss on high inertia loads (Harmonic Drives) while maintaining perfect buffer synchronization (fixes N.I.N.A display lag). |
 
 ---
 
@@ -124,13 +124,13 @@ This is the hidden language your mount uses to talk to astrophotography software
 | `?`                      | Poll Status (used 10 times a second by N.I.N.A) | `<Idle\|MPos:…\|>` + `\n` |
 | `!` / `~`                | Feed‑Hold / Cycle-Resume | `ok` |
 
-> **Pro-Tip:** Keep **“Gear Ratio” = 1.0** in the TPPA settings; the firmware already includes all mechanical reductions and self-corrects the ratio anyway!
+> 💡 **TPPA Progress Bar Note:** When performing an Altitude correction, the firmware intentionally "freezes" the position reported to N.I.N.A. at 0.5° before the target. This ensures TPPA patiently waits while the MPU-6500 calculates and executes its micro-corrections in the background. Once the Gyroscope is perfectly satisfied with the physical angle, the bar will instantly jump to 100% and TPPA will resume the plate-solving process.
 
 ---
 
 ## 🛠️ Configuration Knobs
 
-Open **`PolarAlignVX.ino`** to adjust the physical properties of your specific build. Since every DIY mount is different, you might need to tweak these values before compiling:
+Open **`polar-align-controller.ino`** to adjust the physical properties of your specific build. Since every DIY mount is different, you might need to tweak these values before compiling:
 
 ```cpp
 /* ───── HARDWARE SETTINGS (Immutable physical properties) ───── */
@@ -159,7 +159,6 @@ constexpr uint16_t RMS_CURRENT_ALT = 800;
 // You can tighten or loosen the Active Feedback Loop behavior here:
 constexpr float ALT_TOLERANCE_DEG = 0.05f;  // Acceptable error margin to declare a move "successful"
 constexpr uint8_t MAX_CORRECTIONS = 3;      // Max attempts to fix backlash/error before giving up
-
 ```
 ---
 
