@@ -10,6 +10,7 @@
 
 - The full 3D design is available here:
   👉 [Shapr3D Project Viewer](https://app.shapr3d.com/v/xjBj0DmmQmfPPzAL_mYX5)
+  > Parts in blue are to be printed in 3D (PLA+CF recommended); Parts in green: CNC machining recommended.
 
 - All 3D parts (STEP format) are included in the downloadable archive:
   📦 `PolarALIGN_V3_STEP.zip`
