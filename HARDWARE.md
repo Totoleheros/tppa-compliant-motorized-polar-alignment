@@ -10,11 +10,13 @@
 
 - The full 3D design is available here:
   👉 [Shapr3D Project Viewer](https://app.shapr3d.com/v/xjBj0DmmQmfPPzAL_mYX5)
+  > Parts in blue are to be printed in 3D (PLA+CF recommended); Parts in green: CNC machining recommended.
 
 - All 3D parts (STEP format) are included in the downloadable archive:
   📦 `PolarALIGN_V3_STEP.zip`
 
 - 🛠️ **Drilling Jig Included:** The 3D model archive now includes a custom **Drilling Jig (Gabarit de perçage)**. You can 3D print this tool to easily and accurately mark the drilling hole locations on the 200mm 15180 profile.
+- I have added a small piece for cable management, usefull for the gyroscope cables.
 
 ---
 
