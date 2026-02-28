@@ -6,7 +6,7 @@ This is a minimal **GRBL‑style** firmware + hardware recipe designed to drive 
 
 It runs on the *FYSETC E4 V1.0* (ESP32 + dual TMC2209) and emulates the "Avalon" protocol using a **non‑blocking motion engine**.
 
-> **TL;DR** – Flash the sketch, wire the motors and the MPU-6500 gyroscope, set N.I.N.A. to talk to an **"Avalon Polar Alignment"**, **leave the TPPA “Gear Ratio” field at `1.0`**, and let the mount physically correct its own mechanical flaws in real-time.
+> **TL;DR** – Flash the sketch, wire the motors and the MPU-6500 gyroscope, set N.I.N.A. to talk to an **"Avalon Polar Alignment"**, **leave the TPPA "Gear Ratio" field at `1.0`**, and let the mount physically correct its own mechanical flaws in real-time.
 
 ---
 
@@ -20,6 +20,33 @@ It runs on the *FYSETC E4 V1.0* (ESP32 + dual TMC2209) and emulates the "Avalon"
 | 📉 **Smart EMI / Friction Alarms** | The feedback loop is smart: if the I2C bus crashes due to EMI, or if the tilt-plate gets mechanically stuck (friction), the firmware will instantly abort the movement to prevent motor runaway or hardware damage, throwing a clear text alarm. |
 | 🔇 **Silent Boot** | **Zero** serial output on boot to prevent connection timeouts (TPPA handshake fix for N.I.N.A). |
 | ⚡ **Zero Lag Engine** | Strict polling architecture: non-blocking trapezoidal acceleration eliminates step-loss on high inertia loads (Harmonic Drives) while maintaining perfect buffer synchronization (fixes N.I.N.A display lag). |
+
+---
+
+## ⚖️ Payload Rating
+
+This mount is designed for **heavy-duty astrophotography setups**. The operating range for the ALT axis is intentionally small (0–4°): the equatorial mount sitting on top should be set to roughly your site latitude minus 1–2°, so the PA mount only needs fine corrections.
+
+| Rating | Max Payload | Notes |
+|--------|-------------|-------|
+| **Recommended** | **20 kg** | Safe for all builders, with a ~2× safety margin on the weakest link. |
+| **Advanced** | **25 kg** | Tested by the author. Requires centered payload and careful assembly. |
+
+**Weakest link analysis:**
+
+The limiting factor is **not** the motor or the gearbox — it is the **igus PRT-02 LC J4 orientation ring** (azimuth bearing). Its rated specs are generous for centered axial loads (4,000 N dynamic = ~408 kg), but the **tilting moment capacity** (eccentric load) is the real constraint for telescope setups where the center of gravity sits above and offset from the bearing.
+
+| Component | Capacity | Status |
+|-----------|----------|--------|
+| igus PRT-02 LC J4 – Axial dynamic | 4,000 N (~408 kg) | ✅ Not limiting |
+| igus PRT-02 LC J4 – Radial dynamic | 500 N (~51 kg) | ✅ Not limiting |
+| igus PRT-02 LC J4 – Tilting moment | Not published for LC variant | ⚠️ **Weakest link** |
+| T8×2mm lead screw (axial load @2° tilt) | ~500–1000 N rated | ✅ ~25–40 N actual |
+| UMOT worm gearbox (any ratio) | Torque margin ≥ 7× @25 kg | ✅ Comfortable |
+| 15180 aluminum profiles (crossed) | Effectively unlimited | ✅ Overkill |
+| 3D-printed motor cradle | Non-structural (carries motor weight only) | ✅ Not in load path |
+
+> **Builder's note:** The only 3D-printed part in the load path is the motor cradle, and it carries essentially no structural load — just the weight of the NEMA 17 motor (~350g). The telescope payload is transmitted entirely through metal components: tilt plate → lead screw → crossed 15180 profiles → igus bearing → tripod.
 
 ---
 
@@ -43,7 +70,7 @@ See **[`HARDWARE.md`](./HARDWARE.md)** for full assembly photos, 3D files (inclu
 | **FYSETC E4 V1.0** | ESP32‑WROOM‑32, 4 × on‑board TMC2209 – we use two of them (MOT‑X = Azimuth, MOT‑Y = Altitude) |
 | **MPU-6500 Module** | I2C Gyroscope/Accelerometer used for active Altitude feedback. |
 | **Stepper motors** | 1.8 ° NEMA‑17 recommended (e.g. 17HS19‑2004S1) |
-| **Supply** | 12 V DC (quiet) — 24 V also works if your mechanics can take it |
+| **Supply** | 12 V DC (quiet) — 24 V also works if your mechanics can take it |
 
 ### Default GPIO Map (Firmware v14.x)
 
@@ -81,12 +108,12 @@ See **[`HARDWARE.md`](./HARDWARE.md)** for full assembly photos, 3D files (inclu
 
    | Option             | Value |
    |--------------------|-------|
-   | Board              | **ESP32 Dev Module** |
-   | CPU Freq           | 240 MHz (WiFi/BT) |
-   | Flash Freq / Mode  | 80 MHz / DIO |
-   | Flash Size         | 4 MB |
-   | Partition Scheme   | Huge APP (3 MB / 1 MB SPIFFS) |
-   | Upload speed       | 115 200 bps |
+   | Board              | **ESP32 Dev Module** |
+   | CPU Freq           | 240 MHz (WiFi/BT) |
+   | Flash Freq / Mode  | 80 MHz / DIO |
+   | Flash Size         | 4 MB |
+   | Partition Scheme   | Huge APP (3 MB / 1 MB SPIFFS) |
+   | Upload speed       | 115 200 bps |
    | Port               | `COMx` / `/dev/tty.usbmodem…` |
 
 5. **Upload**
@@ -119,12 +146,60 @@ This is the hidden language your mount uses to talk to astrophotography software
 
 | Command                  | Meaning | Response |
 |--------------------------|---------|----------|
-| `$J=G53X+5.00F400`       | Absolute jog **+5.00 °** on **Azimuth** | `ok` |
-| `$J=G91G21Y-6.50F300`    | Relative jog **–6.50 °** on **Altitude** | `ok` |
+| `$J=G53X+5.00F400`       | Absolute jog **+5.00 °** on **Azimuth** | `ok` |
+| `$J=G91G21Y-6.50F300`    | Relative jog **–6.50 °** on **Altitude** | `ok` |
 | `?`                      | Poll Status (used 10 times a second by N.I.N.A) | `<Idle\|MPos:…\|>` + `\n` |
 | `!` / `~`                | Feed‑Hold / Cycle-Resume | `ok` |
 
-> 💡 **TPPA Progress Bar Note:** When performing an Altitude correction, the firmware intentionally "freezes" the position reported to N.I.N.A. at 0.5° before the target. This ensures TPPA patiently waits while the MPU-6500 calculates and executes its micro-corrections in the background. Once the Gyroscope is perfectly satisfied with the physical angle, the bar will instantly jump to 100% and TPPA will resume the plate-solving process.
+> 💡 **TPPA Progress Bar Note:** When performing an Altitude correction, the firmware intentionally "freezes" the position reported to N.I.N.A. at 0.5° before the target. This prevents TPPA from prematurely taking back control while the MPU-6500 is still calculating and executing micro-corrections in the background. The position is capped during the entire feedback cycle (motor stepping + mechanical settling + gyroscope measurement + corrections). Once the gyroscope confirms the physical angle matches the target, the reported position instantly snaps to the exact commanded value with an `Idle` status, and TPPA resumes the plate-solving process.
+
+---
+
+## 🔧 ALT Motor: Speed vs Torque (Choosing Your UMOT Ratio)
+
+The ALT axis uses a NEMA 17 stepper coupled to a **UMOT worm gearbox**, which drives a T8×2mm lead screw through a crank-arm mechanism. The total gear ratio is approximately `UMOT ratio × 5` (the crank adds ~5× reduction).
+
+Since this mount operates in a narrow 0–4° range (fine polar alignment corrections), the torque requirements are very low. This means you can trade some of the massive torque margin for **speed** by choosing a lower UMOT ratio.
+
+### Comparison Table (for 25 kg payload at 0–4° tilt)
+
+| UMOT Ratio | Total Effective | Time for 1° | Torque Margin | Self-Locking (worm) | Recommendation |
+|------------|----------------|-------------|---------------|---------------------|----------------|
+| **100:1** | ~496:1 | 6.3 s | 80× | ✅ Yes | Safe but very slow |
+| **50:1** | ~248:1 | 3.1 s | 40× | ✅ Yes | Conservative, 2× faster |
+| **30:1** | ~149:1 | 1.9 s | 23× | ⚠️ Borderline | **Best balance** — 3.3× faster |
+| **17:1** | ~84:1 | 1.1 s | 13× | ❌ Lost | Fast but risky in cold weather |
+
+> **Safety note:** Even if the worm gearbox loses its self-locking property at lower ratios (30:1 and below), the **T8×2mm lead screw is always self-locking** (helix angle 4° < friction angle ~8.5°). The telescope cannot back-drive through this screw under any circumstance. The axial load on the screw at 2° tilt with 25 kg is only ~25–40 N, well within the bronze nut's rated capacity of 500–1000 N.
+
+### Author's choice: 30:1
+
+The 30:1 ratio delivers 1.9 seconds per degree (a typical 2° adjustment completes in under 4 seconds instead of 12.6 seconds with 100:1), while maintaining a comfortable 23× torque margin even in the worst case. For a TPPA session requiring 6–8 altitude corrections, this saves 1–2 minutes of waiting per alignment run.
+
+### Firmware changes when switching ratio
+
+Only one constant needs to change:
+```cpp
+constexpr float ALT_MOTOR_GEARBOX = 30.0f;   // was 496.0f for the 100:1 + crank
+```
+
+After changing the ratio, **erase the EEPROM** (the machine-learned value from the old ratio is invalid). The firmware will automatically recalibrate within 2–3 ALT movements using MPU feedback.
+
+---
+
+## 🌡️ Motor Thermal Management
+
+The ALT stepper motor receives a constant holding current even when stationary. With the default 800 mA RMS setting, this dissipates ~1.6 W inside the compact UMOT housing, reaching surface temperatures of **55–65°C** — hot to the touch but within the motor's 130°C insulation rating.
+
+Since the torque margin is enormous (23× at 30:1, 80× at 100:1), the firmware ships with a **reduced ALT current of 300 mA**, dropping dissipation to ~0.2 W. The motor will be barely warm.
+
+```cpp
+constexpr uint16_t RMS_CURRENT_ALT = 300;   // Thermal-optimized (was 800)
+```
+
+> **For cold-weather observers:** If you operate below -10°C with thick grease, you can raise this to 400 mA for extra starting torque. Even at 400 mA, the motor stays well below 40°C.
+>
+> ⚠️ **PLA warning:** If your motor cradle is printed in PLA, keep `RMS_CURRENT_ALT` at 300 mA or below. PLA softens at ~55°C. PETG (75°C) or ABS (95°C) give more headroom if you need higher currents.
 
 ---
 
@@ -140,10 +215,10 @@ constexpr uint16_t MICROSTEPPING_ALT = 4;  // SpreadCycle for high torque on Alt
 
 // Gear Ratios (Theoretical starting points)
 // Note: The firmware will dynamically adjust the ALT ratio and save it to EEPROM.
-constexpr float GEAR_RATIO_AZM = 100.0f;   // Harmonic drive ratio
-constexpr float ALT_MOTOR_GEARBOX = 496.0f;// Worm gearbox ratio
-constexpr float ALT_SCREW_PITCH_MM = 2.0f; // Lead screw pitch (T8 usually 2mm or 8mm)
-constexpr float ALT_RADIUS_MM = 60.0f;     // Distance from pivot axis to the lead screw
+constexpr float GEAR_RATIO_AZM = 100.0f;     // Harmonic drive ratio
+constexpr float ALT_MOTOR_GEARBOX = 496.0f;  // UMOT 100:1 + crank ~5×. Change to 30.0 for UMOT 30:1.
+constexpr float ALT_SCREW_PITCH_MM = 2.0f;   // Lead screw pitch (T8 = 2mm per revolution)
+constexpr float ALT_RADIUS_MM = 60.0f;       // Distance from pivot axis to the lead screw
 
 // Axis Directions
 // -> Change to 'false' if your mount moves in the wrong direction!
@@ -151,9 +226,11 @@ constexpr bool AXIS_REV_AZM = true;
 constexpr bool AXIS_REV_ALT = true;        
 
 // Motor Currents (in mA)
-// -> Lower these values if your motors get too hot to touch.
+// -> ALT is set low (300mA) to prevent overheating inside the UMOT housing.
+//    Increase to 400mA only if you experience stalling in extreme cold.
+//    AZM can stay at 600mA (Harmonic Drive has good ventilation).
 constexpr uint16_t RMS_CURRENT_AZM = 600;  
-constexpr uint16_t RMS_CURRENT_ALT = 800;  
+constexpr uint16_t RMS_CURRENT_ALT = 300;  
 
 /* ───── FEEDBACK LOOP THRESHOLDS (For advanced users) ───── */
 // You can tighten or loosen the Active Feedback Loop behavior here:
