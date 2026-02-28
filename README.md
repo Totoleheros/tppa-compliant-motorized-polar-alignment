@@ -44,9 +44,9 @@ The limiting factor is **not** the motor or the gearbox — it is the **igus PRT
 | T8×2mm lead screw (axial load @2° tilt) | ~500–1000 N rated | ✅ ~25–40 N actual |
 | UMOT worm gearbox (any ratio) | Torque margin ≥ 7× @25 kg | ✅ Comfortable |
 | 15180 aluminum profiles (crossed) | Effectively unlimited | ✅ Overkill |
-| 3D-printed motor cradle | Non-structural (carries motor weight only) | ✅ Not in load path |
+| 3D-printed parts (motor cradles, sensor brackets, enclosures) | Non-structural (no telescope load) | ✅ Not in load path |
 
-> **Builder's note:** The only 3D-printed part in the load path is the motor cradle, and it carries essentially no structural load — just the weight of the NEMA 17 motor (~350g). The telescope payload is transmitted entirely through metal components: tilt plate → lead screw → crossed 15180 profiles → igus bearing → tripod.
+> **Builder's note:** Several parts are 3D-printed (ALT and AZM motor cradles, MPU bracket, homing sensor bracket, FYSETC enclosure, PSU case), but **none are in the telescope load path**. They carry only the weight of their respective components (motors, sensors, electronics). The telescope payload is transmitted entirely through metal: tilt plate → lead screw → crossed 15180 profiles → igus bearing → tripod. The author uses PLA+CF; PETG is recommended for the ALT motor cradle due to proximity to the UMOT housing heat.
 
 ---
 
@@ -199,7 +199,7 @@ constexpr uint16_t RMS_CURRENT_ALT = 300;   // Thermal-optimized (was 800)
 
 > **For cold-weather observers:** If you operate below -10°C with thick grease, you can raise this to 400 mA for extra starting torque. Even at 400 mA, the motor stays well below 40°C.
 >
-> ⚠️ **PLA warning:** If your motor cradle is printed in PLA, keep `RMS_CURRENT_ALT` at 300 mA or below. PLA softens at ~55°C. PETG (75°C) or ABS (95°C) give more headroom if you need higher currents.
+> ⚠️ **Material note:** The author uses PLA+CF (carbon fiber reinforced) for all printed parts. For the **ALT motor cradle** specifically (in contact with the UMOT housing), PETG (75°C) or ABS (95°C) is recommended if you plan to run `RMS_CURRENT_ALT` above 300 mA. At the default 300 mA, PLA+CF or standard PLA is fine.
 
 ---
 
