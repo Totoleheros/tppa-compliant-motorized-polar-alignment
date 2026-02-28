@@ -3,7 +3,7 @@
 ## ⚠️ Disclaimer
 
 > I'm just an enthusiast sharing this open hardware project, **with no guarantee of success**.
-> I’ll do my best to support others trying this build, but my **time is limited**, and my **skills are not professional-grade**.
+> I'll do my best to support others trying this build, but my **time is limited**, and my **skills are not professional-grade**.
 > This is an **early prototype** and proof of concept — not fully validated yet. I hope to share updated iterations in the future.
 
 ## 🧩 3D Model & Files
@@ -15,6 +15,49 @@
   📦 `PolarALIGN_V3_STEP.zip`
 
 - 🛠️ **Drilling Jig Included:** The 3D model archive now includes a custom **Drilling Jig (Gabarit de perçage)**. You can 3D print this tool to easily and accurately mark the drilling hole locations on the 200mm 15180 profile.
+
+---
+
+## ⚖️ Mechanical Design Philosophy & Payload Rating
+
+This mount is designed to carry **heavy astrophotography setups** (long refractors, SCTs, Newtonians with guide scopes and cameras) by eliminating plastic from the structural load path.
+
+### Load Path (telescope → ground)
+
+```
+Telescope + EQ Mount
+       ↓
+  Tilt Plate (cast metal, pivot + T8 lead screw)
+       ↓
+  Crossed 15180 aluminum profiles (monolithic chassis)
+       ↓
+  igus PRT-02 LC J4 orientation ring (azimuth bearing)
+       ↓
+  Tripod extension / pier
+```
+
+**Every component in this chain is metal.** The only 3D-printed part is the motor cradle, which carries the weight of the NEMA 17 motor (~350 g) and transmits no telescope load.
+
+### Payload Ratings
+
+| Rating | Max Payload | Use Case |
+|--------|-------------|----------|
+| **Recommended** | **20 kg** | Safe for all builders with ~2× margin on every component. |
+| **Advanced** | **25 kg** | Author-tested. Requires centered payload, proper fastener torque, and careful assembly. |
+
+### Component-by-Component Capacity
+
+| Component | Specification | Load @25 kg | Margin | Limiting? |
+|-----------|--------------|-------------|--------|-----------|
+| igus PRT-02 – Axial (dynamic) | 4,000 N | ~245 N | **16×** | No |
+| igus PRT-02 – Radial (dynamic) | 500 N | ~50 N worst case | **10×** | No |
+| igus PRT-02 – Tilting moment | Not published (LC variant) | ~25–37 Nm estimated | **Unknown** | ⚠️ **Assumed weakest** |
+| T8×2mm lead screw (bronze nut) | 500–1000 N axial | ~25–40 N @2° tilt | **15–25×** | No |
+| UMOT 30:1 output torque | ~2–4 Nm | ~0.25 Nm required | **8–16×** | No |
+| 15180 profiles (crossed, bolted) | >5 kN in bending | <250 N | **20×+** | No |
+| 3D-printed parts (cradles, brackets, cases) | Non-structural | Motor/sensor weight only | N/A | **Not in load path** |
+
+> 💡 **Upgrading to 30+ kg?** The first component to upgrade would be the igus bearing. The **PRT-01-20** (aluminum housing, same 80 mm diameter) has a published tilting moment of **120 Nm** and would comfortably support 35+ kg setups. It is a drop-in replacement for the PRT-02 LC.
 
 ---
 
@@ -41,11 +84,42 @@
 - ![Tilt Plate](IMAGES/Parts/TiltPlate.jpg)
 
 ### 5. ALT Worm Gear Motor (Self-Locking)
-- Model: **NEMA17 + 5840 Worm Gearbox** (Self-locking/Autobloquant)
-- **Gear Ratio:** 1:100
-- Prevents the mount from dropping under gravity.
+
+The ALT axis uses a **NEMA 17 stepper + UMOT worm gearbox** driving a T8×2mm lead screw through a crank-arm mechanism. The crank adds approximately 5× additional reduction on top of the UMOT ratio.
+
+#### Choosing the right UMOT ratio
+
+This mount operates in a **narrow 0–4° range** (the EQ mount handles most of the latitude setting). The torque requirements at these low tilt angles are minimal, so you can trade torque margin for speed:
+
+| UMOT Ratio | Speed (per 1°) | Typical 2° Adjustment | Torque Margin @25 kg | Self-Locking | Verdict |
+|------------|----------------|----------------------|---------------------|--------------|---------|
+| **100:1** | 6.3 s | 12.6 s | 80× | ✅ Worm + screw | Very safe, very slow |
+| **50:1** | 3.1 s | 6.2 s | 40× | ✅ Worm + screw | Conservative choice |
+| **30:1** ⭐ | 1.9 s | 3.8 s | 23× | ⚠️ Screw only | **Recommended — best balance** |
+| **17:1** | 1.1 s | 2.2 s | 13× | ❌ Screw only | Fast, tight margins in cold |
+
+> **Why 30:1?** A TPPA session involves 6–8 altitude corrections. At 100:1, this means 1–2 minutes of waiting for motors alone. At 30:1, the same session saves over a minute — significant when you're setting up in the cold and dark.
+
+> **Self-locking explained:** At 100:1 and 50:1, both the worm gear AND the lead screw prevent the telescope from back-driving under gravity (double self-locking). At 30:1 and below, the worm may lose self-locking, but the **T8×2mm lead screw is always self-locking** (helix angle 4° < friction angle ~8.5°). The load on the screw at operating angles is only 25–40 N — trivial for a bronze nut rated at 500–1000 N.
+
+**Author's configuration:** UMOT 30:1 (previously 100:1), which gives ~149:1 total effective ratio.
+
 - Example: [AliExpress – ~20€](https://fr.aliexpress.com/item/1005008325671689.html)
 - ![Worm Gear Motor](IMAGES/Parts/WormGearMotor.jpg)
+
+### 🌡️ Motor Thermal Note
+
+The UMOT worm gearbox encloses the NEMA 17 in a compact housing with poor heat dissipation. Even at rest, the TMC2209 sends a holding current that generates heat:
+
+| RMS Current | Power Dissipated | Surface Temperature | Safe for PLA cradle? |
+|-------------|-----------------|---------------------|---------------------|
+| 800 mA (old default) | ~1.6 W | 55–65°C | ❌ No (PLA softens at ~55°C) |
+| **300 mA (new default)** | ~0.2 W | Barely warm | ✅ Yes |
+| 400 mA (cold weather) | ~0.4 W | ~35°C | ✅ Yes |
+
+The firmware ships with **300 mA** for the ALT motor. Even at this reduced current, the torque margin remains ≥23× for 30:1 and ≥30× for 100:1 at operating angles (0–4°).
+
+> **Recommendation:** Use **PETG** or **ABS** for the motor cradle if you plan to experiment with higher currents. PLA is fine at 300 mA.
 
 ### 6. Structural Profiles (Base Chassis)
 - Type: **15180 Aluminum Extrusion** (2 Plates needed)
@@ -56,7 +130,25 @@
 - ![15180](IMAGES/Parts/15180.jpg)
 
 ### 7. Orientation Ring (Bearing)
+
 - **Reference**: [igus PRT-02 LC J4](https://www.igus.fr/product/iglidur_PRT_02_LC_J4) (~63€)
+- Type: Polymer slewing ring, maintenance-free, no lubrication needed.
+- Outer ring: iguton G (polymer). Inner discs: iglidur J4.
+
+**Key specs (from igus datasheet):**
+
+| Parameter | Value | Relevance |
+|-----------|-------|-----------|
+| Dynamic axial load | **4,000 N** (~408 kg) | Telescope weight — no concern |
+| Static axial load | **13,000 N** (~1,325 kg) | — |
+| Dynamic radial load | **500 N** (~51 kg) | Side loads from wind — comfortable |
+| Static radial load | **2,000 N** (~204 kg) | — |
+| Max RPM | 250 | AZM rotates at <1 RPM — no concern |
+| Max temperature | 90°C | Outdoor use — no concern |
+| Axial/radial play | ±0.25 mm | Acceptable for polar alignment precision |
+
+> ⚠️ **Tilting moment** (the ability to resist an off-center load trying to tip the bearing) is **not published** for the PRT-02 LC variant. The PRT-01 series (aluminum housing) is rated at 120 Nm. The PRT-02 LC (polymer housing) is likely significantly lower. This is why we cap the recommended payload at 20 kg — to account for this unknown with a safety margin. **Keep your telescope centered on the bearing as much as possible.**
+
 - ![Orientation Ring](IMAGES/Parts/orientation_ring.jpg)
 
 ---
@@ -109,12 +201,33 @@ To complete the assembly, you will need the following "vitamins":
 
 ## 🖨️ 3D Printing & Fabrication
 
-- **Material:** All 3D parts printed in **PLA (100% infill)** for maximum stiffness.
-- **CNC Machining (Recommended):**
-  - For heavy payloads (>10kg), it is highly recommended to CNC machine the **two main load-bearing parts** (highlighted in green in the image below):
-    1. The part connecting the Tilt Plate to the IGUS Orientation Ring.
-    2. The junction plate connecting the IGUS Orientation Ring to the 250mm 15180 profile.
-  - Estimated CNC cost: ~**90€**
+### Printed Parts
+
+Several components are 3D-printed. **None of them are in the telescope load path** — the payload is transmitted entirely through metal components (tilt plate → lead screw → 15180 profiles → igus bearing → tripod).
+
+| Part | Role | Structural Load | Thermal Concern |
+|------|------|----------------|-----------------|
+| **ALT motor cradle** | Holds the UMOT + NEMA 17, aligns with lead screw | Motor weight only (~350 g) | ⚠️ **Yes** — in direct contact with UMOT housing |
+| **AZM motor cradle** | Prevents the Harmonic Drive motor from spinning on itself | Motor weight only, no torque transfer | No |
+| **MPU-6500 bracket** | Holds the gyroscope sensor on the tilt plate | Negligible (~5 g sensor) | No |
+| **Homing sensor bracket** | Positions the limit switch for ALT homing | Negligible (microswitch actuation force) | No |
+| **FYSETC E4 enclosure** | Protects the controller board | None (electronics housing) | No |
+| **Power supply case** | Protects the PSU | None (electronics housing) | No |
+
+- **Author's material:** **PLA+CF** (carbon fiber reinforced PLA) — stiffer than standard PLA with slightly better heat resistance (~60°C).
+- **Recommended material:** **PETG** (heat resistant to 75°C) for the **ALT motor cradle** specifically, since it sits in direct contact with the UMOT worm gearbox housing which can reach 55–65°C at high motor currents. All other parts can be printed in standard PLA without concern.
+- **With the firmware's thermal fix** (`RMS_CURRENT_ALT = 300 mA`), the UMOT housing stays barely warm and PLA+CF or even standard PLA is fine for the ALT cradle.
+- **Infill:** 100% for the motor cradles (dimensional stability). Other parts can use 50–80%.
+
+### CNC Machining (Recommended)
+
+For heavy payloads (>15 kg), it is highly recommended to CNC machine the **two main load-bearing junction plates** (highlighted in green in the image below):
+  1. The plate connecting the Tilt Plate to the igus Orientation Ring.
+  2. The junction plate connecting the igus Orientation Ring to the 250mm 15180 profile.
+
+These plates are in the direct load path and must resist the tilting moment from the telescope. CNC aluminum is far more rigid and dimensionally stable than any 3D-printed alternative.
+
+- Estimated CNC cost: ~**90€**
 - ![Load-bearing Parts](IMAGES/Parts/CNC.jpeg)
 
 ### 🧮 Total Budget (with CNC)
