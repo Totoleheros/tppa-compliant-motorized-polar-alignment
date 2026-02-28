@@ -151,7 +151,7 @@ This is the hidden language your mount uses to talk to astrophotography software
 | `?`                      | Poll Status (used 10 times a second by N.I.N.A) | `<Idle\|MPos:…\|>` + `\n` |
 | `!` / `~`                | Feed‑Hold / Cycle-Resume | `ok` |
 
-> 💡 **TPPA Progress Bar Note:** When performing an Altitude correction, the firmware intentionally "freezes" the position reported to N.I.N.A. at 0.5° before the target. This prevents TPPA from prematurely taking back control while the MPU-6500 is still calculating and executing micro-corrections in the background. The position is capped during the entire feedback cycle (motor stepping + mechanical settling + gyroscope measurement + corrections). Once the gyroscope confirms the physical angle matches the target, the reported position instantly snaps to the exact commanded value with an `Idle` status, and TPPA resumes the plate-solving process.
+> 💡 **TPPA Progress Note:** During Altitude corrections, the firmware uses **linear scaling** on the reported position to prevent TPPA from prematurely reclaiming control while the gyroscope feedback loop is active. The angle display advances smoothly during the entire motor movement, but at ~90% of actual position — so when the motor reaches its target, the display shows a value of ~90% of the target angle. There is then a brief pause while the MPU-6500 measures the physical angle and applies micro-corrections, after which the position snaps to the exact commanded value with an `Idle` status and TPPA resumes plate-solving.
 
 ---
 
