@@ -52,9 +52,13 @@ The limiting factor is **not** the motor or the gearbox — it is the **igus PRT
 
 ## 🖥️ Demo and Images
 
-First functional prototype: [![Demo Homing](https://img.youtube.com/vi/VIDEO_ID/maxresdefault.jpg)](https://www.youtube.com/watch?v=VIDEO_ID)
-
 Check the **IMAGES directory** for 3D model images ('3D_Model') and images taken during the true assembly of the first prototype ('Real_World').
+
+### 🎬 Demo Videos
+
+[![Watch Demo: Homing, Feedback Loop & TPPA](https://img.youtube.com/vi/-VmpTalMzLo/maxresdefault.jpg)](https://youtu.be/-VmpTalMzLo)
+
+> 🎥 **Click the image above to watch the full demo on YouTube.** This video shows the homing sequence, the active gyroscope feedback loop with micro-corrections, and a TPPA session (back office) in N.I.N.A.
 
 ---
 
