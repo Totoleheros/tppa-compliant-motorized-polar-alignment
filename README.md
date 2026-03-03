@@ -52,9 +52,13 @@ The limiting factor is **not** the motor or the gearbox — it is the **igus PRT
 
 ## 🖥️ Demo and Images
 
-First functional prototype: **To come...**
-
 Check the **IMAGES directory** for 3D model images ('3D_Model') and images taken during the true assembly of the first prototype ('Real_World').
+
+### 🎬 Demo Videos
+
+[![Watch Demo: Homing, Feedback Loop & TPPA](https://img.youtube.com/vi/-VmpTalMzLo/maxresdefault.jpg)](https://youtu.be/-VmpTalMzLo)
+
+> 🎥 **Click the image above to watch the full demo on YouTube.** This video shows the homing sequence, the active gyroscope feedback loop with micro-corrections, and a TPPA session (back office) in N.I.N.A.
 
 ---
 
@@ -152,6 +156,8 @@ This is the hidden language your mount uses to talk to astrophotography software
 | `!` / `~`                | Feed‑Hold / Cycle-Resume | `ok` |
 
 > 💡 **TPPA Progress Note:** During Altitude corrections, the firmware uses **linear scaling** on the reported position to prevent TPPA from prematurely reclaiming control while the gyroscope feedback loop is active. The angle display advances smoothly during the entire motor movement, but at ~90% of actual position — so when the motor reaches its target, the display shows a value of ~90% of the target angle. There is then a brief pause while the MPU-6500 measures the physical angle and applies micro-corrections, after which the position snaps to the exact commanded value with an `Idle` status and TPPA resumes plate-solving.
+
+> ⚠️ **TPPA Free Field Warning:** In the TPPA interface, the **preset buttons** (e.g. +1, -1, +5, -5) send **relative** commands (G91) — they move the mount *by* that amount. However, the **free text field** sends **absolute** commands (G53) — the value you type is a *target position*, not a delta. For example, if the mount is at 3.0° and you type `-2` in the free field, the mount will try to go to position -2.0° (clamped to 0.0°), not "back up by 2°". To move down by 2° from 3.0°, type `1` (the target position). This only affects manual testing — during an actual TPPA alignment session, all corrections are sent automatically via relative commands.
 
 ---
 
