@@ -12,6 +12,25 @@ It runs on the *FYSETC E4 V1.0* (ESP32 + dual TMC2209) and emulates the "Avalon"
 
 ---
 
+## 🎬 See It In Action
+
+| # | Video | What you'll see |
+|---|-------|-----------------|
+| 1 | [First Test with Full Payload](https://youtu.be/girvoCZ_UCE) | 15 kg equatorial mount on the PA platform — first motorized movements under real load. |
+| 2 | [Homing Sequence (Arduino Serial Monitor)](https://youtu.be/NkoLJ03FSSY) | Live serial output: homing, limit switch detection, pull-off, MPU-6500 gyroscope tare (with the same 15Kg payload). |
+| 3 | [**TPPA Session — Below 0.2 Arcminute!**](https://youtu.be/gfE6sZmrzuw) | Complete polar alignment run in N.I.N.A. — watch TPPA converge to < 0.2' in real-time (with the same 15Kg payload). |
+
+## 🖼️ Build Gallery
+
+The **[IMAGES](./IMAGES/)** directory contains everything you need to visualize the project:
+
+- **`3D_Model/`** — Full CAD renders of the assembly (exploded views, cross-sections, detail shots).
+- **`Real_World/`** — Photos from the actual build of the first prototype — wiring, mechanical assembly, field setup.
+
+> 💡 If you're considering building one, start with the 3D renders to understand the architecture, then check the real-world photos to see what it actually looks like assembled.
+
+---
+
 ## 🌟 Key Features
 
 | Feature | How it works |
@@ -49,18 +68,6 @@ The limiting factor is **not** the motor or the gearbox — it is the **igus PRT
 | 3D-printed parts (motor cradles, sensor brackets, enclosures) | Non-structural (no telescope load) | ✅ Not in load path |
 
 > **Builder's note:** Several parts are 3D-printed (ALT and AZM motor cradles, MPU bracket, homing sensor bracket, FYSETC enclosure, PSU case), but **none are in the telescope load path**. They carry only the weight of their respective components (motors, sensors, electronics). The telescope payload is transmitted entirely through metal: tilt plate → lead screw → crossed 15180 profiles → igus bearing → tripod. The author uses PLA+CF; PETG is recommended for the ALT motor cradle due to proximity to the UMOT housing heat.
-
----
-
-## 🖥️ Demo and Images
-
-Check the **IMAGES directory** for 3D model images ('3D_Model') and images taken during the true assembly of the first prototype ('Real_World').
-
-### 🎬 Demo Videos
-
-[![Watch Demo: Homing, Feedback Loop & TPPA](https://img.youtube.com/vi/-VmpTalMzLo/maxresdefault.jpg)](https://youtu.be/-VmpTalMzLo)
-
-> 🎥 **Click the image above to watch the full demo on YouTube.** This video shows the homing sequence, the MPU-6500 gyroscope in action, and a TPPA session (back office) in N.I.N.A.
 
 ---
 
@@ -194,16 +201,18 @@ Since this mount operates in a narrow 0–5° range (fine polar alignment correc
 
 | UMOT Ratio | Total Effective | Time for 1° | Torque Margin | Self-Locking (worm) | Recommendation |
 |------------|----------------|-------------|---------------|---------------------|----------------|
-| **100:1** | ~496:1 | 6.3 s | 80× | ✅ Yes | Safe but very slow |
+| **100:1** | ~496:1 | 6.3 s | 80× | ✅ Yes | Current prototype — safe but very slow |
 | **50:1** | ~248:1 | 3.1 s | 40× | ✅ Yes | Conservative, 2× faster |
-| **30:1** | ~149:1 | 1.9 s | 23× | ⚠️ Borderline | **Best balance** — 3.3× faster |
+| **30:1** | ~149:1 | 1.9 s | 23× | ⚠️ Borderline | **Best balance** — 3.3× faster *(on order)* |
 | **17:1** | ~84:1 | 1.1 s | 13× | ❌ Lost | Fast but risky in cold weather |
 
 > **Safety note:** Even if the worm gearbox loses its self-locking property at lower ratios (30:1 and below), the **T8×2mm lead screw is always self-locking** (helix angle 4° < friction angle ~8.5°). The telescope cannot back-drive through this screw under any circumstance. The axial load on the screw at 2° tilt with 25 kg is only ~25–40 N, well within the bronze nut's rated capacity of 500–1000 N.
 
-### Author's choice: 30:1
+### Author's choice: 30:1 *(pending field validation)*
 
-The 30:1 ratio delivers 1.9 seconds per degree (a typical 2° adjustment completes in under 4 seconds instead of 12.6 seconds with 100:1), while maintaining a comfortable 23× torque margin even in the worst case. For a TPPA session requiring 6–8 altitude corrections, this saves 1–2 minutes of waiting per alignment run.
+The 30:1 ratio should deliver 1.9 seconds per degree (a typical 2° adjustment would complete in under 4 seconds instead of 12.6 seconds with the current 100:1), while maintaining a comfortable 23× torque margin even in the worst case. For a TPPA session requiring 6–8 altitude corrections, this would save 1–2 minutes of waiting per alignment run.
+
+> ⚠️ **Status:** The UMOT 30:1 has been ordered but **not yet received or tested**. The current prototype uses the 100:1 ratio, which works perfectly but is slow on large movements. This section will be updated with real-world results once the 30:1 is installed and field-tested.
 
 ### Firmware changes when switching ratio
 
