@@ -31,6 +31,34 @@ The **[IMAGES](./IMAGES/)** directory contains everything you need to visualize 
 
 ---
 
+## 🖥️ Desktop Controller GUI
+
+A cross-platform desktop application is included to control the mount **without N.I.N.A.** — useful for bench testing, manual positioning, and firmware configuration.
+
+![PolarAlign Controller GUI](IMAGES/GUI/PolarAlignController.jpg)
+
+**Features:**
+- **Jog buttons** (±0.1° ±1° ±5°) for both AZM and ALT axes, plus free-field absolute positioning
+- **Live position display** with real-time polling (AZM/ALT in degrees and arcminutes)
+- **System commands** — HOME, DIAG, RST, AZM:ZERO — one click
+- **Raw serial console** — full log + send any command directly
+- **Firmware Config tab** — edit all hardware constants (gear ratios, currents, limits…) and generate a ready-to-paste Arduino code block
+- **Save/Load** configurations as JSON files
+
+**Quick start (Windows):**
+1. Download `PolarAlignController.exe` from the [latest Release](../../releases/latest)
+2. Double-click — no installation, no Python needed
+
+**From source (any OS):**
+```bash
+pip3 install pyserial
+python3 PolarAlignGUI.py
+```
+
+> 💡 The GUI communicates using direct serial commands (`ALT:`, `AZM:`) in degrees. These commands work **without homing** — ideal for bench testing. TPPA uses its own `$J=` protocol (in arcminutes) when running an alignment session.
+
+---
+
 ## 🌟 Key Features
 
 | Feature | How it works |
@@ -41,6 +69,27 @@ The **[IMAGES](./IMAGES/)** directory contains everything you need to visualize 
 | 🛡️ **Anti-Crash & Auto-Recovery** | **Software endstops** (AZM ±30°, ALT 0–5°) prevent the mount from exceeding safe travel. If the mount is resting on its physical limit switch at power-on, the system **automatically runs a homing/pull-off sequence** to free itself safely. |
 | 🔇 **Global Settle** | After every movement, the firmware waits **2 seconds** for mechanical vibrations to damp before reporting `<Idle>`. This prevents TPPA from plate-solving on a still-vibrating mount, ensuring clean astrometric data. |
 | ⚡ **Zero Lag Engine** | Strict polling architecture: non-blocking trapezoidal acceleration eliminates step-loss on high inertia loads (Harmonic Drives) while maintaining perfect buffer synchronization (fixes N.I.N.A display lag). |
+
+---
+
+## ⚠️ Before You Start: Homing is Required
+
+**You MUST run `HOME` (or `$H`, or press the physical Home button) before launching a TPPA session.**
+
+Without homing, the firmware does not know the true physical position of the ALT axis. The internal position counter starts at 0.0° regardless of where the tilt plate actually is. This causes the software travel limits (ALT 0–5°) to clamp movements incorrectly, and TPPA will loop endlessly trying to correct an error it can never reach.
+
+The firmware enforces this: **all TPPA jog commands (`$J=`) are silently ignored until homing is completed.** The controller still replies `ok` (so TPPA doesn't hang), but no movement occurs. If you see TPPA running but the mount isn't moving, check the serial log — you'll see `!BLOCKED: ... (HOME not done)`.
+
+**What homing does:**
+1. Moves ALT down until the physical limit switch triggers
+2. Performs a safety pull-off (0.2°)
+3. Defines this position as 0.0° (mechanical zero)
+4. Tares the MPU-6500 gyroscope
+5. Unlocks TPPA jog commands
+
+> 💡 **Auto-recovery:** If the limit switch is already pressed at power-on (e.g. the mount was stored at its lowest position), the firmware detects this and runs homing automatically — no action needed.
+
+> 💡 **Bench testing without homing:** Direct serial commands (`ALT:`, `AZM:` via the GUI or serial monitor) work without homing. Only TPPA's `$J=` commands are blocked.
 
 ---
 
@@ -137,7 +186,7 @@ See **[`HARDWARE.md`](./HARDWARE.md)** for full assembly photos, 3D files (inclu
 
 ## 🧪 Serial Command Reference
 
-To test your mount, open the **Arduino IDE Serial Monitor**. 
+To test your mount, open the **Arduino IDE Serial Monitor** or the **PolarAlign Controller GUI**.
 ⚠️ **CRITICAL:** Set the baud rate to **`115200`** and the line ending to **`Newline`** (or `Both NL & CR`).
 
 ### 1️⃣ Custom Diagnostic & Manual Control (For Makers)
@@ -146,7 +195,7 @@ These commands were specifically built to help you test the mechanics and the ML
 
 | Command      | Action |
 |--------------|--------|
-| `HOME` (or `$H`) | **Trigger Homing & Tare:** The mount will move down until it hits the limit switch, perform a safety pull-off, define this point as `0.0°`, and perfectly tare the MPU-6500 Gyroscope. |
+| `HOME` (or `$H`) | **Trigger Homing & Tare:** The mount will move down until it hits the limit switch, perform a safety pull-off, define this point as `0.0°`, and perfectly tare the MPU-6500 Gyroscope. **Required before any TPPA session.** |
 | `DIAG` (or `MPU?`) | **Print System Diagnostic:** The ultimate debugging tool. It instantly prints the Limit Switch status, the Raw Gyroscope reading, the Tared physical angle, any I2C EMI errors, the current ML-learned Gear Ratio from EEPROM, and the full command log. |
 | `ALT:2.5`    | **Absolute Altitude Jog (degrees):** Commands the mount to go to an absolute altitude of `2.5°`. Watch the Serial Monitor to see the ML ratio learning in action as the MPU observes the actual movement. |
 | `AZM:5.0`    | **Absolute Azimuth Jog (degrees):** Commands the mount to go to an absolute azimuth angle of `5.0°`. Note: **0.0°** is defined as the position of the mount at power-on. |
@@ -243,7 +292,7 @@ constexpr uint16_t RMS_CURRENT_ALT = 300;   // Thermal-optimized (was 800)
 
 ## 🛠️ Configuration Knobs
 
-Open **the last version of the Arduino code** to adjust the physical properties of your specific build. Since every DIY mount is different, you might need to tweak these values before compiling:
+Open **the last version of the Arduino code** (or use the **Firmware Config tab** in the GUI) to adjust the physical properties of your specific build. Since every DIY mount is different, you might need to tweak these values before compiling:
 
 ```cpp
 /* ───── HARDWARE SETTINGS (Immutable physical properties) ───── */
