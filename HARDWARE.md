@@ -6,6 +6,8 @@
 > I'll do my best to support others trying this build, but my **time is limited**, and my **skills are not professional-grade**.
 > This is an **early prototype** and proof of concept — not fully validated yet. I hope to share updated iterations in the future.
 
+---
+
 ## 🧩 3D Model & Files
 
 - The full 3D design is available here:
@@ -16,7 +18,7 @@
   📦 `PolarALIGN_V3_STEP.zip`
 
 - 🛠️ **Drilling Jig Included:** The 3D model archive now includes a custom **Drilling Jig (Gabarit de perçage)**. You can 3D print this tool to easily and accurately mark the drilling hole locations on the 200mm 15180 profile.
-- I have added a small piece for cable management, usefull for the gyroscope cables.
+- A small cable management piece for the gyroscope wires is also included.
 
 ---
 
@@ -38,7 +40,7 @@ Telescope + EQ Mount
   Tripod extension / pier
 ```
 
-**Every component in this chain is metal.** The only 3D-printed part is the motor cradle, which carries the weight of the NEMA 17 motor (~350 g) and transmits no telescope load.
+**Every component in this chain is metal.** The only 3D-printed parts are motor cradles and sensor brackets, which carry only the weight of their respective components (~350 g for a NEMA 17) and transmit no telescope load.
 
 ### Payload Ratings
 
@@ -91,25 +93,25 @@ The ALT axis uses a **NEMA 17 stepper + UMOT worm gearbox** driving a T8×2mm le
 
 #### Choosing the right UMOT ratio
 
-This mount operates in a **narrow 0–4° range** (the EQ mount handles most of the latitude setting). The torque requirements at these low tilt angles are minimal, so you can trade torque margin for speed:
+This mount operates in a **narrow 0–5° range** (the EQ mount handles most of the latitude setting). The torque requirements at these low tilt angles are minimal, so you can trade torque margin for speed:
 
 | UMOT Ratio | Speed (per 1°) | Typical 2° Adjustment | Torque Margin @25 kg | Self-Locking | Verdict |
 |------------|----------------|----------------------|---------------------|--------------|---------|
-| **100:1** | 6.3 s | 12.6 s | 80× | ✅ Worm + screw | Very safe, very slow |
+| **100:1** | 6.3 s | 12.6 s | 80× | ✅ Worm + screw | Current prototype — very safe, very slow |
 | **50:1** | 3.1 s | 6.2 s | 40× | ✅ Worm + screw | Conservative choice |
-| **30:1** ⭐ | 1.9 s | 3.8 s | 23× | ⚠️ Screw only | **Recommended — best balance** |
+| **30:1** ⭐ | 1.9 s | 3.8 s | 23× | ⚠️ Screw only | **Recommended — best balance** *(on order)* |
 | **17:1** | 1.1 s | 2.2 s | 13× | ❌ Screw only | Fast, tight margins in cold |
 
 > **Why 30:1?** A TPPA session involves 6–8 altitude corrections. At 100:1, this means 1–2 minutes of waiting for motors alone. At 30:1, the same session saves over a minute — significant when you're setting up in the cold and dark.
 
 > **Self-locking explained:** At 100:1 and 50:1, both the worm gear AND the lead screw prevent the telescope from back-driving under gravity (double self-locking). At 30:1 and below, the worm may lose self-locking, but the **T8×2mm lead screw is always self-locking** (helix angle 4° < friction angle ~8.5°). The load on the screw at operating angles is only 25–40 N — trivial for a bronze nut rated at 500–1000 N.
 
-**Author's configuration:** UMOT 30:1 (previously 100:1), which gives ~149:1 total effective ratio.
+**Author's configuration:** UMOT 100:1 (30:1 on order), which gives ~496:1 total effective ratio (will become ~149:1 with 30:1).
 
 - Example: [AliExpress – ~20€](https://fr.aliexpress.com/item/1005008325671689.html)
 - ![Worm Gear Motor](IMAGES/Parts/WormGearMotor.jpg)
 
-### 🌡️ Motor Thermal Note
+#### 🌡️ Motor Thermal Note
 
 The UMOT worm gearbox encloses the NEMA 17 in a compact housing with poor heat dissipation. Even at rest, the TMC2209 sends a holding current that generates heat:
 
@@ -119,7 +121,7 @@ The UMOT worm gearbox encloses the NEMA 17 in a compact housing with poor heat d
 | **300 mA (new default)** | ~0.2 W | Barely warm | ✅ Yes |
 | 400 mA (cold weather) | ~0.4 W | ~35°C | ✅ Yes |
 
-The firmware ships with **300 mA** for the ALT motor. Even at this reduced current, the torque margin remains ≥23× for 30:1 and ≥30× for 100:1 at operating angles (0–4°).
+The firmware ships with **300 mA** for the ALT motor. Even at this reduced current, the torque margin remains ≥23× for 30:1 and ≥30× for 100:1 at operating angles (0–5°).
 
 > **Recommendation:** Use **PETG** or **ABS** for the motor cradle if you plan to experiment with higher currents. PLA is fine at 300 mA.
 
@@ -158,8 +160,9 @@ The firmware ships with **300 mA** for the ALT motor. Even at this reduced curre
 ## ⚡ Electronics & Control
 
 ### 8. Main Controller Board
-- Board: **FYSETC E4 V1.0** (⚠️ **Pin mapping differs** on V2.0!)
-- Features: WiFi + Bluetooth, 4x TMC2209, 240MHz.
+- Board: **FYSETC E4 V1.0** (⚠️ **Pin mapping differs on V2.0 — not compatible!**)
+- MCU: ESP32-WROOM-32 @ 240 MHz (dual-core, WiFi/BT)
+- Drivers: 4× TMC2209, factory-soldered, UART-addressed
 - Example: [AliExpress – ~30€](https://fr.aliexpress.com/item/1005001704413148.html)
 - ![FYSETC E4 Board](IMAGES/Parts/fysetc-e4.jpg)
 
@@ -170,10 +173,32 @@ The firmware ships with **300 mA** for the ALT motor. Even at this reduced curre
   - Material: Nickel-plated Brass – *< 2€*
 
 ### 10. Active Feedback Sensor (Gyroscope)
-- Model: **MPU-6500** (I2C interface)
-- Purpose: Acts as a digital plumb bob. It measures the real physical altitude angle of the tilt table in real-time, allowing the firmware to automatically correct any backlash or friction.
+- Model: **MPU-6500** (I2C interface, address `0x68`)
+- Purpose: Acts as a digital plumb bob for the Altitude axis. Measures the tilt plate's absolute angle using Earth's gravity vector. The firmware uses it in **observe-only mode** — it learns the true mechanical ratio after every ALT movement and saves it to EEPROM, but does not apply corrections (TPPA's plate-solve handles convergence).
 - Cost: ~3€
 - ![MPU-6500](IMAGES/Parts/MPU-6500.jpeg)
+
+### 11. MicroSD Card Sniffer — The I2C Hack
+
+The FYSETC E4 V1.0 is a 3D printer controller board and has **no dedicated I2C expansion header**. The SCL/SDA pins we need (GPIO 18 and GPIO 19) are physically wired to the onboard **microSD card reader** (as SPI clock and MISO data lines). Since our firmware uses the ESP32's internal EEPROM and RAM for data storage, the SD card slot is completely unused — so we hijack it.
+
+Rather than soldering wires directly onto the tiny microSD socket pads (fragile and error-prone), we use a **TF/microSD card sniffer breakout board**. This is a small PCB shaped like a microSD card that slides into the slot and breaks out all the SD card signals to standard 0.1" header pins — clean, reversible, and solder-free on the E4 board side.
+
+- Example: [AliExpress – ~3€](https://fr.aliexpress.com/item/1005009243584071.html)
+- ![SD Card Sniffer](IMAGES/Parts/SDsniffeTF.jpg)
+
+**How the pin mapping works:**
+
+| SD Card Function | FYSETC E4 Pin | ESP32 GPIO | Our I2C Use |
+|:----------------:|:-------------:|:----------:|:-----------:|
+| SCK (Clock) | SD Card slot | **GPIO 18** | **SCL** (I2C clock) |
+| MISO (Data Out) | SD Card slot | **GPIO 19** | **SDA** (I2C data) |
+| 3.3V | SD Card slot | — | **VCC** for MPU-6500 |
+| GND | SD Card slot | — | **GND** for MPU-6500 |
+
+> 💡 **Why this works:** The ESP32's GPIO pins are not hard-wired to specific functions. GPIO 18 and 19 are routed to the SD card slot on the PCB, but the firmware can reconfigure them as I2C pins using `Wire.begin(SDA_PIN, SCL_PIN)`. As long as no SD card library is initialized (and ours isn't), there's no conflict.
+
+> ⚠️ **Assembly:** Insert the sniffer board into the E4's microSD slot, then solder the MPU-6500's 4 wires to the sniffer's breakout headers following the color code in the wiring section below.
 
 ---
 
@@ -195,7 +220,7 @@ To complete the assembly, you will need the following "vitamins":
 
 ---
 
-### 💰 Estimated Total: ~**380€ - 400€**
+### 💰 Estimated Total: ~**400€**
 
 *(Excluding 3D printing filament)*
 
@@ -233,9 +258,9 @@ These plates are in the direct load path and must resist the tilting moment from
 - ![Load-bearing Parts](IMAGES/Parts/CNC.jpeg)
 
 ### 🧮 Total Budget (with CNC)
-- ~390€ Hardware
+- ~400€ Hardware
 - + ~90€ CNC Parts
-- 🟰 **~480€ Final Project Cost**
+- 🟰 **~490€ Final Project Cost**
 
 ---
 
@@ -243,7 +268,7 @@ These plates are in the direct load path and must resist the tilting moment from
 
 ### ⚠️ UART Jumper Setup
 
-To enable communication between the ESP32 and the drivers, you **MUST** place the jumpers to activate "UART Mode", exactly as shown in the **FYSETC E4 Wiki**.
+To enable communication between the ESP32 and the TMC2209 drivers, you **MUST** place the jumpers to activate "UART Mode", exactly as shown in the **FYSETC E4 Wiki**.
 
 **1. Locate the Jumper Header:**
 Find the block of pins labeled with **TXD / RXD** (near the SCL/SDA pins).
@@ -262,14 +287,18 @@ Place **2 jumper caps** horizontally on the bottom rows to bridge the communicat
 - **Reference Guide:**
   See the "UART Mode" section in the official wiki: [https://wiki.fysetc.com/docs/E4](https://wiki.fysetc.com/docs/E4)
 
-### 📡 MPU-6500 I2C Wiring
-Connect the MPU-6500 module to the FYSETC E4 I2C pins using the following standardized wire colors:
-* 🔴 **Red:** VCC (3.3V)
-* 🟡 **Yellow:** GND
-* 🔵 **Blue:** SCL (E4 Pin 18)
-* 🟢 **Green:** SDA (E4 Pin 19)
+### 📡 MPU-6500 I2C Wiring (via SD Card Sniffer)
 
-> 💡 **Anti-EMI Tip:** Keep the I2C wires (Blue/Green) as far away as possible from the stepper motor cables to prevent electromagnetic interference. If possible, twist the GND (Yellow) wire around the I2C lines to act as a shield.
+Insert the TF/microSD sniffer board into the FYSETC E4's SD card slot. Then connect the MPU-6500 module to the sniffer's breakout headers using the following standardized wire colors:
+
+| Wire Color | Signal | Sniffer Pin | ESP32 GPIO | Notes |
+|:----------:|--------|:-----------:|:----------:|-------|
+| 🔴 Red | VCC | 3.3V | — | **3.3V only!** Do not use 5V. |
+| 🟡 Yellow | GND | GND | — | |
+| 🔵 Blue | SCL (I2C Clock) | SCK | GPIO 18 | Originally SD card clock |
+| 🟢 Green | SDA (I2C Data) | MISO | GPIO 19 | Originally SD card data out |
+
+> ⚠️ **Anti-EMI Tip:** Keep the I2C wires (Blue/Green) as far away as possible from the stepper motor cables to prevent electromagnetic interference. If possible, twist the GND (Yellow) wire around the I2C lines to act as a shield. The firmware detects I2C failures and reports them via the `DIAG` command.
 
 ---
 
