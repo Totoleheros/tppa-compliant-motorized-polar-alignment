@@ -8,7 +8,7 @@ It runs on the *FYSETC E4 V1.0* (ESP32 + dual TMC2209) and emulates the "Avalon"
 
 > **TL;DR** – Flash the sketch, wire the motors and the MPU-6500 gyroscope, set N.I.N.A. to talk to an **"Avalon Polar Alignment"**, **leave the TPPA "Gear Ratio" field at `1.0`**, and let TPPA's plate-solve loop converge to sub-arcminute precision while the firmware silently learns your mechanics.
 
-> 🏆 **Field-tested result: < 0.2 arcminute polar alignment error** achieved with TPPA in under 4 iterations.
+> 🏆 **Field-tested result: < 0.2 arcminute polar alignment error** achieved with TPPA in under 4 iterations, with a 20 kg payload.
 
 ---
 
@@ -17,12 +17,30 @@ It runs on the *FYSETC E4 V1.0* (ESP32 + dual TMC2209) and emulates the "Avalon"
 | # | Video | What you'll see |
 |---|-------|-----------------|
 | 1 | [First Test with Full Payload](https://youtu.be/girvoCZ_UCE) | 15 kg equatorial mount on the PA platform — first motorized movements under real load. |
-| 2 | [Homing Sequence (Arduino Serial Monitor)](https://youtu.be/NkoLJ03FSSY) | Live serial output: homing, limit switch detection, pull-off, MPU-6500 gyroscope tare (with the same 15Kg payload). |
-| 3 | [**TPPA Session — Below 0.2 Arcminute!**](https://youtu.be/gfE6sZmrzuw) | Complete polar alignment run in N.I.N.A. — watch TPPA converge to < 0.2' in real-time (with the same 15Kg payload). |
+| 2 | [Homing Sequence (Arduino Serial Monitor)](https://youtu.be/NkoLJ03FSSY) | Live serial output: homing, limit switch detection, pull-off, MPU-6500 gyroscope tare (with the same 15 kg payload). |
+| 3 | [**TPPA Session — Below 0.2 Arcminute!**](https://youtu.be/gfE6sZmrzuw) | Complete polar alignment run in N.I.N.A. — watch TPPA converge to < 0.2' in real-time (with the same 15 kg payload). |
 
-## Testing Setup
+---
+
+## 🔭 Author's Testing Setup
+
+The annotated photo below shows the full astrophotography rig used to develop and validate this project. The PA platform (item 2) carries everything above it — roughly **20 kg of total payload**, which sits right at the recommended limit.
 
 ![Setup Overview](IMAGES/ASSEMBLY/Real_World/setup_annotated.jpeg)
+
+| # | Component | Est. Weight | Details |
+|---|-----------|:-----------:|---------|
+| 1 | **iOptron LiteRoc Tripod** | — | Stable field tripod (below the PA platform — not counted in payload) |
+| 2 | **TPPA Motorized PA System** | — | ESP32 + harmonic drive (AZM), UMOT worm gear (ALT), MPU-6500 gyroscope (part of the base — not counted) |
+| 3 | **iOptron GEM28 Mount** | ~11.5 kg | EQ mount head (4.5 kg), CW bar (0.5 kg), counterweights (4.5 + 2 kg) |
+| 4 | **Optical Train** | ~5.2 kg | Sharpstar 94EDPH + 0.8× reducer, ZWO EAF autofocuser, 60 mm guide scope + ASI120MM + DIY guide focuser, DIY flat panel, dew heaters ×2, rings + dovetail bar |
+| 5 | **Imaging Train** | ~1.5 kg | RisingCam IMX571 Mono, ToupTek 5×2" filter wheel, DIY rotator + spacers |
+| 6 | **Power & Compute** | ~1.5 kg | Pegasus Ultimate Powerbox, Mele mini-PC, cables + 3D-printed parts |
+| | **Total on PA platform** | **~19.5–20 kg** | Within the recommended 20 kg limit |
+
+> 💡 This is a real-world astrophotography rig, not a test bench. Every firmware version is validated under these conditions.
+
+---
 
 ## 🖼️ Build Gallery
 
@@ -59,20 +77,57 @@ pip3 install pyserial
 python3 PolarAlignGUI.py
 ```
 
-> 💡 The GUI communicates using direct serial commands (`ALT:`, `AZM:`) in degrees. These commands work **without homing** — ideal for bench testing. TPPA uses its own `$J=` protocol (in arcminutes) when running an alignment session.
+> 💡 The GUI uses direct serial commands (`ALT:`, `AZM:`) in degrees — these work **without homing**, ideal for bench testing. TPPA uses its own `$J=` protocol in arcminutes during alignment sessions.
 
 ---
 
 ## 🌟 Key Features
 
-| Feature | How it works |
+| Feature | Description |
 |---------|-------------|
-| 🧠 **Machine Learning Ratio** | The MPU-6500 gyroscope measures the *real* physical movement of the tilt-plate after every ALT jog and compares it to the theoretical motor steps. The firmware **automatically calculates and saves an optimized gear ratio** to EEPROM — silently improving accuracy over time without slowing down your alignment session. |
-| 🔭 **TPPA-Driven Convergence** | The firmware trusts TPPA's plate-solve loop for convergence rather than running its own internal correction cycles. This eliminates 1–4 seconds of overhead per jog that older versions spent on MPU micro-corrections. TPPA's star-based measurements are far more accurate than accelerometer readings, and the result speaks for itself: **< 0.2 arcminute** alignment error. |
-| 📐 **Arcminute Protocol** | Full bidirectional unit conversion: incoming TPPA jog commands (in arcminutes) are converted to degrees internally, and outgoing MPos reports are converted back to arcminutes. Direct serial commands (`ALT:`, `AZM:`) remain in degrees for easy bench testing. |
-| 🛡️ **Anti-Crash & Auto-Recovery** | **Software endstops** (AZM ±30°, ALT 0–5°) prevent the mount from exceeding safe travel. If the mount is resting on its physical limit switch at power-on, the system **automatically runs a homing/pull-off sequence** to free itself safely. |
-| 🔇 **Global Settle** | After every movement, the firmware waits **2 seconds** for mechanical vibrations to damp before reporting `<Idle>`. This prevents TPPA from plate-solving on a still-vibrating mount, ensuring clean astrometric data. |
-| ⚡ **Zero Lag Engine** | Strict polling architecture: non-blocking trapezoidal acceleration eliminates step-loss on high inertia loads (Harmonic Drives) while maintaining perfect buffer synchronization (fixes N.I.N.A display lag). |
+| 🧠 **Machine Learning Ratio** | The MPU-6500 measures real physical movement after every ALT jog, computes the true steps-per-degree ratio, and saves it to EEPROM. The mount silently improves its own accuracy over time. |
+| 🔭 **TPPA-Driven Convergence** | The firmware trusts TPPA's plate-solve loop rather than running its own corrections. Star-based measurements are far more accurate than accelerometer readings. Result: **< 0.2 arcminute**. |
+| 📐 **Arcminute Protocol** | Bidirectional unit conversion: TPPA jog commands (arcminutes) → internal degrees → MPos reports back in arcminutes. Direct serial commands remain in degrees for bench testing. |
+| 🛡️ **Homing Guard** | TPPA jog commands are blocked until homing is completed, preventing the ALT travel limits from clamping incorrectly due to an unknown physical position. |
+| 🔇 **Global Settle** | 2-second anti-vibration delay after every movement before reporting `<Idle>`. Prevents TPPA from plate-solving on a still-vibrating mount. |
+| ⚡ **Zero Lag Engine** | Non-blocking trapezoidal acceleration with real-time serial polling. No `delay()` calls anywhere — N.I.N.A. polls status 10× per second and the firmware never misses a beat. |
+
+---
+
+## 🔬 How It Works: Architecture Deep Dive
+
+### The Challenge
+
+The ALT axis (worm gearbox + lead screw + crank mechanism) is inherently subject to mechanical backlash and hysteresis, especially under a 20 kg payload. The AZM axis (harmonic drive) has its own issue: elastic deformation in the flex spline creates a "lost motion" dead zone on direction reversals. For TPPA to converge reliably, the firmware must handle both problems transparently.
+
+### The Solution: A Three-Layer Architecture
+
+**Layer 1 — Non-Blocking Motion Engine**
+
+The entire firmware is built as a state machine inside `tickMotion()`. Motor pulses, MPU sampling, settle timers, and serial communication are all interleaved without ever calling `delay()`. This is critical because N.I.N.A. polls the status (`?`) ten times per second — a single blocking call would cause buffer overflows, display lag, or connection drops.
+
+The motion engine generates trapezoidal acceleration profiles (soft start → cruise → soft stop) to prevent step loss on high-inertia loads like the 100:1 harmonic drive.
+
+**Layer 2 — MPU-6500 Observe & Learn (Altitude)**
+
+After every ALT movement, the firmware enters a non-blocking observation phase:
+
+1. **Settle** (500 ms) — mechanical vibrations damp out.
+2. **Sample** (50 readings over ~250 ms) — the MPU-6500's accelerometer measures the true tilt angle using Earth's gravity vector. Averaging 50 samples eliminates MEMS sensor noise.
+3. **Learn** — the firmware compares commanded vs. actual movement, computes a new steps-per-degree ratio, and blends it into the running average (10% EWMA smoothing per observation). If the ratio drifts significantly, it's saved to EEPROM.
+
+The MPU operates in **observe-only mode**: it learns, but never corrects. Earlier firmware versions (v14.67b and before) ran an active correction loop with up to 5 micro-corrections per jog — this added 1–4 seconds of overhead and created complex interactions with TPPA's own convergence loop. Removing the corrections and letting TPPA handle convergence via plate-solving proved both faster and more accurate.
+
+Learning is skipped on direction reversals (backlash would corrupt the measurement). Over a typical TPPA session (6–8 ALT jogs), the ratio converges within 2–3 observations.
+
+**Layer 3 — GRBL Protocol Synchronization**
+
+Taming N.I.N.A.'s strict GRBL parser required several tricks:
+
+- **Silent boot**: The ESP32 emits an unavoidable boot message on USB connect (`ets Jul 29 2019...`). Stefan Berg patched the TPPA plugin to discard pre-`?` lines — the firmware stays completely silent until asked.
+- **Status report scaling**: During MPU observation phases, the reported ALT position is held slightly below target (scaled to ~90% of actual progress). This prevents TPPA from reclaiming control prematurely. When the observation completes, the position snaps to the exact commanded value with an `<Idle>` state.
+- **Diagnostic buffer**: All MPU data, corrections, and learning events are written silently to a 4 KB RAM buffer (`diagLog`) instead of printing to serial. N.I.N.A. never sees debug text that could confuse its regex parser. The user retrieves the full log via the `DIAG` command.
+- **AZM backlash compensation**: On direction reversals, extra "dead" steps are injected to eat through the harmonic drive's elastic deformation zone. These steps move the motor but don't update the reported position — TPPA sees smooth, accurate movements.
 
 ---
 
@@ -80,261 +135,240 @@ python3 PolarAlignGUI.py
 
 **You MUST run `HOME` (or `$H`, or press the physical Home button) before launching a TPPA session.**
 
-Without homing, the firmware does not know the true physical position of the ALT axis. The internal position counter starts at 0.0° regardless of where the tilt plate actually is. This causes the software travel limits (ALT 0–5°) to clamp movements incorrectly, and TPPA will loop endlessly trying to correct an error it can never reach.
+Without homing, the firmware doesn't know the true physical position of the ALT axis. The position counter starts at 0.0° regardless of where the tilt plate actually is, causing the software travel limits (ALT 0–5°) to clamp movements incorrectly. TPPA will loop endlessly trying to correct an error it can never reach.
 
-The firmware enforces this: **all TPPA jog commands (`$J=`) are silently ignored until homing is completed.** The controller still replies `ok` (so TPPA doesn't hang), but no movement occurs. If you see TPPA running but the mount isn't moving, check the serial log — you'll see `!BLOCKED: ... (HOME not done)`.
+The firmware enforces this: **all TPPA jog commands (`$J=`) are silently ignored until homing is completed.** The controller still replies `ok` (so TPPA doesn't hang), but no movement occurs. Check the serial log for `!BLOCKED: ... (HOME not done)`.
 
 **What homing does:**
 1. Moves ALT down until the physical limit switch triggers
 2. Performs a safety pull-off (0.2°)
 3. Defines this position as 0.0° (mechanical zero)
-4. Tares the MPU-6500 gyroscope
+4. Tares the MPU-6500 gyroscope (defines the gravity reference)
 5. Unlocks TPPA jog commands
 
-> 💡 **Auto-recovery:** If the limit switch is already pressed at power-on (e.g. the mount was stored at its lowest position), the firmware detects this and runs homing automatically — no action needed.
+> 💡 **Auto-recovery:** If the limit switch is already pressed at power-on, the firmware runs homing automatically.
 
-> 💡 **Bench testing without homing:** Direct serial commands (`ALT:`, `AZM:` via the GUI or serial monitor) work without homing. Only TPPA's `$J=` commands are blocked.
+> 💡 **Bench testing without homing:** Direct serial commands (`ALT:`, `AZM:`) and the GUI work without homing. Only TPPA's `$J=` commands are blocked.
+
+---
+
+## ⚡ Electronics & Wiring
+
+Instead of a complex Arduino + shield + external driver assembly, the project leverages a **3D printer control board** repurposed for telescope work.
+
+### The Brain: FYSETC E4 V1.0
+
+| Spec | Value |
+|------|-------|
+| MCU | ESP32-WROOM-32 @ 240 MHz (dual-core, WiFi/BT) |
+| Drivers | 4× TMC2209, factory-soldered, UART-addressed |
+| Used channels | MOT-X (Azimuth) + MOT-Y (Altitude) |
+| Power input | 12 V DC (24 V supported but 12 V is quieter) |
+
+> ⚠️ **FYSETC E4 V1.0 only!** The V2.0 has a different pin mapping and is **not compatible** without firmware changes.
+
+### The Sensor: MPU-6500 (I2C) & The SD Card Hack
+
+The gyroscope/accelerometer acts as a **digital plumb bob** for the Altitude axis. It measures the tilt plate's absolute angle using Earth's gravity vector — no external reference needed.
+
+> **How we connected it (The Hack):** The FYSETC E4 V1.0 board is a 3D printer controller and does not have a dedicated, easily accessible I2C expansion header. To connect the MPU-6500 cleanly, we **hijacked the onboard microSD card reader**. By entirely bypassing the SD card feature (our firmware uses the ESP32's internal EEPROM and RAM for data storage instead), we repurposed its SPI pins to act as our I2C bus:
+> - **GPIO 18** (originally the SD Card `SCK` clock pin) becomes the I2C `SCL` line.
+> - **GPIO 19** (originally the SD Card `MISO` data pin) becomes the I2C `SDA` line.
+
+| Wire Color | Signal | ESP32 GPIO | FYSETC E4 Target |
+|:----------:|--------|:----------:|------------------|
+| 🔴 Red     | VCC (3.3 V) | —        | 3.3V Header      |
+| 🟡 Yellow  | GND    | —          | GND Header       |
+| 🔵 Blue    | SCL (I2C) | GPIO 18 | SD Card `SCK` pin  |
+| 🟢 Green   | SDA (I2C) | GPIO 19 | SD Card `MISO` pin |
+
+> ⚠️ **EMI warning:** Keep the I2C wires (blue/green) as far as possible from stepper motor cables. Twist the GND wire around the I2C lines to act as a shield. The firmware detects I2C failures and reports them via `DIAG`.
+
+### Motors: NEMA 17 + TMC2209
+
+| Axis | E4 Port | STEP | DIR | Mode | Microstepping | Current | Rationale |
+|------|---------|:----:|:---:|------|:-------------:|:-------:|-----------|
+| **AZM** | MOT-X | GPIO 27 | GPIO 26 | StealthChop | 16 | 600 mA | Silent operation, harmonic drive is easy to turn |
+| **ALT** | MOT-Y | GPIO 33 | GPIO 32 | SpreadCycle | 4 | 300 mA | Maximum torque for lifting payload through worm gear |
+
+> The ALT current is deliberately low (300 mA) to prevent overheating inside the compact UMOT worm gearbox housing. Even at this level, the torque margin is ≥23× at 30:1 ratio. See [Motor Thermal Management](#-motor-thermal-management) for details.
+
+### Safety Inputs
+
+| Function | E4 Silk | GPIO | Type | Purpose |
+|----------|---------|:----:|------|---------|
+| **Limit Switch** | Z-MIN | 34 | Input only | Physical endstop at ALT bottom-of-travel. Triggers emergency stop + pull-off if hit outside homing. |
+| **Home Button** | Y-MIN | 35 | Input only | Manual push-button to trigger full homing + gyroscope tare sequence. |
+
+### UART Jumpers (Critical!)
+
+The TMC2209 drivers communicate with the ESP32 via a shared UART bus. **You must place two jumper caps** on the TXD/RXD header to enable this communication. Without them, the motors won't respond. See the [FYSETC E4 Wiki](https://wiki.fysetc.com/docs/E4) for jumper placement details.
+
+### Full GPIO Map
+
+| Signal | Axis / Role | ESP32 GPIO | E4 silkscreen |
+|--------|-------------|:----------:|---------------|
+| STEP | AZM | 27 | MOT‑X |
+| DIR | AZM | 26 | MOT‑X |
+| EN | Both | 25 | /ENABLE (Active LOW) |
+| UART | AZM & ALT | 21 | Shared Bus (Addr 1 = AZM, Addr 2 = ALT) |
+| STEP | ALT | 33 | MOT‑Y |
+| DIR | ALT | 32 | MOT‑Y |
+| SCL | Gyroscope | 18 | SD Card `SCK` |
+| SDA | Gyroscope | 19 | SD Card `MISO` |
+| SENSOR | ALT Limit | 34 | Z-MIN |
+| BUTTON | Manual Home | 35 | Y-MIN |
 
 ---
 
 ## ⚖️ Payload Rating
 
-This mount is designed for **heavy-duty astrophotography setups**. The operating range for the ALT axis is intentionally small (0–5°): the equatorial mount sitting on top should be set to roughly your site latitude minus 1–2°, so the PA mount only needs fine corrections.
+This mount is designed for **heavy-duty astrophotography setups**. The operating range for the ALT axis is intentionally small (0–5°): the equatorial mount should be set to roughly your site latitude minus 1–2°, so the PA mount only needs fine corrections.
 
 | Rating | Max Payload | Notes |
 |--------|-------------|-------|
-| **Recommended** | **20 kg** | Safe for all builders, with a ~2× safety margin on the weakest link. |
-| **Advanced** | **25 kg** | Tested by the author. Requires centered payload and careful assembly. |
+| **Recommended** | **20 kg** | Safe for all builders, ~2× margin. The author's own [testing setup](#-authors-testing-setup) sits right at this limit. |
+| **Advanced** | **25 kg** | Requires centered payload and careful assembly. |
 
 **Weakest link analysis:**
 
-The limiting factor is **not** the motor or the gearbox — it is the **igus PRT-02 LC J4 orientation ring** (azimuth bearing). Its rated specs are generous for centered axial loads (4,000 N dynamic = ~408 kg), but the **tilting moment capacity** (eccentric load) is the real constraint for telescope setups where the center of gravity sits above and offset from the bearing.
+The limiting factor is the **igus PRT-02 LC J4 orientation ring** (azimuth bearing). Its tilting moment capacity (eccentric off-axis load) is not published for the LC variant — this is why we cap the recommended payload at 20 kg with a safety margin.
 
-| Component | Capacity | Status |
-|-----------|----------|--------|
-| igus PRT-02 LC J4 – Axial dynamic | 4,000 N (~408 kg) | ✅ Not limiting |
-| igus PRT-02 LC J4 – Radial dynamic | 500 N (~51 kg) | ✅ Not limiting |
-| igus PRT-02 LC J4 – Tilting moment | Not published for LC variant | ⚠️ **Weakest link** |
-| T8×2mm lead screw (axial load @2° tilt) | ~500–1000 N rated | ✅ ~25–40 N actual |
-| UMOT worm gearbox (any ratio) | Torque margin ≥ 7× @25 kg | ✅ Comfortable |
-| 15180 aluminum profiles (crossed) | Effectively unlimited | ✅ Overkill |
-| 3D-printed parts (motor cradles, sensor brackets, enclosures) | Non-structural (no telescope load) | ✅ Not in load path |
+| Component | Capacity | Actual Load | Margin |
+|-----------|----------|-------------|--------|
+| igus PRT-02 – Axial dynamic | 4,000 N (~408 kg) | ~245 N | 16× |
+| igus PRT-02 – Radial dynamic | 500 N (~51 kg) | ~50 N | 10× |
+| igus PRT-02 – Tilting moment | Unknown (LC variant) | ~25–37 Nm est. | ⚠️ **Assumed weakest** |
+| T8×2mm lead screw | 500–1000 N | ~25–40 N | 15–25× |
+| UMOT worm gearbox | ≥2 Nm output | ~0.25 Nm required | 8–16× |
+| 15180 aluminum profiles | >5 kN bending | <250 N | 20×+ |
 
-> **Builder's note:** Several parts are 3D-printed (ALT and AZM motor cradles, MPU bracket, homing sensor bracket, FYSETC enclosure, PSU case), but **none are in the telescope load path**. They carry only the weight of their respective components (motors, sensors, electronics). The telescope payload is transmitted entirely through metal: tilt plate → lead screw → crossed 15180 profiles → igus bearing → tripod. The author uses PLA+CF; PETG is recommended for the ALT motor cradle due to proximity to the UMOT housing heat.
-
----
-
-## 🔩 Hardware Overview
-
-See **[`HARDWARE.md`](./HARDWARE.md)** for full assembly photos, 3D files (including a drilling jig!), and detailed wiring diagrams.
-
-> ⚠️ **IMPORTANT WARNING**
-> **Please note that this is still an ongoing open-source project!**
-
-| Part | Notes |
-|------|-------|
-| **FYSETC E4 V1.0** | ESP32‑WROOM‑32, 4 × on‑board TMC2209 – we use two of them (MOT‑X = Azimuth, MOT‑Y = Altitude) |
-| **MPU-6500 Module** | I2C Gyroscope/Accelerometer used for ML ratio learning on the Altitude axis. |
-| **Stepper motors** | 1.8 ° NEMA‑17 recommended (e.g. 17HS19‑2004S1) |
-| **Supply** | 12 V DC (quiet) — 24 V also works if your mechanics can take it |
-
-### Default GPIO Map (Firmware v14.x)
-
-| Signal   | Axis / Role | ESP32 GPIO | E4 silkscreen | Notes |
-|----------|-------------|------------|---------------|-------|
-| STEP     | AZM         | 27         | **MOT‑X** | |
-| DIR      | AZM         | 26         | **MOT‑X** | |
-| EN       | Both        | 25         | `/ENABLE`     | Active LOW |
-| UART RX  | AZM & ALT   | 21         | Shared Bus    | **Set Addr 1 (AZM) & Addr 2 (ALT) via jumpers** |
-| STEP     | ALT         | 33         | **MOT‑Y** | |
-| DIR      | ALT         | 32         | **MOT‑Y** | |
-| SCL      | Gyroscope   | 18         | SCL           | I2C Clock (MPU-6500) |
-| SDA      | Gyroscope   | 19         | SDA           | I2C Data (MPU-6500) |
-| SENSOR   | ALT Limit   | 34         | Z-MIN         | Physical Limit Switch (Input Only) |
-| BUTTON   | Manual Home | 35         | Y-MIN         | Manual Home Button (Input Only) |
+> **Builder's note:** All 3D-printed parts (motor cradles, sensor brackets, enclosures) are **non-structural** and carry only the weight of their respective components. The telescope payload is transmitted entirely through metal: tilt plate → lead screw → 15180 profiles → igus bearing → tripod.
 
 ---
 
-## ⚙️ Arduino IDE Setup
+## 🔧 ALT Motor: Speed vs Torque (UMOT Ratio)
 
-1. **Install ESP32 core**
-   ```text
-   Preferences → Additional Board URLs:
-   [https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json](https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json)
-   ```
-   Boards Manager → *esp32* (≥ v2.0.17).
-   
-2. **Arduino code**
-   * Download the last version of the Arduino code in the **Arduino directory**.
+The ALT axis uses a NEMA 17 + UMOT worm gearbox driving a T8×2mm lead screw through a crank-arm mechanism. Total gear ratio ≈ UMOT ratio × 5.
 
-3. **Install library**
-   * **TMCStepper** (latest version) via Library Manager.
+| UMOT Ratio | Time for 1° | Torque Margin | Self-Locking | Status |
+|:----------:|:-----------:|:-------------:|:------------:|--------|
+| **100:1** | 6.3 s | 80× | ✅ Worm + screw | Current prototype — safe but slow |
+| **50:1** | 3.1 s | 40× | ✅ Worm + screw | Conservative, 2× faster |
+| **30:1** | 1.9 s | 23× | ⚠️ Screw only | **Best balance** *(on order)* |
+| **17:1** | 1.1 s | 13× | ❌ Screw only | Fast but risky in cold weather |
 
-4. **Board menu settings**
+> ⚠️ The UMOT 30:1 has been ordered but **not yet tested**. The current prototype uses 100:1. This section will be updated with field results.
 
-   | Option             | Value |
-   |--------------------|-------|
-   | Board              | **ESP32 Dev Module** |
-   | CPU Freq           | 240 MHz (WiFi/BT) |
-   | Flash Freq / Mode  | 80 MHz / DIO |
-   | Flash Size         | 4 MB |
-   | Partition Scheme   | Huge APP (3 MB / 1 MB SPIFFS) |
-   | Upload speed       | 115 200 bps |
-   | Port               | `COMx` / `/dev/tty.usbmodem…` |
+> **Safety note:** The T8×2mm lead screw is always self-locking (helix angle 4° < friction angle ~8.5°). The telescope cannot back-drive under any circumstance, even if the worm gear loses self-locking at lower ratios.
 
-5. **Upload**
-   Compile ⇒ Upload.
-   > **Note:** On boot, the serial monitor will be completely empty for about 1 second (Silent Boot). Send `?` to wake it up or use the diagnostic commands below.
-
----
-
-## 🧪 Serial Command Reference
-
-To test your mount, open the **Arduino IDE Serial Monitor** or the **PolarAlign Controller GUI**.
-⚠️ **CRITICAL:** Set the baud rate to **`115200`** and the line ending to **`Newline`** (or `Both NL & CR`).
-
-### 1️⃣ Custom Diagnostic & Manual Control (For Makers)
-
-These commands were specifically built to help you test the mechanics and the ML ratio learning without needing N.I.N.A.
-
-| Command      | Action |
-|--------------|--------|
-| `HOME` (or `$H`) | **Trigger Homing & Tare:** The mount will move down until it hits the limit switch, perform a safety pull-off, define this point as `0.0°`, and perfectly tare the MPU-6500 Gyroscope. **Required before any TPPA session.** |
-| `DIAG` (or `MPU?`) | **Print System Diagnostic:** The ultimate debugging tool. It instantly prints the Limit Switch status, the Raw Gyroscope reading, the Tared physical angle, any I2C EMI errors, the current ML-learned Gear Ratio from EEPROM, and the full command log. |
-| `ALT:2.5`    | **Absolute Altitude Jog (degrees):** Commands the mount to go to an absolute altitude of `2.5°`. Watch the Serial Monitor to see the ML ratio learning in action as the MPU observes the actual movement. |
-| `AZM:5.0`    | **Absolute Azimuth Jog (degrees):** Commands the mount to go to an absolute azimuth angle of `5.0°`. Note: **0.0°** is defined as the position of the mount at power-on. |
-| `AZM:ZERO`   | **Tare Azimuth:** Instantly defines the current physical position of the mount as the new absolute `0.0°` for the Azimuth axis without needing to reboot the controller. |
-| `RST`        | **Soft Reset:** Instantly aborts any motion, clears the diagnostic log, and resets the state machine. |
-
-> 💡 **Unit note:** Direct serial commands (`ALT:`, `AZM:`) use **degrees** for intuitive bench testing. TPPA commands (`$J=`) use **arcminutes** — the firmware handles the conversion automatically.
-
-### 2️⃣ GRBL‑Style (Used by N.I.N.A / TPPA)
-
-This is the hidden language your mount uses to talk to astrophotography software. All values are in **arcminutes**.
-
-| Command                  | Meaning | Response |
-|--------------------------|---------|----------|
-| `$J=G53X+300.00F400`     | Absolute jog to **+300 arcmin** (= 5.0°) on **Azimuth** | `ok` |
-| `$J=G91G21Y-390.00F300`  | Relative jog **–390 arcmin** (= –6.5°) on **Altitude** | `ok` |
-| `?`                      | Poll Status (used 10 times a second by N.I.N.A) | `<Idle\|MPos:…\|>` + `\n` |
-| `!` / `~`                | Feed‑Hold / Cycle-Resume | `ok` |
-
-> 💡 **MPos Reporting:** Status responses report positions in **arcminutes** (e.g. `MPos:300.000,150.000,0`). With the recommended TPPA Gear Ratio of `1.0`, these values map directly to arcminutes of movement.
-
-> ⚠️ **TPPA Free Field Warning:** In the TPPA interface, the **preset buttons** (e.g. +1, -1, +5, -5) send **relative** commands (G91) — they move the mount *by* that many arcminutes. However, the **free text field** sends **absolute** commands (G53) — the value you type is a *target position* in arcminutes, not a delta. This only affects manual testing — during an actual TPPA alignment session, all corrections are sent automatically via relative commands.
-
----
-
-## 🧠 How the MPU-6500 Machine Learning Works
-
-The MPU-6500 gyroscope operates in **observe-only mode**: it watches but never interferes with TPPA's convergence.
-
-**After every ALT movement:**
-
-1. **Settle** (500 ms) — wait for mechanical vibrations to damp.
-2. **Observe** (50 samples over ~250 ms) — measure the actual physical angle.
-3. **Learn** — compare the commanded movement to the measured movement, compute a new steps-per-degree ratio, and blend it into the running average using exponential smoothing (10% weight per observation).
-4. **Save** — if the ratio drifts significantly from the stored value, write it to EEPROM.
-
-**Total overhead: ~750 ms per ALT jog** (versus 1–4 seconds in earlier firmware versions that ran correction loops).
-
-The learning only occurs on same-direction moves. When the ALT axis reverses direction, the firmware skips learning for that move because backlash would corrupt the measurement. Over a typical TPPA session (6–8 ALT jogs), the ratio converges within 2–3 observations.
-
-**Why not correct with the MPU?** TPPA's plate-solve loop is astronomically more accurate (literal star positions vs. a ±0.05° accelerometer). The MPU's job is to make each individual jog more accurate by learning the true mechanical ratio — so TPPA needs fewer iterations to converge.
-
----
-
-## 🔧 ALT Motor: Speed vs Torque (Choosing Your UMOT Ratio)
-
-The ALT axis uses a NEMA 17 stepper coupled to a **UMOT worm gearbox**, which drives a T8×2mm lead screw through a crank-arm mechanism. The total gear ratio is approximately `UMOT ratio × 5` (the crank adds ~5× reduction).
-
-Since this mount operates in a narrow 0–5° range (fine polar alignment corrections), the torque requirements are very low. This means you can trade some of the massive torque margin for **speed** by choosing a lower UMOT ratio.
-
-### Comparison Table (for 25 kg payload at 0–5° tilt)
-
-| UMOT Ratio | Total Effective | Time for 1° | Torque Margin | Self-Locking (worm) | Recommendation |
-|------------|----------------|-------------|---------------|---------------------|----------------|
-| **100:1** | ~496:1 | 6.3 s | 80× | ✅ Yes | Current prototype — safe but very slow |
-| **50:1** | ~248:1 | 3.1 s | 40× | ✅ Yes | Conservative, 2× faster |
-| **30:1** | ~149:1 | 1.9 s | 23× | ⚠️ Borderline | **Best balance** — 3.3× faster *(on order)* |
-| **17:1** | ~84:1 | 1.1 s | 13× | ❌ Lost | Fast but risky in cold weather |
-
-> **Safety note:** Even if the worm gearbox loses its self-locking property at lower ratios (30:1 and below), the **T8×2mm lead screw is always self-locking** (helix angle 4° < friction angle ~8.5°). The telescope cannot back-drive through this screw under any circumstance. The axial load on the screw at 2° tilt with 25 kg is only ~25–40 N, well within the bronze nut's rated capacity of 500–1000 N.
-
-### Author's choice: 30:1 *(pending field validation)*
-
-The 30:1 ratio should deliver 1.9 seconds per degree (a typical 2° adjustment would complete in under 4 seconds instead of 12.6 seconds with the current 100:1), while maintaining a comfortable 23× torque margin even in the worst case. For a TPPA session requiring 6–8 altitude corrections, this would save 1–2 minutes of waiting per alignment run.
-
-> ⚠️ **Status:** The UMOT 30:1 has been ordered but **not yet received or tested**. The current prototype uses the 100:1 ratio, which works perfectly but is slow on large movements. This section will be updated with real-world results once the 30:1 is installed and field-tested.
-
-### Firmware changes when switching ratio
-
-Only one constant needs to change:
-```cpp
-constexpr float ALT_MOTOR_GEARBOX = 30.0f;   // was 496.0f for the 100:1 + crank
-```
-
-After changing the ratio, **erase the EEPROM** (the machine-learned value from the old ratio is invalid). The firmware will automatically recalibrate within 2–3 ALT movements using MPU feedback.
+**Firmware change:** Only one constant: `constexpr float ALT_MOTOR_GEARBOX = 30.0f;` — then erase EEPROM (the old learned ratio is invalid). The firmware recalibrates automatically within 2–3 movements.
 
 ---
 
 ## 🌡️ Motor Thermal Management
 
-The ALT stepper motor receives a constant holding current even when stationary. With the default 800 mA RMS setting, this dissipates ~1.6 W inside the compact UMOT housing, reaching surface temperatures of **55–65°C** — hot to the touch but within the motor's 130°C insulation rating.
+The ALT stepper receives holding current even when stationary. Inside the compact UMOT housing:
 
-Since the torque margin is enormous (23× at 30:1, 80× at 100:1), the firmware ships with a **reduced ALT current of 300 mA**, dropping dissipation to ~0.2 W. The motor will be barely warm.
+| RMS Current | Power | Temperature | PLA-safe? |
+|:-----------:|:-----:|:-----------:|:---------:|
+| 800 mA (old) | ~1.6 W | 55–65°C | ❌ |
+| **300 mA (default)** | ~0.2 W | Barely warm | ✅ |
+| 400 mA (cold weather) | ~0.4 W | ~35°C | ✅ |
 
-```cpp
-constexpr uint16_t RMS_CURRENT_ALT = 300;   // Thermal-optimized (was 800)
-```
+> Use **PETG** or **ABS** for the ALT motor cradle if running above 300 mA. At 300 mA, standard PLA is fine.
 
-> **For cold-weather observers:** If you operate below -10°C with thick grease, you can raise this to 400 mA for extra starting torque. Even at 400 mA, the motor stays well below 40°C.
->
-> ⚠️ **Material note:** The author uses PLA+CF (carbon fiber reinforced) for all printed parts. For the **ALT motor cradle** specifically (in contact with the UMOT housing), PETG (75°C) or ABS (95°C) is recommended if you plan to run `RMS_CURRENT_ALT` above 300 mA. At the default 300 mA, PLA+CF or standard PLA is fine.
+---
+
+## ⚙️ Arduino IDE Setup
+
+1. **Install ESP32 core** — Boards Manager → *esp32* (≥ v2.0.17)
+   ```
+   Preferences → Additional Board URLs:
+   [https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json](https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json)
+   ```
+
+2. **Install TMCStepper library** via Library Manager
+
+3. **Board settings:**
+
+   | Option | Value |
+   |--------|-------|
+   | Board | ESP32 Dev Module |
+   | CPU Freq | 240 MHz |
+   | Flash Size | 4 MB |
+   | Partition | Huge APP (3 MB / 1 MB SPIFFS) |
+   | Upload speed | 115200 bps |
+
+4. **Upload** — the Arduino code is in the **Arduino code** directory.
+
+> On boot, the serial monitor is silent for ~1 second (Silent Boot). Send `?` to wake it up.
+
+---
+
+## 🧪 Serial Command Reference
+
+Use the **Arduino IDE Serial Monitor** or the **PolarAlign Controller GUI** (115200 baud, Newline line ending).
+
+### Direct Commands (bench testing, degrees)
+
+| Command | Action |
+|---------|--------|
+| `HOME` / `$H` | **Homing + Tare** — required before TPPA. |
+| `DIAG` / `MPU?` | **Full diagnostic** — sensor status, positions, ML ratio, command log. |
+| `ALT:2.5` | Move ALT to 2.5° (absolute). |
+| `AZM:5.0` | Move AZM to 5.0° (absolute, from power-on zero). |
+| `AZM:ZERO` | Redefine current AZM position as 0.0°. |
+| `RST` | Soft reset — abort motion, clear log. |
+
+### GRBL Protocol (used by N.I.N.A / TPPA, arcminutes)
+
+| Command | Meaning |
+|---------|---------|
+| `$J=G53X+300.00F400` | Absolute jog: AZM to +300' (= 5.0°) |
+| `$J=G91G21Y-390.00F300` | Relative jog: ALT –390' (= –6.5°) |
+| `?` | Status poll → `<Idle\|MPos:x,y,0\|>` |
+| `!` / `~` | Feed-Hold / Resume |
+
+> 💡 MPos values are in **arcminutes**. With TPPA Gear Ratio = `1.0`, they map directly.
+
+> ⚠️ **TPPA Free Field** sends absolute commands (G53) — the value is a target position, not a delta. Preset buttons (±1, ±5) send relative commands (G91). During auto-alignment, everything is relative.
 
 ---
 
 ## 🛠️ Configuration Knobs
 
-Open **the last version of the Arduino code** (or use the **Firmware Config tab** in the GUI) to adjust the physical properties of your specific build. Since every DIY mount is different, you might need to tweak these values before compiling:
+Edit in the Arduino code or use the **Firmware Config tab** in the GUI (generates copy-pasteable code):
 
 ```cpp
-/* ───── HARDWARE SETTINGS (Immutable physical properties) ───── */
-constexpr float MOTOR_FULL_STEPS = 200.0f; // Standard 1.8° NEMA 17
-constexpr uint16_t MICROSTEPPING_AZM = 16; // StealthChop for smooth Azimuth
-constexpr uint16_t MICROSTEPPING_ALT = 4;  // SpreadCycle for high torque on Altitude
+/* ───── HARDWARE SETTINGS ───── */
+constexpr float MOTOR_FULL_STEPS = 200.0f;    // 1.8° motor
+constexpr uint16_t MICROSTEPPING_AZM = 16;    // StealthChop
+constexpr uint16_t MICROSTEPPING_ALT = 4;     // SpreadCycle
+constexpr float GEAR_RATIO_AZM = 100.0f;      // Harmonic drive
+constexpr float ALT_MOTOR_GEARBOX = 496.0f;   // UMOT ratio × crank
+constexpr float ALT_SCREW_PITCH_MM = 2.0f;    // T8 lead screw
+constexpr float ALT_RADIUS_MM = 60.0f;        // Pivot-to-screw distance
 
-// Gear Ratios (Theoretical starting points)
-// Note: The firmware will dynamically adjust the ALT ratio via MPU learning and save it to EEPROM.
-constexpr float GEAR_RATIO_AZM = 100.0f;     // Harmonic drive ratio
-constexpr float ALT_MOTOR_GEARBOX = 496.0f;  // UMOT 100:1 + crank ~5×. Change to 30.0 for UMOT 30:1.
-constexpr float ALT_SCREW_PITCH_MM = 2.0f;   // Lead screw pitch (T8 = 2mm per revolution)
-constexpr float ALT_RADIUS_MM = 60.0f;       // Distance from pivot axis to the lead screw
+constexpr bool AXIS_REV_AZM = true;           // Reverse if needed
+constexpr bool AXIS_REV_ALT = true;
 
-// Axis Directions
-// -> Change to 'false' if your mount moves in the wrong direction!
-constexpr bool AXIS_REV_AZM = true;        
-constexpr bool AXIS_REV_ALT = true;        
+constexpr uint16_t RMS_CURRENT_AZM = 600;     // mA
+constexpr uint16_t RMS_CURRENT_ALT = 300;     // mA (≤400 for UMOT thermal)
 
-// Motor Currents (in mA)
-// -> ALT is set low (300mA) to prevent overheating inside the UMOT housing.
-//    Increase to 400mA only if you experience stalling in extreme cold.
-//    AZM can stay at 600mA (Harmonic Drive has good ventilation).
-constexpr uint16_t RMS_CURRENT_AZM = 600;  
-constexpr uint16_t RMS_CURRENT_ALT = 300;  
-
-/* ───── TRAVEL LIMITS (in degrees) ───── */
-constexpr float AZM_LIMIT_NEG = -30.0f;   // ±30° azimuth travel
+/* ───── TRAVEL LIMITS (degrees) ───── */
+constexpr float AZM_LIMIT_NEG = -30.0f;
 constexpr float AZM_LIMIT_POS =  30.0f;
-constexpr float ALT_LIMIT_NEG =   0.0f;   // 0–5° altitude travel
+constexpr float ALT_LIMIT_NEG =   0.0f;
 constexpr float ALT_LIMIT_POS =   5.0f;
 
-/* ───── MPU LEARNING THRESHOLDS (For advanced users) ───── */
-constexpr float ALT_TOLERANCE_DEG = 0.05f;     // Minimum move to trigger MPU observation
-constexpr float MIN_LEARNING_ANGLE = 0.5f;     // Minimum move for ML ratio update
-constexpr float LEARNING_SMOOTHING = 0.10f;    // EWMA weight (10% new, 90% history)
-constexpr unsigned long GLOBAL_SETTLE_MS = 2000; // Anti-vibration delay before Idle (ms)
+/* ───── MPU LEARNING ───── */
+constexpr float ALT_TOLERANCE_DEG = 0.05f;       // Min move for observation
+constexpr float MIN_LEARNING_ANGLE = 0.5f;       // Min move for ML update
+constexpr float LEARNING_SMOOTHING = 0.10f;      // EWMA weight (10%)
+constexpr unsigned long GLOBAL_SETTLE_MS = 2000;  // Anti-vibration delay
 ```
+
 ---
 
 ## 📄 License
@@ -345,7 +379,7 @@ constexpr unsigned long GLOBAL_SETTLE_MS = 2000; // Anti-vibration delay before 
 
 ## 🙏 Acknowledgements
 
-* **Stefan Berg** – author of the **Three-Point Polar Alignment** plug-in and core N.I.N.A. contributor; his support was key to cracking the handshake protocol.
+* **Stefan Berg** – author of the **Three-Point Polar Alignment** plug-in and core N.I.N.A. contributor; his protocol docs and DLL patches made this project possible.
 * **Avalon Instruments** – for the idea of a lean, GRBL-style alignment controller.
-* **Claude** & **Gemini** (AI) – for the non-blocking engine architecture, the gyroscopic ML system, and the hardcore debugging.
+* **Claude** (Anthropic) & **Gemini** (Google) – for the non-blocking engine architecture, the gyroscopic ML system, the GRBL protocol reverse-engineering, and months of hardcore debugging.
 * Maintained by **Antonino Nicoletti** ([antonino.antispam@free.fr]) – *clear skies!*
