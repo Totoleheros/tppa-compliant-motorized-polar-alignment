@@ -213,6 +213,7 @@ To complete the assembly, you will need the following "vitamins":
 - **The Fix:** You must buy a `5mm to 8mm` coupler and manually enlarge the 5mm hole. Use a tapping tool (thread maker) or a very precise 5.5mm/5.6mm drill bit to bore out the 5mm side until it perfectly grips the 5.6mm shaft.
 - *Note: Do not use flexible spider couplers or set-screw couplers. Rigidity is mandatory here.*
 - Example: "OKE DE-Coupler Rigid Shaft" – *~3.50€*
+- ![D25L35 coupler](IMAGES/Parts/Coupler.jpg)
 
 ### Screws & Nuts
 - **Sliding T-Nuts:** M6 for 15180 profile (Pack of 200) – *~7€*
