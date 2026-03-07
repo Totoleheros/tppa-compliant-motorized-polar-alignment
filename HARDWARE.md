@@ -126,7 +126,7 @@ The firmware ships with **300 mA** for the ALT motor. Even at this reduced curre
 ### 6. Structural Profiles (Base Chassis)
 - Type: **15180 Aluminum Extrusion** (2 Plates needed)
   - **Plate 1 (Main):** Length **250mm**, oriented North-South.
-  - **Plate 2 (Cross):** Orthogonal (East-West), aligned flush with the South end of Plate 1 (200mm length).
+  - **Plate 2 (Cross):** Orthogonal (East-West), aligned flush with the North end of Plate 1 (200mm length).
 - ⚠️ **CRITICAL WARNING:** The top and bottom faces of the 15180 profiles are **NOT interchangeable** (they have different slot spacing/patterns). Be absolutely sure of your orientation and assembly direction *before* drilling any holes!
 - Cost: ~40€ (for both)
 - ![15180](IMAGES/Parts/15180.jpg)
