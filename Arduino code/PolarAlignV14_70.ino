@@ -669,6 +669,18 @@ void processCommand(const char* line) {
   if (strcmp(line, "HOME") == 0 || strcmp(line, "$H") == 0) { startHoming(); return; }
   if (strcmp(line, "DIAG") == 0 || strcmp(line, "MPU?") == 0) { printDiagnostic(); return; }
 
+  /* Lightweight MPU query — single line for GUI status bar polling */
+  if (strcmp(line, "MPU") == 0) {
+    if (mpuAvailable) {
+      float raw = readMPUAngleY();
+      if (raw > -900.0f) {
+        Serial.print("MPU:"); Serial.print(raw - mpuOffset, 3);
+        Serial.print(","); Serial.println(raw, 3);
+      } else { Serial.println("MPU:ERR"); }
+    } else { Serial.println("MPU:NA"); }
+    return;
+  }
+
   if (strncmp(line, "$J=", 3) == 0 || strncmp(line, "J=", 2) == 0) {
     /* ── HOMING GUARD: refuse TPPA jogs until HOME is done ── */
     if (!homingDone) {
