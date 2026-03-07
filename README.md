@@ -20,6 +20,10 @@ It runs on the *FYSETC E4 V1.0* (ESP32 + dual TMC2209) and emulates the "Avalon"
 | 2 | [Homing Sequence (Arduino Serial Monitor)](https://youtu.be/NkoLJ03FSSY) | Live serial output: homing, limit switch detection, pull-off, MPU-6500 gyroscope tare (with the same 15Kg payload). |
 | 3 | [**TPPA Session — Below 0.2 Arcminute!**](https://youtu.be/gfE6sZmrzuw) | Complete polar alignment run in N.I.N.A. — watch TPPA converge to < 0.2' in real-time (with the same 15Kg payload). |
 
+## Testing Setup
+
+![Setup Overview](IMAGES/ASSEMBLY/Real_World/setup_annotated.jpeg)
+
 ## 🖼️ Build Gallery
 
 The **[IMAGES](./IMAGES/)** directory contains everything you need to visualize the project:
