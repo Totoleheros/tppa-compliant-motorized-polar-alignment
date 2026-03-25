@@ -62,9 +62,10 @@ A cross-platform desktop application is included to control the mount **without 
 **Features:**
 - **Jog buttons** (±0.1° ±1° ±5°) for both AZM and ALT axes, plus free-field absolute positioning
 - **Live position display** with real-time polling (AZM/ALT in degrees and arcminutes)
+- **Learning Monitor** — live display of the MPU-measured ALT error and both learned ratios (ALT/AZM), updated automatically after each jog
 - **System commands** — HOME, DIAG, RST, AZM:ZERO — one click
 - **Raw serial console** — full log + send any command directly
-- **Firmware Config tab** — edit all hardware constants (gear ratios, currents, limits…) and generate a ready-to-paste Arduino code block
+- **Firmware Config tab** — edit all hardware constants (UMOT ratio, crank ratio, currents, limits…) and generate a ready-to-paste Arduino code block
 - **Save/Load** configurations as JSON files
 
 **Quick start (Windows):**
@@ -79,18 +80,21 @@ python3 PolarAlignGUI.py
 
 > 💡 The GUI uses direct serial commands (`ALT:`, `AZM:`) in degrees — these work **without homing**, ideal for bench testing. TPPA uses its own `$J=` protocol in arcminutes during alignment sessions.
 
+> 💡 **DTR/RTS are disabled** on connect to prevent the ESP32 from rebooting when the GUI opens the serial port.
+
 ---
 
 ## 🌟 Key Features
 
 | Feature | Description |
 |---------|-------------|
-| 🧠 **Machine Learning Ratio** | The MPU-6500 measures real physical movement after every ALT jog, computes the true steps-per-degree ratio, and saves it to EEPROM. The mount silently improves its own accuracy over time. |
+| 🧠 **ALT Machine Learning** | The MPU-6500 measures real physical movement after every ALT jog, computes the true steps-per-degree ratio, and saves it to EEPROM. The mount silently improves its own accuracy over time. |
+| 🧠 **AZM Ratio Learning** | The firmware infers the AZM gear ratio from consecutive TPPA correction residuals (no sensor needed). A triple guard prevents the NaN/deadlock bug present in earlier versions. |
 | 🔭 **TPPA-Driven Convergence** | The firmware trusts TPPA's plate-solve loop rather than running its own corrections. Star-based measurements are far more accurate than accelerometer readings. Result: **< 0.2 arcminute**. |
 | 📐 **Arcminute Protocol** | Bidirectional unit conversion: TPPA jog commands (arcminutes) → internal degrees → MPos reports back in arcminutes. Direct serial commands remain in degrees for bench testing. |
-| 🛡️ **Homing Guard** | TPPA jog commands are blocked until homing is completed, preventing the ALT travel limits from clamping incorrectly due to an unknown physical position. |
+| 🛡️ **Homing Guard + DTR Persistence** | TPPA jogs are blocked until homing is completed. Homing state (MPU offset + magic word) is saved to EEPROM and **survives DTR-triggered reboots** (GUI ↔ TPPA switch without re-homing). |
 | 🔇 **Global Settle** | 2-second anti-vibration delay after every movement before reporting `<Idle>`. Prevents TPPA from plate-solving on a still-vibrating mount. |
-| ⚡ **Zero Lag Engine** | Non-blocking trapezoidal acceleration with real-time serial polling. No `delay()` calls anywhere — N.I.N.A. polls status 10× per second and the firmware never misses a beat. |
+| ⚡ **Zero Lag Engine** | Non-blocking trapezoidal acceleration with real-time serial polling. No `delay()` calls in the main loop — N.I.N.A. polls status 10× per second and the firmware never misses a beat. |
 
 ---
 
@@ -120,14 +124,29 @@ The MPU operates in **observe-only mode**: it learns, but never corrects. Earlie
 
 Learning is skipped on direction reversals (backlash would corrupt the measurement). Over a typical TPPA session (6–8 ALT jogs), the ratio converges within 2–3 observations.
 
+**Layer 2b — Residual Learning (Azimuth)**
+
+The AZM axis has no sensor. Instead, the firmware infers the true gear ratio from TPPA's own correction behaviour: if TPPA commanded `prevDelta` arcminutes but still sends a residual correction `currDelta`, the actual movement was `effectiveMoved = prevDelta − currDelta`. From this:
+
+```
+measuredRatio = currentRatio × prevDelta / effectiveMoved
+```
+
+Three guards prevent the deadlock seen in earlier versions:
+1. `effectiveMoved ≥ 0.5'` before division (prevents NaN)
+2. `!isnan && !isinf && in-band` before writing (prevents deadlock)
+3. State wipe on direction reversal and tiny moves (prevents stale data)
+
+EWMA smoothing is 5% (more conservative than ALT's 10%), and the band is ±10% around theoretical.
+
 **Layer 3 — GRBL Protocol Synchronization**
 
 Taming N.I.N.A.'s strict GRBL parser required several tricks:
 
-- **Silent boot**: The ESP32 emits an unavoidable boot message on USB connect (`ets Jul 29 2019...`). Stefan Berg patched the TPPA plugin to discard pre-`?` lines — the firmware stays completely silent until asked.
-- **Status report scaling**: During MPU observation phases, the reported ALT position is held slightly below target (scaled to ~90% of actual progress). This prevents TPPA from reclaiming control prematurely. When the observation completes, the position snaps to the exact commanded value with an `<Idle>` state.
-- **Diagnostic buffer**: All MPU data, corrections, and learning events are written silently to a 4 KB RAM buffer (`diagLog`) instead of printing to serial. N.I.N.A. never sees debug text that could confuse its regex parser. The user retrieves the full log via the `DIAG` command.
-- **AZM backlash compensation**: On direction reversals, extra "dead" steps are injected to eat through the harmonic drive's elastic deformation zone. These steps move the motor but don't update the reported position — TPPA sees smooth, accurate movements.
+- **Silent boot**: The ESP32 emits an unavoidable boot message on USB connect. Stefan Berg patched the TPPA plugin to discard pre-`?` lines — the firmware stays completely silent until asked.
+- **Status report scaling**: During MPU observation phases, the reported ALT position is held slightly below target (scaled to ~90% of actual progress). This prevents TPPA from reclaiming control prematurely.
+- **Diagnostic buffer**: All MPU data and learning events are written silently to a 4 KB RAM buffer (`diagLog`). N.I.N.A. never sees debug text. The user retrieves the full log via `DIAG`.
+- **AZM backlash compensation**: On direction reversals, extra "dead" steps eat through the harmonic drive's elastic deformation zone without updating the reported position.
 
 ---
 
@@ -135,7 +154,7 @@ Taming N.I.N.A.'s strict GRBL parser required several tricks:
 
 **You MUST run `HOME` (or `$H`, or press the physical Home button) before launching a TPPA session.**
 
-Without homing, the firmware doesn't know the true physical position of the ALT axis. The position counter starts at 0.0° regardless of where the tilt plate actually is, causing the software travel limits (ALT 0–5°) to clamp movements incorrectly. TPPA will loop endlessly trying to correct an error it can never reach.
+Without homing, the firmware doesn't know the true physical position of the ALT axis. The position counter starts at 0.0° regardless of where the tilt plate actually is, causing the software travel limits to clamp movements incorrectly. TPPA will loop endlessly trying to correct an error it can never reach.
 
 The firmware enforces this: **all TPPA jog commands (`$J=`) are silently ignored until homing is completed.** The controller still replies `ok` (so TPPA doesn't hang), but no movement occurs. Check the serial log for `!BLOCKED: ... (HOME not done)`.
 
@@ -144,9 +163,12 @@ The firmware enforces this: **all TPPA jog commands (`$J=`) are silently ignored
 2. Performs a safety pull-off (0.2°)
 3. Defines this position as 0.0° (mechanical zero)
 4. Tares the MPU-6500 gyroscope (defines the gravity reference)
-5. Unlocks TPPA jog commands
+5. Saves the homing state (MPU offset + magic word) to EEPROM
+6. Unlocks TPPA jog commands
 
 > 💡 **Auto-recovery:** If the limit switch is already pressed at power-on, the firmware runs homing automatically.
+
+> 💡 **DTR Persistence:** Homing state survives a DTR-triggered reboot (e.g., switching from the GUI to TPPA). The firmware restores the MPU offset from EEPROM and reconstructs the ALT position from the sensor — no re-homing needed.
 
 > 💡 **Bench testing without homing:** Direct serial commands (`ALT:`, `AZM:`) and the GUI work without homing. Only TPPA's `$J=` commands are blocked.
 
@@ -223,7 +245,7 @@ The TMC2209 drivers communicate with the ESP32 via a shared UART bus. **You must
 
 ## ⚖️ Payload Rating
 
-This mount is designed for **heavy-duty astrophotography setups**. The operating range for the ALT axis is intentionally small (0–5°): the equatorial mount should be set to roughly your site latitude minus 1–2°, so the PA mount only needs fine corrections.
+This mount is designed for **heavy-duty astrophotography setups**. The operating range for the ALT axis is intentionally small (0–10°): the equatorial mount should be set to roughly your site latitude minus 1–2°, so the PA mount only needs fine corrections.
 
 | Rating | Max Payload | Notes |
 |--------|-------------|-------|
@@ -249,20 +271,22 @@ The limiting factor is the **igus PRT-02 LC J4 orientation ring** (azimuth beari
 
 ## 🔧 ALT Motor: Speed vs Torque (UMOT Ratio)
 
-The ALT axis uses a NEMA 17 + UMOT worm gearbox driving a T8×2mm lead screw through a crank-arm mechanism. Total gear ratio ≈ UMOT ratio × 5.
+The ALT axis uses a NEMA 17 + UMOT worm gearbox driving a T8×2mm lead screw through a crank-arm mechanism. The total gear ratio is `UMOT ratio × crank factor` (typically ~4.96 for the T8 + bielle geometry of this prototype).
 
-| UMOT Ratio | Time for 1° | Torque Margin | Self-Locking | Status |
-|:----------:|:-----------:|:-------------:|:------------:|--------|
-| **100:1** | 6.3 s | 80× | ✅ Worm + screw | Current prototype — safe but slow |
-| **50:1** | 3.1 s | 40× | ✅ Worm + screw | Conservative, 2× faster |
-| **30:1** | 1.9 s | 23× | ⚠️ Screw only | **Best balance** *(on order)* |
-| **17:1** | 1.1 s | 13× | ❌ Screw only | Fast but risky in cold weather |
-
-> ⚠️ The UMOT 30:1 has been ordered but **not yet tested**. The current prototype uses 100:1. This section will be updated with field results.
+| UMOT Ratio | Total Ratio | Time for 1° | Torque Margin | Self-Locking | Status |
+|:----------:|:-----------:|:-----------:|:-------------:|:------------:|--------|
+| **100:1** | ~496:1 | 6.3 s | 80× | ✅ Worm + screw | Previous prototype |
+| **50:1** | ~248:1 | 3.1 s | 40× | ✅ Worm + screw | Conservative, 2× faster |
+| **30:1** | ~149:1 | 1.9 s | 23× | ⚠️ Screw only | **Current prototype — field tested** |
+| **17:1** | ~84:1 | 1.1 s | 13× | ❌ Screw only | Fast but risky in cold weather |
 
 > **Safety note:** The T8×2mm lead screw is always self-locking (helix angle 4° < friction angle ~8.5°). The telescope cannot back-drive under any circumstance, even if the worm gear loses self-locking at lower ratios.
 
-**Firmware change:** Only one constant: `constexpr float ALT_MOTOR_GEARBOX = 30.0f;` — then erase EEPROM (the old learned ratio is invalid). The firmware recalibrates automatically within 2–3 movements.
+**Firmware change when switching ratio:** Two constants in the code (or use the GUI Config tab):
+```cpp
+constexpr float ALT_MOTOR_GEARBOX = 148.8f;  // UMOT 30:1 × 4.96 crank
+```
+After changing, the old EEPROM learned ratio is automatically detected as out-of-band and discarded at boot — the firmware recalibrates within 2–3 movements via MPU learning.
 
 ---
 
@@ -285,7 +309,7 @@ The ALT stepper receives holding current even when stationary. Inside the compac
 1. **Install ESP32 core** — Boards Manager → *esp32* (≥ v2.0.17)
    ```
    Preferences → Additional Board URLs:
-   [https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json](https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json)
+   https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
    ```
 
 2. **Install TMCStepper library** via Library Manager
@@ -314,12 +338,13 @@ Use the **Arduino IDE Serial Monitor** or the **PolarAlign Controller GUI** (115
 
 | Command | Action |
 |---------|--------|
-| `HOME` / `$H` | **Homing + Tare** — required before TPPA. |
-| `DIAG` / `MPU?` | **Full diagnostic** — sensor status, positions, ML ratio, command log. |
+| `HOME` / `$H` | **Homing + Tare** — required before TPPA. Saves state to EEPROM. |
+| `DIAG` / `MPU?` | **Full diagnostic** — sensor status, positions, learned ratios (ALT + AZM), command log. |
 | `ALT:2.5` | Move ALT to 2.5° (absolute). |
 | `AZM:5.0` | Move AZM to 5.0° (absolute, from power-on zero). |
-| `AZM:ZERO` | Redefine current AZM position as 0.0°. |
-| `RST` | Soft reset — abort motion, clear log. |
+| `AZM:ZERO` | Redefine current AZM position as 0.0° **and reset AZM learning state**. |
+| `RST` | Soft reset — abort motion, clear log, reset learning state. |
+| `MPU` | Lightweight gyroscope query — returns `MPU:tared,raw` on a single line. |
 
 ### GRBL Protocol (used by N.I.N.A / TPPA, arcminutes)
 
@@ -338,35 +363,40 @@ Use the **Arduino IDE Serial Monitor** or the **PolarAlign Controller GUI** (115
 
 ## 🛠️ Configuration Knobs
 
-Edit in the Arduino code or use the **Firmware Config tab** in the GUI (generates copy-pasteable code):
+Edit in the Arduino code or use the **Firmware Config tab** in the GUI (generates copy-pasteable code). The GUI splits `ALT_MOTOR_GEARBOX` into two fields for clarity:
 
 ```cpp
 /* ───── HARDWARE SETTINGS ───── */
-constexpr float MOTOR_FULL_STEPS = 200.0f;    // 1.8° motor
-constexpr uint16_t MICROSTEPPING_AZM = 16;    // StealthChop
-constexpr uint16_t MICROSTEPPING_ALT = 4;     // SpreadCycle
-constexpr float GEAR_RATIO_AZM = 100.0f;      // Harmonic drive
-constexpr float ALT_MOTOR_GEARBOX = 496.0f;   // UMOT ratio × crank
-constexpr float ALT_SCREW_PITCH_MM = 2.0f;    // T8 lead screw
-constexpr float ALT_RADIUS_MM = 60.0f;        // Pivot-to-screw distance
+constexpr float MOTOR_FULL_STEPS = 200.0f;    // 1.8° motor = 200 full steps/rev
+constexpr uint16_t MICROSTEPPING_AZM = 16;    // StealthChop — smooth & silent
+constexpr uint16_t MICROSTEPPING_ALT = 4;     // SpreadCycle — maximum torque
+constexpr float GEAR_RATIO_AZM = 100.0f;      // Harmonic drive ratio
+constexpr float ALT_MOTOR_GEARBOX = 148.8f;   // UMOT 30:1 × 4.96 crank
+                                               //   (was 496.0 for UMOT 100:1)
+constexpr float ALT_SCREW_PITCH_MM = 2.0f;    // T8 lead screw: 2 mm per revolution
+constexpr float ALT_RADIUS_MM = 60.0f;        // Distance pivot → lead screw attachment
 
-constexpr bool AXIS_REV_AZM = true;           // Reverse if needed
+constexpr bool AXIS_REV_AZM = true;           // Flip if your mount moves backwards
 constexpr bool AXIS_REV_ALT = true;
 
-constexpr uint16_t RMS_CURRENT_AZM = 600;     // mA
-constexpr uint16_t RMS_CURRENT_ALT = 300;     // mA (≤400 for UMOT thermal)
+constexpr uint16_t RMS_CURRENT_AZM = 600;     // mA — harmonic drive is easy to turn
+constexpr uint16_t RMS_CURRENT_ALT = 300;     // mA — thermal-safe inside UMOT housing
 
 /* ───── TRAVEL LIMITS (degrees) ───── */
 constexpr float AZM_LIMIT_NEG = -30.0f;
 constexpr float AZM_LIMIT_POS =  30.0f;
 constexpr float ALT_LIMIT_NEG =   0.0f;
-constexpr float ALT_LIMIT_POS =   5.0f;
+constexpr float ALT_LIMIT_POS =  10.0f;       // V2 tilt plate (was 5° for V1)
 
-/* ───── MPU LEARNING ───── */
-constexpr float ALT_TOLERANCE_DEG = 0.05f;       // Min move for observation
-constexpr float MIN_LEARNING_ANGLE = 0.5f;       // Min move for ML update
-constexpr float LEARNING_SMOOTHING = 0.10f;      // EWMA weight (10%)
-constexpr unsigned long GLOBAL_SETTLE_MS = 2000;  // Anti-vibration delay
+/* ───── ALT MPU LEARNING ───── */
+constexpr float MIN_LEARNING_ANGLE = 0.5f;       // Min move for ML ratio update (deg)
+constexpr float LEARNING_SMOOTHING = 0.10f;      // EWMA weight — 10% new, 90% history
+constexpr unsigned long GLOBAL_SETTLE_MS = 2000;  // Anti-vibration delay before Idle (ms)
+
+/* ───── AZM RATIO LEARNING ───── */
+constexpr float AZM_LEARNING_SMOOTHING = 0.05f;  // EWMA weight — 5% (conservative)
+constexpr float AZM_RATIO_BAND_LOW  = 0.90f;     // Reject ratio updates outside ±10%
+constexpr float AZM_RATIO_BAND_HIGH = 1.10f;
 ```
 
 ---
