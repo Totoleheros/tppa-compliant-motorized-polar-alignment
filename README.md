@@ -204,23 +204,104 @@ The gyroscope/accelerometer acts as a **digital plumb bob** for the Altitude axi
 | 🔵 Blue    | SCL (I2C) | GPIO 18 | SD Card `SCK` pin  |
 | 🟢 Green   | SDA (I2C) | GPIO 19 | SD Card `MISO` pin |
 
+**GX16-4 aviation connector pinout for MPU-6500:**
+
+```
+┌─────────────┐
+│  [4]   [1]  │
+│  [3]   [2]  │
+└─────────────┘
+```
+
+| Pin | Wire color | Signal |
+|:---:|:----------:|--------|
+| 1 | 🟢 Green | SDA |
+| 2 | 🔵 Blue  | SCL |
+| 3 | 🔴 Red   | VCC 3.3 V |
+| 4 | 🟡 Yellow | GND |
+
 > ⚠️ **EMI warning:** Keep the I2C wires (blue/green) as far as possible from stepper motor cables. Twist the GND wire around the I2C lines to act as a shield. The firmware detects I2C failures and reports them via `DIAG`.
 
 ### Motors: NEMA 17 + TMC2209
 
-| Axis | E4 Port | STEP | DIR | Mode | Microstepping | Current | Rationale |
-|------|---------|:----:|:---:|------|:-------------:|:-------:|-----------|
-| **AZM** | MOT-X | GPIO 27 | GPIO 26 | StealthChop | 16 | 600 mA | Silent operation, harmonic drive is easy to turn |
-| **ALT** | MOT-Y | GPIO 33 | GPIO 32 | SpreadCycle | 4 | 300 mA | Maximum torque for lifting payload through worm gear |
+| Axis | E4 Port | STEP | DIR | Mode | Microstepping | Run | Hold | Rationale |
+|------|---------|:----:|:---:|------|:-------------:|:---:|:----:|-----------|
+| **AZM** | MOT-X | GPIO 27 | GPIO 26 | SpreadCycle | 16 | 600 mA | 300 mA | Firm hold — harmonic drive is not self-locking |
+| **ALT** | MOT-Y | GPIO 33 | GPIO 32 | SpreadCycle | 4 | 300 mA | 30 mA | T8 screw is self-locking — hold current is irrelevant |
 
-> The ALT current is deliberately low (300 mA) to prevent overheating inside the compact UMOT worm gearbox housing. Even at this level, the torque margin is ≥23× at 30:1 ratio. See [Motor Thermal Management](#-motor-thermal-management) for details.
+> The ALT run current is deliberately low (300 mA) to prevent overheating inside the compact UMOT worm gearbox housing. Even at this level, the torque margin is ≥23× at 30:1 ratio. See [Motor Thermal Management](#-motor-thermal-management) for details.
+>
+> AZM hold current is set to 50% (300 mA) because the harmonic drive is **not self-locking** — the motor must actively resist the flex spline's return torque at rest.
+
+### Motor Aviation Connectors (GX16-4, all axes identical)
+
+Each motor is connected via a **GX16-4 aviation connector**. Pin numbering viewed from the front (pin side), reading left-to-right, top-to-bottom:
+
+```
+┌─────────────┐
+│  [4]   [1]  │
+│  [3]   [2]  │
+└─────────────┘
+```
+
+| Pin | Wire color | Motor terminal |
+|:---:|:----------:|----------------|
+| 1 | 🔵 Blue  | Coil A+ |
+| 2 | 🟢 Green | Coil B+ |
+| 3 | ⚫ Black | Coil B− |
+| 4 | 🔴 Red   | Coil A− |
+
+**MOT-X (AZM) board connector** — wire order left to right: **Blue · Red · Green · Black**
+
+**MOT-Y (ALT) board connector** — wire order left to right: **Black · Green · Red · Blue**
+
+> The wire order at the board connector is mirrored between AZM and ALT to account for opposite mechanical direction. The aviation connector pinout is identical on both — only the board-side order differs.
 
 ### Safety Inputs
 
-| Function | E4 Silk | GPIO | Type | Purpose |
-|----------|---------|:----:|------|---------|
-| **Limit Switch** | Z-MIN | 34 | Input only | Physical endstop at ALT bottom-of-travel. Triggers emergency stop + pull-off if hit outside homing. |
-| **Home Button** | Y-MIN | 35 | Input only | Manual push-button to trigger full homing + gyroscope tare sequence. |
+X-MIN and Y-MIN are **2-pin connectors** on the FYSETC E4 (Z-MIN is 3-pin and is unused in this project).
+
+| Function | E4 Silk | GPIO | Connector | Purpose |
+|----------|---------|:----:|-----------|---------|
+| **Limit Switch** | **X-MIN** | 34 | 2-pin | Physical endstop at ALT bottom-of-travel. Active LOW. Triggers emergency stop + pull-off if hit outside homing. |
+| **Home Button** | **Y-MIN** | 35 | 2-pin | Momentary push-button (NO). Triggers full homing + gyroscope tare sequence when pressed. |
+
+Connect the two wires of each component directly to the 2-pin Signal + GND of their respective header — no polarity constraint on the limit switch or button.
+
+### Power Supply & ON/OFF Switch
+
+The FYSETC E4 is powered from a **12 V DC barrel jack**. An illuminated rocker switch (4-terminal) is wired in series on the **positive rail** between the jack and the board's green screw terminal block.
+
+**Green screw terminal block** — positions numbered left to right (board oriented label-side up):
+
+| Position | Signal |
+|:--------:|--------|
+| 1 / 6 | V+ (12 V) |
+| 2 / 6 | GND |
+
+**Rocker switch wiring (4-terminal, numbered top-left → top-right → bottom-left → bottom-right):**
+
+```
+DC jack (black / −) ──── [1]        [4] ──── DC jack (red / +)
+                          [2]──[3]
+                               │
+                          V+ to board (terminal 1/6)
+```
+
+| Switch terminal | Connected to |
+|:---------------:|-------------|
+| **#1** | DC jack **black** (−) **and** board terminal **2/6** (GND) |
+| **#2** | Bridged to #3 |
+| **#3** | Bridged to #2 **and** board terminal **1/6** (V+) |
+| **#4** | DC jack **red** (+) |
+
+The switch interrupts the positive rail (#4 → internal contacts → #3). The negative wire passes through #1 directly to board GND with no switching. Terminals #2 and #3 are bridged to route the switched positive to the board.
+
+### Reset Capacitor (Anti-Reboot Trick)
+
+Solder a **10 µF / 16 V** capacitor across the two pins of the **RST** header on the FYSETC E4. This prevents the ESP32 from rebooting when a PC opens the serial port (Arduino IDE upload, serial monitor open). Without it, every connection from a PC triggers an unwanted reset.
+
+> ⚠️ This capacitor **disables automatic bootloader entry**. To flash new firmware, remove it (or bridge RST to GND manually at the right moment during upload). The GUI and TPPA are unaffected — they never trigger a hard reset.
 
 ### UART Jumpers (Critical!)
 
@@ -238,8 +319,8 @@ The TMC2209 drivers communicate with the ESP32 via a shared UART bus. **You must
 | DIR | ALT | 32 | MOT‑Y |
 | SCL | Gyroscope | 18 | SD Card `SCK` |
 | SDA | Gyroscope | 19 | SD Card `MISO` |
-| SENSOR | ALT Limit | 34 | Z-MIN |
-| BUTTON | Manual Home | 35 | Y-MIN |
+| SENSOR | ALT Limit | 34 | **X-MIN** (2-pin) |
+| BUTTON | Manual Home | 35 | **Y-MIN** (2-pin) |
 
 ---
 
