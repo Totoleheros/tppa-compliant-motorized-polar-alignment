@@ -107,6 +107,8 @@ The igus PRT-02 LC (Prototype) is a polymer slewing ring with unpublished tiltin
 
 > 💡 Inner ring = fixed to base plate via 6×M3. Outer ring = rotating platform (telescope side), driven by harmonic drive adapter via 6×Ø3.4 through-holes.
 
+- ![RU42 Crossed Roller Bearing](IMAGES/Parts_V2/RU42.jpg)
+
 ### Harmonic Drive Adapter
 
 A 3D-printed PLA+CF adapter bridges the harmonic drive output (PCD = 20.5 mm) to the RU42 outer ring (PCD = 57 mm, mounting holes at Ø3.4). The adapter carries motor torque only — no telescope load passes through it.
@@ -169,6 +171,8 @@ The right-side bearing seat carries the T8 axial reaction force.
 | Axial clearance | 0.5 mm |
 | Through-hole in aluminium | Ø6.5 mm |
 | Combined axial/radial SF | 5.3× |
+
+- ![626ZZ Bearing](IMAGES/Parts_V2/626ZZ.jpg)
 
 > ⚠️ **Critical assembly note:** The Ø8→Ø6 shoulder must bear against the **inner ring** of the 626ZZ, not against the aluminium housing. Aluminium is too soft to serve as an axial stop under repeated T8 load cycles.
 
@@ -250,6 +254,9 @@ The RU42 crossed roller bearing eliminates the tilting moment uncertainty that c
 | Base plate — piece 1 | Lower platform, tripod interface, RU42 outer ring mount | ✅ Yes |
 | Base plate — piece 2 | Upper platform, RU42 inner ring mount, pillar tops | ✅ Yes |
 | ALT tilt plate | Bielle mechanism, pivot, 626ZZ seats, chariot guide | ✅ Yes |
+
+- ![CNC Parts — Exploded View](IMAGES/Parts_V2/CNC_exploded.jpg)
+- ![CNC Parts — Assembly View](IMAGES/ASSEMBLY_V2/3D_Model/assembly_overview.jpg)
 
 > All CNC dimensions in `PolarALIGN_V2_STEP.zip`. Standard tap drill sizes: M3=2.5mm, M4=3.3mm, M5=4.2mm, M6=5.0mm.
 
