@@ -2,9 +2,7 @@
 
 > 🔧 **This document covers the V2 hardware revision**, which uses a custom CNC ALT bielle mechanism and an RU42 crossed roller bearing for the AZM axis. This configuration is **currently under fabrication** — not yet field-validated.
 >
->Use `PolarAlign_V2.ino` for this hardware.
->  
-> For a proven, ready-to-build starting point, see [`HARDWARE_Prototype.md`](./HARDWARE_Prototype.md). 
+> For a proven, ready-to-build starting point, see [`HARDWARE_Prototype.md`](./HARDWARE_Prototype.md). Use `PolarAlign_V2.ino` for this hardware.
 
 ---
 
@@ -197,6 +195,8 @@ constexpr float ALT_MOTOR_GEARBOX = 208.3f;
 ```
 
 The MPU-6500 learning system will converge to the true value within 2–3 ALT jogs regardless of this starting estimate. The ±20% acceptance band means the firmware will tolerate a ~40 mm/° error before rejecting the update — well within the V2 geometry's expected range.
+
+> 💡 **GUI users:** In the **Firmware Config tab**, set `TILT_CRANK_RATIO = 6.94` (instead of 4.96 for the Prototype). The `ALT_MOTOR_GEARBOX` field will auto-compute to 208.3. No separate GUI version is needed — one `PolarAlignGUI.py` works for both hardware versions.
 
 ---
 
