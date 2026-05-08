@@ -1,6 +1,6 @@
 /*****************************************************************************************
  * FYSETC-E4 (ESP32 + TMC2209) — POLAR ALIGNMENT CONTROLLER
- * Version : 15.03g-p1  (Gemini-reviewed + AZM hold current fix)
+ * Version : 15.03g-V2  (V2 hardware — ALT V3 CNC geometry + RU42 AZM bearing)
  *
  * ──────────────────────────────────────────────────────────────────────────────────────
  * WHAT THIS FIRMWARE DOES
@@ -18,7 +18,7 @@
  * ──────────────────────────────────────────────────────────────────────────────────────
  *  MCU       : FYSETC E4 V1.0  (ESP32-WROOM-32 @ 240 MHz)
  *  Drivers   : 2× TMC2209 (UART, addresses 1 & 2)
- *  AZM motor : NEMA 17 → Harmonic Drive 100:1  (StealthChop, 16 µstep, 600 mA)
+ *  AZM motor : NEMA 17 → Harmonic Drive 100:1 → RU42 crossed roller bearing  (SpreadCycle, 16 µstep, 600 mA)
  *  ALT motor : NEMA 17 → UMOT worm 30:1 → T8 lead screw → crank (SpreadCycle, 4 µstep, 300 mA)
  *  Sensor    : MPU-6500 on I2C (SCL=GPIO18, SDA=GPIO19 — repurposed SD card pins)
  *  Limit sw  : Active-LOW, GPIO34 (Z-MIN header)
@@ -27,6 +27,14 @@
  * ──────────────────────────────────────────────────────────────────────────────────────
  * CHANGELOG
  * ──────────────────────────────────────────────────────────────────────────────────────
+ * v15.03g-V2 vs v15.03g-p1 (V2 hardware port):
+ *   CHG : ALT_MOTOR_GEARBOX 148.8 → 208.3  (V3 CNC bielle: UMOT 30:1 × 6.94)
+ *         V3 geometry: pivot below T8 at Y=+17.5mm, course 17.59mm/12° → 1.466 mm/deg.
+ *         MPU learning remains active and will converge to the true ratio within 2–3 jogs.
+ *   CHG : AZM bearing: igus PRT-02 LC → RU42 crossed roller (firmware-transparent;
+ *         no constant change needed — harmonic drive ratio 100:1 is unchanged).
+ *   CHG : SpreadCycle active on AZM (inherited from p2, no change).
+ *
  * v15.03g-p1 vs v15.03g:
  *   FIX : AZM hold current 10% → 50% of run current (60 mA → 300 mA).
  *         Harmonic drive is not self-locking — 60 mA was insufficient to hold
@@ -97,17 +105,19 @@
 constexpr float    MOTOR_FULL_STEPS   = 200.0f;   // Standard 1.8° NEMA 17 = 200 steps/rev
 
 /* ── Microstepping — affects resolution and torque mode ── */
-constexpr uint16_t MICROSTEPPING_AZM  = 16;        // StealthChop mode: silent at cost of torque
+constexpr uint16_t MICROSTEPPING_AZM  = 16;        // SpreadCycle mode: firm hold on non-self-locking harmonic drive
 constexpr uint16_t MICROSTEPPING_ALT  = 4;         // SpreadCycle mode: maximum torque for lift
 
 /* ── Gear ratios ── */
 constexpr float    GEAR_RATIO_AZM     = 100.0f;    // Harmonic drive: 100 motor turns = 1 output turn
 
 // ALT total ratio = UMOT worm gearbox × T8 crank-arm geometry.
-// UMOT 30:1 (tested) × 4.96 (measured crank factor) = 148.8
-// For UMOT 100:1: ALT_MOTOR_GEARBOX = 496.0f
-// The firmware learns the true ratio via MPU feedback — this is only the starting point.
-constexpr float    ALT_MOTOR_GEARBOX  = 148.8f;
+// V2 (ALT V3 CNC): UMOT 30:1 × 6.94 (V3 bielle geometry, linearized at mid-travel) = 208.3
+//   V3 geometry: pivot below T8 at Y=+17.5mm; course = 17.59mm over 12° → 1.466 mm/deg
+//   Prototype comparison: UMOT 30:1 × 4.96 (commercial tilt plate) = 148.8
+// ⚠️ This is a geometric estimate — the MPU learning will converge to the true value
+//    within 2–3 ALT jogs. The band is ±20%, so the starting point must be within range.
+constexpr float    ALT_MOTOR_GEARBOX  = 208.3f;    // V2: UMOT 30:1 × 6.94 (V3 bielle)
 
 /* ── ALT kinematics ── */
 constexpr float    ALT_SCREW_PITCH_MM = 2.0f;      // T8 lead screw: 2 mm linear travel per revolution
@@ -909,7 +919,7 @@ void startHoming() {
    Everything that can help debug a field issue is included here.
    ═══════════════════════════════════════════════════════════════════════════════════════ */
 void printDiagnostic() {
-  Serial.println("\n--- SYSTEM DIAGNOSTIC (v15.03g-p1) ---");
+  Serial.println("\n--- SYSTEM DIAGNOSTIC (v15.03g-V2) ---");
 
   // Hardware inputs
   Serial.print("Limit Sensor (Pin 34) : ");
@@ -1219,9 +1229,9 @@ void setup() {
   Serial.begin(115200);
   delay(1000);  // Flush ESP32 ROM boot garbage before any output
   Serial.println("\n=======================================================");
-  Serial.println("  BOOT: POLAR ALIGNMENT CONTROLLER V15.03g-p1 (ESP32)");
-  Serial.println("  ALT: MPU-6500 observe-only (ML learning, no corrections)");
-  Serial.println("  AZM: Residual ratio learning (guarded, no sensor needed)");
+  Serial.println("  BOOT: POLAR ALIGNMENT CONTROLLER V15.03g-V2 (ESP32)");
+  Serial.println("  ALT: MPU-6500 observe-only (ML learning) — V3 CNC bielle, ratio=208.3");
+  Serial.println("  AZM: Residual ratio learning — RU42 crossed roller bearing, harmonic drive 100:1");
   Serial.println("  TPPA jog units: ARCMINUTES (÷60 conversion active)");
   Serial.print  ("  AZM backlash:   "); Serial.print(AZM_BACKLASH_DEG * 60.0f, 1); Serial.println("'");
   Serial.println("  HOME required — persists across DTR reboots");
@@ -1280,7 +1290,7 @@ void setup() {
   drvAzm.begin(); drvAzm.pdn_disable(true); drvAzm.mstep_reg_select(true);
   drvAzm.rms_current(RMS_CURRENT_AZM, AZM_HOLD_MULTIPLIER);
   drvAzm.microsteps(MICROSTEPPING_AZM);
-  drvAzm.en_spreadCycle(false);  // StealthChop for quiet AZM operation
+  drvAzm.en_spreadCycle(true);   // SpreadCycle: firmer hold on non-self-locking harmonic drive (p2+V2)
   drvAzm.toff(4);
   drvAzm.shaft(false);
 

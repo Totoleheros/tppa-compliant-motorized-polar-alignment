@@ -1,10 +1,16 @@
-# Polar Align System – Hardware Setup
+# Polar Align System – Hardware Setup (Prototype)
+
+> 📌 **This document covers the Prototype hardware build**, which uses a commercial tilt plate, igus PRT-02 LC slewing ring, and UMOT 30:1 worm gearbox. This configuration has been **field-validated** with a 20 kg payload and is the recommended starting point for first-time builders.
+>
+> A **V2 hardware revision** (custom CNC ALT V3 mechanism + RU42 crossed roller bearing) is currently under development. Use `PolarAlign_Prototype.ino` for this hardware. See `HARDWARE_V2.md` (coming soon) for the V2 build.
+
+---
 
 ## ⚠️ Disclaimer
 
 > I'm just an enthusiast sharing this open hardware project, **with no guarantee of success**.
 > I'll do my best to support others trying this build, but my **time is limited**, and my **skills are not professional-grade**.
-> This is an **early prototype** and proof of concept — not fully validated yet. I hope to share updated iterations in the future.
+> This is a **validated prototype** — field-tested to sub-0.2 arcminute precision with a 20 kg payload. A refined V2 hardware revision is in development.
 
 ---
 
@@ -26,12 +32,12 @@
 
 This mount is designed to carry **heavy astrophotography setups** (long refractors, SCTs, Newtonians with guide scopes and cameras) by eliminating plastic from the structural load path.
 
-### Load Path (telescope → ground)
+### Load Path — Prototype (telescope → ground)
 
 ```
 Telescope + EQ Mount
        ↓
-  Tilt Plate (cast metal, pivot + T8 lead screw)
+  Tilt Plate (commercial cast-metal, pivot + T8 lead screw)
        ↓
   Crossed 15180 aluminum profiles (monolithic chassis)
        ↓
@@ -99,14 +105,14 @@ This mount operates in a **narrow 0–5° range** (the EQ mount handles most of 
 |------------|----------------|----------------------|---------------------|--------------|---------|
 | **100:1** | 6.3 s | 12.6 s | 80× | ✅ Worm + screw | Current prototype — very safe, very slow |
 | **50:1** | 3.1 s | 6.2 s | 40× | ✅ Worm + screw | Conservative choice |
-| **30:1** ⭐ | 1.9 s | 3.8 s | 23× | ⚠️ Screw only | **Recommended — best balance** *(on order)* |
+| **30:1** ⭐ | 1.9 s | 3.8 s | 23× | ⚠️ Screw only | **Recommended — best balance** *(current build, field-validated)* |
 | **17:1** | 1.1 s | 2.2 s | 13× | ❌ Screw only | Fast, tight margins in cold |
 
 > **Why 30:1?** A TPPA session involves 6–8 altitude corrections. At 100:1, this means 1–2 minutes of waiting for motors alone. At 30:1, the same session saves over a minute — significant when you're setting up in the cold and dark.
 
 > **Self-locking explained:** At 100:1 and 50:1, both the worm gear AND the lead screw prevent the telescope from back-driving under gravity (double self-locking). At 30:1 and below, the worm may lose self-locking, but the **T8×2mm lead screw is always self-locking** (helix angle 4° < friction angle ~8.5°). The load on the screw at operating angles is only 25–40 N — trivial for a bronze nut rated at 500–1000 N.
 
-**Author's configuration:** UMOT 100:1 (30:1 on order), which gives ~496:1 total effective ratio (will become ~149:1 with 30:1).
+**Author's configuration:** UMOT 30:1 (field-validated), giving ~149:1 total effective ratio.
 
 - Example: [AliExpress – ~20€](https://fr.aliexpress.com/item/1005008325671689.html)
 - ![Worm Gear Motor](IMAGES/Parts/WormGearMotor.jpg)
@@ -287,6 +293,8 @@ Place **2 jumper caps** horizontally on the bottom rows to bridge the communicat
 
 - **Reference Guide:**
   See the "UART Mode" section in the official wiki: [https://wiki.fysetc.com/docs/E4](https://wiki.fysetc.com/docs/E4)
+
+> 💡 Use `PolarAlign_Prototype.ino` for this hardware configuration.
 
 ### 📡 MPU-6500 I2C Wiring (via SD Card Sniffer)
 

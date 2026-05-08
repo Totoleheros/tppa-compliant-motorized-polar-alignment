@@ -12,7 +12,27 @@ It runs on the *FYSETC E4 V1.0* (ESP32 + dual TMC2209) and emulates the "Avalon"
 
 ---
 
+## 🔀 Which Version Should I Build?
+
+Two hardware configurations are supported. The firmware is identical in logic — only the hardware constants change.
+
+| | **Prototype** | **V2** *(in development)* |
+|---|---|---|
+| ALT axis | Commercial tilt plate + T8 lead screw | Custom CNC ALT V3 (bielle mechanism) |
+| AZM bearing | igus PRT-02 LC J4 slewing ring | RU42 crossed roller bearing |
+| Base | Monolithic 15180 aluminium profiles | Two-piece CNC aluminium plates |
+| Firmware file | `PolarAlign_Prototype.ino` | `PolarAlign_V2.ino` |
+| `ALT_MOTOR_GEARBOX` | 148.8 (30:1 × 4.96) | 208.3 (30:1 × 6.94) |
+| Status | ✅ **Field-validated — recommended** | 🔧 Under fabrication |
+| Hardware docs | [`HARDWARE_Prototype.md`](./HARDWARE_Prototype.md) | `HARDWARE_V2.md` *(coming soon)* |
+
+> 💡 If you're building for the first time, **start with the Prototype**. It uses off-the-shelf parts, has been validated to < 0.2 arcmin under 20 kg, and the firmware is identical.
+
+---
+
 ## 🎬 See It In Action
+
+> 📌 All videos below show the **Prototype hardware** (commercial tilt plate + igus slewing ring).
 
 | # | Video | What you'll see |
 |---|-------|-----------------|
@@ -75,7 +95,7 @@ A cross-platform desktop application is included to control the mount **without 
 **From source (any OS):**
 ```bash
 pip3 install pyserial
-python3 PolarAlignGUI.py
+python3 GUI/PolarAlignGUI.py
 ```
 
 > 💡 The GUI uses direct serial commands (`ALT:`, `AZM:`) in degrees — these work **without homing**, ideal for bench testing. TPPA uses its own `$J=` protocol in arcminutes during alignment sessions.
@@ -210,10 +230,10 @@ The gyroscope/accelerometer acts as a **digital plumb bob** for the Altitude axi
 
 | Axis | E4 Port | STEP | DIR | Mode | Microstepping | Current | Rationale |
 |------|---------|:----:|:---:|------|:-------------:|:-------:|-----------|
-| **AZM** | MOT-X | GPIO 27 | GPIO 26 | StealthChop | 16 | 600 mA | Silent operation, harmonic drive is easy to turn |
+| **AZM** | MOT-X | GPIO 27 | GPIO 26 | SpreadCycle | 16 | 600 mA | Firmer hold on non-self-locking harmonic drive |
 | **ALT** | MOT-Y | GPIO 33 | GPIO 32 | SpreadCycle | 4 | 300 mA | Maximum torque for lifting payload through worm gear |
 
-> The ALT current is deliberately low (300 mA) to prevent overheating inside the compact UMOT worm gearbox housing. Even at this level, the torque margin is ≥23× at 30:1 ratio. See [Motor Thermal Management](#-motor-thermal-management) for details.
+> The AZM axis uses **SpreadCycle** (not StealthChop) because the harmonic drive is not self-locking — SpreadCycle provides a firmer, more predictable static hold under load. The ALT current is deliberately low (300 mA) to prevent overheating inside the compact UMOT worm gearbox housing. See [Motor Thermal Management](#-motor-thermal-management) for details.
 
 ### Safety Inputs
 
@@ -252,7 +272,7 @@ This mount is designed for **heavy-duty astrophotography setups**. The operating
 | **Recommended** | **20 kg** | Safe for all builders, ~2× margin. The author's own [testing setup](#-authors-testing-setup) sits right at this limit. |
 | **Advanced** | **25 kg** | Requires centered payload and careful assembly. |
 
-**Weakest link analysis:**
+**Weakest link analysis — Prototype (igus PRT-02 LC):**
 
 The limiting factor is the **igus PRT-02 LC J4 orientation ring** (azimuth bearing). Its tilting moment capacity (eccentric off-axis load) is not published for the LC variant — this is why we cap the recommended payload at 20 kg with a safety margin.
 
@@ -265,13 +285,18 @@ The limiting factor is the **igus PRT-02 LC J4 orientation ring** (azimuth beari
 | UMOT worm gearbox | ≥2 Nm output | ~0.25 Nm required | 8–16× |
 | 15180 aluminum profiles | >5 kN bending | <250 N | 20×+ |
 
-> **Builder's note:** All 3D-printed parts (motor cradles, sensor brackets, enclosures) are **non-structural** and carry only the weight of their respective components. The telescope payload is transmitted entirely through metal: tilt plate → lead screw → 15180 profiles → igus bearing → tripod.
+> **V2 note:** The RU42 crossed roller bearing (OD=70mm) used in V2 has fully published load ratings, eliminating the tilting-moment uncertainty of the igus LC variant. Payload ratings will be updated in `HARDWARE_V2.md`.
+
+> **Builder's note:** All 3D-printed parts (motor cradles, sensor brackets, enclosures) are **non-structural** and carry only the weight of their respective components. The telescope payload is transmitted entirely through metal: tilt plate → lead screw → chassis → bearing → tripod.
 
 ---
 
 ## 🔧 ALT Motor: Speed vs Torque (UMOT Ratio)
 
-The ALT axis uses a NEMA 17 + UMOT worm gearbox driving a T8×2mm lead screw through a crank-arm mechanism. The total gear ratio is `UMOT ratio × crank factor` (typically ~4.96 for the T8 + bielle geometry of this prototype).
+The ALT axis uses a NEMA 17 + UMOT worm gearbox driving a T8×2mm lead screw through a crank-arm mechanism. The total gear ratio is `UMOT ratio × crank factor`.
+
+- **Prototype:** crank factor ≈ 4.96 → `ALT_MOTOR_GEARBOX = 148.8`
+- **V2 (ALT V3 CNC):** crank factor ≈ 6.94 (longer arm, deeper travel) → `ALT_MOTOR_GEARBOX = 208.3`
 
 | UMOT Ratio | Total Ratio | Time for 1° | Torque Margin | Self-Locking | Status |
 |:----------:|:-----------:|:-----------:|:-------------:|:------------:|--------|
@@ -282,11 +307,7 @@ The ALT axis uses a NEMA 17 + UMOT worm gearbox driving a T8×2mm lead screw thr
 
 > **Safety note:** The T8×2mm lead screw is always self-locking (helix angle 4° < friction angle ~8.5°). The telescope cannot back-drive under any circumstance, even if the worm gear loses self-locking at lower ratios.
 
-**Firmware change when switching ratio:** Two constants in the code (or use the GUI Config tab):
-```cpp
-constexpr float ALT_MOTOR_GEARBOX = 148.8f;  // UMOT 30:1 × 4.96 crank
-```
-After changing, the old EEPROM learned ratio is automatically detected as out-of-band and discarded at boot — the firmware recalibrates within 2–3 movements via MPU learning.
+**Firmware change when switching ratio:** Edit `ALT_MOTOR_GEARBOX` directly, or use the GUI Config tab (which exposes `UMOT_RATIO` and `TILT_CRANK_RATIO` as separate fields and auto-computes the product). After changing, the old EEPROM learned ratio is automatically detected as out-of-band and discarded at boot — the firmware recalibrates within 2–3 movements via MPU learning.
 
 ---
 
@@ -324,9 +345,68 @@ The ALT stepper receives holding current even when stationary. Inside the compac
    | Partition | Huge APP (3 MB / 1 MB SPIFFS) |
    | Upload speed | 115200 bps |
 
-4. **Upload** — the Arduino code is in the **Arduino code** directory.
+4. **Choose your sketch** from the `Arduino code/` directory:
+
+   | Your hardware | Sketch to flash |
+   |---|---|
+   | Commercial tilt plate + igus bearing | `PolarAlign_Prototype.ino` |
+   | ALT V3 CNC + RU42 bearing | `PolarAlign_V2.ino` |
 
 > On boot, the serial monitor is silent for ~1 second (Silent Boot). Send `?` to wake it up.
+
+---
+
+## 🛠️ Configuration Knobs
+
+Edit in the Arduino sketch or use the **Firmware Config tab** in the GUI (generates copy-pasteable code). The GUI splits `ALT_MOTOR_GEARBOX` into `UMOT_RATIO` × `TILT_CRANK_RATIO` for clarity.
+
+The only constants that differ between hardware versions are highlighted:
+
+```cpp
+/* ───── HARDWARE SETTINGS ───── */
+constexpr float MOTOR_FULL_STEPS = 200.0f;    // 1.8° motor = 200 full steps/rev
+constexpr uint16_t MICROSTEPPING_AZM = 16;    // SpreadCycle — firm hold on harmonic drive
+constexpr uint16_t MICROSTEPPING_ALT = 4;     // SpreadCycle — maximum torque
+constexpr float GEAR_RATIO_AZM = 100.0f;      // Harmonic drive ratio (both versions)
+
+// ⚠️ VERSION-DEPENDENT — see table below
+constexpr float ALT_MOTOR_GEARBOX = 148.8f;   // Prototype: UMOT 30:1 × 4.96 crank
+// constexpr float ALT_MOTOR_GEARBOX = 208.3f; // V2:        UMOT 30:1 × 6.94 crank (V3 bielle)
+
+constexpr float ALT_SCREW_PITCH_MM = 2.0f;    // T8 lead screw: 2 mm per revolution
+constexpr float ALT_RADIUS_MM = 60.0f;        // Distance pivot → lead screw attachment
+
+constexpr bool AXIS_REV_AZM = true;           // Flip if your mount moves backwards
+constexpr bool AXIS_REV_ALT = true;
+
+constexpr uint16_t RMS_CURRENT_AZM = 600;     // mA — harmonic drive
+constexpr uint16_t RMS_CURRENT_ALT = 300;     // mA — thermal-safe inside UMOT housing
+
+/* ───── TRAVEL LIMITS (degrees) ───── */
+constexpr float AZM_LIMIT_NEG = -30.0f;
+constexpr float AZM_LIMIT_POS =  30.0f;
+constexpr float ALT_LIMIT_NEG =   0.0f;
+constexpr float ALT_LIMIT_POS =  10.0f;
+
+/* ───── ALT MPU LEARNING ───── */
+constexpr float MIN_LEARNING_ANGLE = 0.5f;        // Min move for ML ratio update (deg)
+constexpr float LEARNING_SMOOTHING = 0.10f;       // EWMA weight — 10% new, 90% history
+constexpr unsigned long GLOBAL_SETTLE_MS = 2000;  // Anti-vibration delay before Idle (ms)
+
+/* ───── AZM RATIO LEARNING ───── */
+constexpr float AZM_LEARNING_SMOOTHING = 0.05f;   // EWMA weight — 5% (conservative)
+constexpr float AZM_RATIO_BAND_LOW  = 0.90f;      // Reject ratio updates outside ±10%
+constexpr float AZM_RATIO_BAND_HIGH = 1.10f;
+```
+
+**Version-dependent constants at a glance:**
+
+| Constant | Prototype | V2 |
+|---|---|---|
+| `ALT_MOTOR_GEARBOX` | `148.8` | `208.3` |
+| Firmware file | `PolarAlign_Prototype.ino` | `PolarAlign_V2.ino` |
+
+Everything else is identical. The MPU learning system will adapt to your exact mechanics regardless of starting value.
 
 ---
 
@@ -358,46 +438,6 @@ Use the **Arduino IDE Serial Monitor** or the **PolarAlign Controller GUI** (115
 > 💡 MPos values are in **arcminutes**. With TPPA Gear Ratio = `1.0`, they map directly.
 
 > ⚠️ **TPPA Free Field** sends absolute commands (G53) — the value is a target position, not a delta. Preset buttons (±1, ±5) send relative commands (G91). During auto-alignment, everything is relative.
-
----
-
-## 🛠️ Configuration Knobs
-
-Edit in the Arduino code or use the **Firmware Config tab** in the GUI (generates copy-pasteable code). The GUI splits `ALT_MOTOR_GEARBOX` into two fields for clarity:
-
-```cpp
-/* ───── HARDWARE SETTINGS ───── */
-constexpr float MOTOR_FULL_STEPS = 200.0f;    // 1.8° motor = 200 full steps/rev
-constexpr uint16_t MICROSTEPPING_AZM = 16;    // StealthChop — smooth & silent
-constexpr uint16_t MICROSTEPPING_ALT = 4;     // SpreadCycle — maximum torque
-constexpr float GEAR_RATIO_AZM = 100.0f;      // Harmonic drive ratio
-constexpr float ALT_MOTOR_GEARBOX = 148.8f;   // UMOT 30:1 × 4.96 crank
-                                               //   (was 496.0 for UMOT 100:1)
-constexpr float ALT_SCREW_PITCH_MM = 2.0f;    // T8 lead screw: 2 mm per revolution
-constexpr float ALT_RADIUS_MM = 60.0f;        // Distance pivot → lead screw attachment
-
-constexpr bool AXIS_REV_AZM = true;           // Flip if your mount moves backwards
-constexpr bool AXIS_REV_ALT = true;
-
-constexpr uint16_t RMS_CURRENT_AZM = 600;     // mA — harmonic drive is easy to turn
-constexpr uint16_t RMS_CURRENT_ALT = 300;     // mA — thermal-safe inside UMOT housing
-
-/* ───── TRAVEL LIMITS (degrees) ───── */
-constexpr float AZM_LIMIT_NEG = -30.0f;
-constexpr float AZM_LIMIT_POS =  30.0f;
-constexpr float ALT_LIMIT_NEG =   0.0f;
-constexpr float ALT_LIMIT_POS =  10.0f;       // V2 tilt plate (was 5° for V1)
-
-/* ───── ALT MPU LEARNING ───── */
-constexpr float MIN_LEARNING_ANGLE = 0.5f;       // Min move for ML ratio update (deg)
-constexpr float LEARNING_SMOOTHING = 0.10f;      // EWMA weight — 10% new, 90% history
-constexpr unsigned long GLOBAL_SETTLE_MS = 2000;  // Anti-vibration delay before Idle (ms)
-
-/* ───── AZM RATIO LEARNING ───── */
-constexpr float AZM_LEARNING_SMOOTHING = 0.05f;  // EWMA weight — 5% (conservative)
-constexpr float AZM_RATIO_BAND_LOW  = 0.90f;     // Reject ratio updates outside ±10%
-constexpr float AZM_RATIO_BAND_HIGH = 1.10f;
-```
 
 ---
 
