@@ -32,13 +32,14 @@ Two hardware configurations are supported. The firmware is identical in logic �
 
 ## 🎬 See It In Action
 
-> 📌 All videos below show the **Prototype hardware** (commercial tilt plate + igus slewing ring).
+> 📌 Videos 1–3 show the **Prototype hardware**. Video 4 is a V2 kinematic simulation.
 
 | # | Video | What you'll see |
 |---|-------|-----------------|
 | 1 | [First Test with Full Payload](https://youtu.be/girvoCZ_UCE) | 15 kg equatorial mount on the PA platform — first motorized movements under real load. |
 | 2 | [Homing Sequence (Arduino Serial Monitor)](https://youtu.be/NkoLJ03FSSY) | Live serial output: homing, limit switch detection, pull-off, MPU-6500 gyroscope tare (with the same 15 kg payload). |
 | 3 | [**TPPA Session — Below 0.2 Arcminute!**](https://youtu.be/gfE6sZmrzuw) | Complete polar alignment run in N.I.N.A. — watch TPPA converge to < 0.2' in real-time (with the same 15 kg payload). |
+| 4 | [**V2 ALT Bielle — Fusion 360 Kinematic Simulation**](https://youtu.be/YnkVJ2hzqB0) | Kinematic simulation of the V2 CNC bielle mechanism: full −2° to +10° travel range, pivot geometry, T8 drive. *(V2 hardware — not yet fabricated)* |
 
 ---
 
