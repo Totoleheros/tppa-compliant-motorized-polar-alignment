@@ -41,6 +41,8 @@ All electronics, firmware logic, MPU wiring, and GRBL protocol are **identical t
   - Parts in **green** in the model: CNC aluminium (JLCCNC recommended).
   - Parts in **blue**: 3D-printed (PLA+CF or PETG).
 
+- 🎬 **Kinematic simulation (Fusion 360):** [V2 ALT Bielle — Full Travel Range](https://youtu.be/YnkVJ2hzqB0) — watch the bielle mechanism sweep from −2° to +10°, pivot geometry and T8 drive in motion.
+
 ---
 
 ## ⚖️ Mechanical Design — Load Path
