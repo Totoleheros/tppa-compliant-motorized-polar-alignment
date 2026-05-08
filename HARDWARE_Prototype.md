@@ -21,7 +21,7 @@
   > Parts in blue are to be printed in 3D (PLA+CF recommended); Parts in green: CNC machining recommended.
 
 - All 3D parts (STEP format) are included in the downloadable archive:
-  📦 `PolarALIGN_V3_STEP.zip`
+  📦 `PolarALIGN_Proto_STEP.zip`
 
 - 🛠️ **Drilling Jig Included:** The 3D model archive now includes a custom **Drilling Jig (Gabarit de perçage)**. You can 3D print this tool to easily and accurately mark the drilling hole locations on the 200mm 15180 profile.
 - A small cable management piece for the gyroscope wires is also included.
