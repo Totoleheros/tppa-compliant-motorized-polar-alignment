@@ -2,7 +2,9 @@
 
 > 🔧 **This document covers the V2 hardware revision**, which uses a custom CNC ALT V3 bielle mechanism and an RU42 crossed roller bearing for the AZM axis. This configuration is **currently under fabrication** — not yet field-validated.
 >
-> For a proven, ready-to-build starting point, see [`HARDWARE_Prototype.md`](./HARDWARE_Prototype.md). Use `PolarAlign_V2.ino` for this hardware.
+>Use `PolarAlign_V2.ino` for this hardware.
+>  
+> For a proven, ready-to-build starting point, see [`HARDWARE_Prototype.md`](./HARDWARE_Prototype.md). 
 
 ---
 
@@ -31,7 +33,7 @@ All electronics, firmware logic, MPU wiring, and GRBL protocol are **identical t
 ## 🧩 3D Model & Files
 
 - The full 3D design (STEP format) is included in the downloadable archive:
-  📦 `PolarALIGN_V3_STEP.zip`
+  📦 `PolarALIGN_V2_STEP.zip`
 
 > 💡 All CNC part dimensions are directly readable from the STEP file. The sections below describe the architecture and design rationale; refer to the STEP for fabrication tolerances and exact dimensions.
 
