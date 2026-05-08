@@ -256,7 +256,7 @@ The RU42 crossed roller bearing eliminates the tilting moment uncertainty that c
 | ALT tilt plate | Bielle mechanism, pivot, 626ZZ seats, chariot guide | ✅ Yes |
 
 - ![CNC Parts — Exploded View](IMAGES/Parts_V2/CNC_exploded.jpg)
-- ![CNC Parts — Assembly View](IMAGES/ASSEMBLY_V2/3D_Model/assembly_overview.jpg)
+- ![CNC Parts — Assembly View](IMAGES/ASSEMBLY_V2/3D_Model/40.jpg)
 
 > All CNC dimensions in `PolarALIGN_V2_STEP.zip`. Standard tap drill sizes: M3=2.5mm, M4=3.3mm, M5=4.2mm, M6=5.0mm.
 
