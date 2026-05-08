@@ -22,7 +22,7 @@ V2 addresses the two main limitations of the Prototype:
 |------|-----------|-----|---------|
 | **AZM bearing** | igus PRT-02 LC — tilting moment unknown (⚠️ assumed weakest link) | **RU42 crossed roller** — tilting moment ~153 Nm (4× margin at 25 kg) | Known, published margins. No more uncertainty. |
 | **ALT mechanism** | Commercial tilt plate (5.6 mm non-standard shaft, custom coupler) | **Custom CNC ALT bielle** — pivot below T8, optimized kinematics | Full 12° travel range, clean geometry, no off-spec shafts. |
-| **Base plate** | Monolithic 15180 aluminium profiles | **Two-piece CNC aluminium** — assembly tolerance on 4 pillars | Adjustable at assembly, lower JLCPCB cost. |
+| **Base plate** | Monolithic 15180 aluminium profiles | **Two-piece CNC aluminium** — assembly tolerance on 4 pillars | Adjustable at assembly, lower JLCCNC cost. |
 
 All electronics, firmware logic, MPU wiring, and GRBL protocol are **identical to the Prototype**. Only the hardware constants change (see [`README.md` — Configuration Knobs](./README.md)).
 
@@ -34,9 +34,11 @@ All electronics, firmware logic, MPU wiring, and GRBL protocol are **identical t
   📦 `PolarALIGN_V2_STEP.zip`
 
 > 💡 All CNC part dimensions are directly readable from the STEP file. The sections below describe the architecture and design rationale; refer to the STEP for fabrication tolerances and exact dimensions.
+
+> ⚠️ **Manufacturing drawings** (2D technical PDFs as submitted to JLCCNC) are available in `3D STEP Models/Manufacturing_Drawings_V2/`. These reflect the design **as fabricated**. If the design is revised post-validation, the STEP file is the source of truth.
 > 
 - The full 3D design is available here: 👉 [Shapr3D Project Viewer](https://app.shapr3d.com/p/c5be962f-1274-4f6f-9b4a-4f21080a35d3)
-  - Parts in **green** in the model: CNC aluminium (JLCPCB recommended).
+  - Parts in **green** in the model: CNC aluminium (JLCCNC recommended).
   - Parts in **blue**: 3D-printed (PLA+CF or PETG).
 
 ---
@@ -120,7 +122,7 @@ A 3D-printed PLA+CF adapter bridges the harmonic drive output (PCD = 20.5 mm) to
 The V2 base replaces the Prototype's monolithic 15180 aluminium profiles with two separate CNC-machined aluminium plates joined by four precision pillars.
 
 **Design rationale:**
-- **JLCPCB cost:** Two separate small blocks are significantly cheaper than a large monolithic part.
+- **JLCCNC cost:** Two separate small blocks are significantly cheaper than a large monolithic part.
 - **Assembly tolerance:** The four pillars allow for fine parallelism adjustment during assembly, compensating for minor CNC flatness variation.
 - **Anti-tip gap:** A 1 mm gap between the two plates on the anti-tip side prevents binding during AZM rotation under eccentric load.
 
@@ -247,7 +249,7 @@ The RU42 crossed roller bearing eliminates the tilting moment uncertainty that c
 
 ## 🖨️ 3D Printing & CNC Fabrication
 
-### CNC Parts (aluminium, recommended JLCPCB)
+### CNC Parts (aluminium, recommended JLCCNC)
 
 | Part | Role | Structural? |
 |---|---|---|
@@ -260,7 +262,7 @@ The RU42 crossed roller bearing eliminates the tilting moment uncertainty that c
 
 > All CNC dimensions in `PolarALIGN_V2_STEP.zip`. Standard tap drill sizes: M3=2.5mm, M4=3.3mm, M5=4.2mm, M6=5.0mm.
 
-- Estimated CNC cost (JLCPCB): **~90–110€**
+- Estimated CNC cost (JLCCNC): **~320€**
 
 ### 3D Printed Parts
 
@@ -282,21 +284,20 @@ Same role and constraints as the Prototype — none are in the telescope load pa
 |---|---|---|---|
 | — | ~~igus PRT-02 LC J4~~ | **Removed** | — |
 | 1 | **RU42UUCCO** crossed roller bearing | New — AZM bearing | ~38€ |
-| 2 | **CNC ALT** tilt plate assembly | New — replaces commercial tilt plate | ~90–110€ (JLCPCB) |
+| 2 | **CNC ALT** tilt plate assembly | New — replaces commercial tilt plate | ~320€ (JLCCNC) |
 | 3 | **626ZZ** bearing (6×19×6 mm) | New — right-side T8 axial stop | <2€ |
 | — | ~~T8 tilt plate coupler (5.6mm hack)~~ | **Removed** — V2 is native T8 | — |
 
-All other components (harmonic drive, NEMA 17 motors, FYSETC E4, T8 kit, MPU-6500, sniffer, tripod extension) are **identical to the Prototype** — see [`HARDWARE_Prototype.md`](./HARDWARE_Prototype.md) for links and details.
 
-### 💰 V2 Total Budget Estimate
 
 | Category | Cost |
 |---|---|
-| Prototype hardware (minus igus + tilt plate) | ~**270€** |
 | RU42 bearing | ~**38€** |
-| CNC ALT + base plates (JLCPCB) | ~**100€** |
+| CNC parts — ALT + base plates (JLCCNC) | ~**320€** |
 | 626ZZ bearing + fasteners | ~**5€** |
-| **Total** | ~**413€** |
+| **V2-specific total** | ~**363€** |
+
+> All other components (harmonic drive, NEMA 17 motors, FYSETC E4, T8 kit, MPU-6500, sniffer, tripod extension) are shared with the Prototype — see [`HARDWARE_Prototype.md`](./HARDWARE_Prototype.md) for their costs.
 
 ---
 
