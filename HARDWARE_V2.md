@@ -34,6 +34,8 @@ All electronics, firmware logic, MPU wiring, and GRBL protocol are **identical t
   📦 `PolarALIGN_V2_STEP.zip`
 
 > 💡 All CNC part dimensions are directly readable from the STEP file. The sections below describe the architecture and design rationale; refer to the STEP for fabrication tolerances and exact dimensions.
+
+> ⚠️ **Manufacturing drawings** (2D technical PDFs as submitted to JLCCNC) are available in `3D STEP Models/Manufacturing_Drawings_V2/`. These reflect the design **as fabricated**. If the design is revised post-validation, the STEP file is the source of truth.
 > 
 - The full 3D design is available here: 👉 [Shapr3D Project Viewer](https://app.shapr3d.com/p/c5be962f-1274-4f6f-9b4a-4f21080a35d3)
   - Parts in **green** in the model: CNC aluminium (JLCCNC recommended).
