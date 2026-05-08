@@ -1,6 +1,6 @@
 # Polar Align System – Hardware Setup (V2)
 
-> 🔧 **This document covers the V2 hardware revision**, which uses a custom CNC ALT V3 bielle mechanism and an RU42 crossed roller bearing for the AZM axis. This configuration is **currently under fabrication** — not yet field-validated.
+> 🔧 **This document covers the V2 hardware revision**, which uses a custom CNC ALT bielle mechanism and an RU42 crossed roller bearing for the AZM axis. This configuration is **currently under fabrication** — not yet field-validated.
 >
 >Use `PolarAlign_V2.ino` for this hardware.
 >  
@@ -23,7 +23,7 @@ V2 addresses the two main limitations of the Prototype:
 | Axis | Prototype | V2 | Benefit |
 |------|-----------|-----|---------|
 | **AZM bearing** | igus PRT-02 LC — tilting moment unknown (⚠️ assumed weakest link) | **RU42 crossed roller** — tilting moment ~153 Nm (4× margin at 25 kg) | Known, published margins. No more uncertainty. |
-| **ALT mechanism** | Commercial tilt plate (5.6 mm non-standard shaft, custom coupler) | **Custom CNC ALT V3 bielle** — pivot below T8, optimized kinematics | Full 12° travel range, clean geometry, no off-spec shafts. |
+| **ALT mechanism** | Commercial tilt plate (5.6 mm non-standard shaft, custom coupler) | **Custom CNC ALT bielle** — pivot below T8, optimized kinematics | Full 12° travel range, clean geometry, no off-spec shafts. |
 | **Base plate** | Monolithic 15180 aluminium profiles | **Two-piece CNC aluminium** — assembly tolerance on 4 pillars | Adjustable at assembly, lower JLCPCB cost. |
 
 All electronics, firmware logic, MPU wiring, and GRBL protocol are **identical to the Prototype**. Only the hardware constants change (see [`README.md` — Configuration Knobs](./README.md)).
@@ -49,7 +49,7 @@ All electronics, firmware logic, MPU wiring, and GRBL protocol are **identical t
 ```
 Telescope + EQ Mount
        ↓
-  ALT V3 CNC mechanism (tilt plate + bielle)
+  ALT CNC mechanism (tilt plate + bielle)
        ↓
   Two-piece CNC base plate
        ↓
@@ -127,11 +127,11 @@ The V2 base replaces the Prototype's monolithic 15180 aluminium profiles with tw
 - Central M8 bolt fixes the Angeleyes 400 tripod extension (universal mount interface).
 - A radial sliding slot accommodates an 8×16 shoulder screw (M6×8) as the AZM fine-adjustment pin during polar alignment.
 
-> 📐 Refer to `PolarALIGN_V3_STEP.zip` for all CNC dimensions, tolerances, and hole patterns.
+> 📐 Refer to `PolarALIGN_V2_STEP.zip` for all CNC dimensions, tolerances, and hole patterns.
 
 ---
 
-## 🔧 ALT Axis: V3 CNC Bielle Mechanism
+## 🔧 ALT Axis: CNC Bielle Mechanism
 
 The V2 ALT axis replaces the commercial tilt plate with a fully custom CNC aluminium bielle (crank-arm) mechanism. The key design change is the **pivot repositioned below the T8 lead screw**, which recovers the full travel range that was reduced in earlier geometry iterations.
 
@@ -182,21 +182,21 @@ The T8 nut carrier uses a **three-nut anti-backlash system**:
 | Left | Small nut + spring + large anti-backlash nut | Active spring pre-load, removes T8 backlash |
 | Right | Large simple nut | Axial reaction stop |
 
-- Distance between the two large nuts (inner faces): **21 mm** — satisfies the N×2+1 mm opposition-of-phase rule for anti-backlash nut geometry.
+- Distance between the two large nuts (inner faces): **19 mm** — satisfies the N×2+1 mm opposition-of-phase rule for anti-backlash nut geometry.
 - Left bearing housing is **blind (borgne)** — serves as the axial stop for leftward T8 forces.
 
 > 📐 Logement bore diameter: sized to accommodate the M3 fixing hole PCD (16 mm) of the large anti-backlash nut — do not use the nut OD alone as the bore spec.
 
 ### Firmware constant for V2
 
-The V3 bielle geometry gives a different effective crank ratio than the Prototype's commercial tilt plate:
+The bielle geometry gives a different effective crank ratio than the Prototype's commercial tilt plate:
 
 ```cpp
-// V2 — ALT V3 CNC bielle (UMOT 30:1 × 6.94 linearized crank factor)
+// V2 — ALT CNC bielle (UMOT 30:1 × 6.94 linearized crank factor)
 constexpr float ALT_MOTOR_GEARBOX = 208.3f;
 ```
 
-The MPU-6500 learning system will converge to the true value within 2–3 ALT jogs regardless of this starting estimate. The ±20% acceptance band means the firmware will tolerate a ~40 mm/° error before rejecting the update — well within the V3 geometry's expected range.
+The MPU-6500 learning system will converge to the true value within 2–3 ALT jogs regardless of this starting estimate. The ±20% acceptance band means the firmware will tolerate a ~40 mm/° error before rejecting the update — well within the V2 geometry's expected range.
 
 ---
 
@@ -232,7 +232,7 @@ The RU42 crossed roller bearing eliminates the tilting moment uncertainty that c
 | RU42 – Tilting moment (est.) | ~153 Nm | ~37 Nm @150mm arm | **4.1×** | ⚠️ Weakest (but known & comfortable) |
 | T8 lead screw (bronze nut) | 500–1,000 N | ~25–40 N @2° tilt | **15–25×** | No |
 | UMOT 30:1 output torque | ~2–4 Nm | ~0.04 Nm @operating angle | **51×** | No |
-| Bielle (V3 CNC rod) | Steel, SF 20.7× | 11 N compression | **20.7×** | No |
+| Bielle (CNC rod) | Steel, SF 20.7× | 11 N compression | **20.7×** | No |
 | 626ZZ right bearing | Combined SF 5.3× | Axial reaction only | **5.3×** | No |
 | 3D-printed parts | Non-structural | Motor/sensor weight only | N/A | No |
 
@@ -248,9 +248,9 @@ The RU42 crossed roller bearing eliminates the tilting moment uncertainty that c
 |---|---|---|
 | Base plate — piece 1 | Lower platform, tripod interface, RU42 outer ring mount | ✅ Yes |
 | Base plate — piece 2 | Upper platform, RU42 inner ring mount, pillar tops | ✅ Yes |
-| ALT V3 tilt plate | Bielle mechanism, pivot, 626ZZ seats, chariot guide | ✅ Yes |
+| ALT tilt plate | Bielle mechanism, pivot, 626ZZ seats, chariot guide | ✅ Yes |
 
-> All CNC dimensions in `PolarALIGN_V3_STEP.zip`. Standard tap drill sizes: M3=2.5mm, M4=3.3mm, M5=4.2mm, M6=5.0mm.
+> All CNC dimensions in `PolarALIGN_V2_STEP.zip`. Standard tap drill sizes: M3=2.5mm, M4=3.3mm, M5=4.2mm, M6=5.0mm.
 
 - Estimated CNC cost (JLCPCB): **~90–110€**
 
@@ -274,9 +274,9 @@ Same role and constraints as the Prototype — none are in the telescope load pa
 |---|---|---|---|
 | — | ~~igus PRT-02 LC J4~~ | **Removed** | — |
 | 1 | **RU42UUCCO** crossed roller bearing | New — AZM bearing | ~38€ |
-| 2 | **CNC ALT V3** tilt plate assembly | New — replaces commercial tilt plate | ~90–110€ (JLCPCB) |
+| 2 | **CNC ALT** tilt plate assembly | New — replaces commercial tilt plate | ~90–110€ (JLCPCB) |
 | 3 | **626ZZ** bearing (6×19×6 mm) | New — right-side T8 axial stop | <2€ |
-| — | ~~T8 tilt plate coupler (5.6mm hack)~~ | **Removed** — V3 is native T8 | — |
+| — | ~~T8 tilt plate coupler (5.6mm hack)~~ | **Removed** — V2 is native T8 | — |
 
 All other components (harmonic drive, NEMA 17 motors, FYSETC E4, T8 kit, MPU-6500, sniffer, tripod extension) are **identical to the Prototype** — see [`HARDWARE_Prototype.md`](./HARDWARE_Prototype.md) for links and details.
 
@@ -286,7 +286,7 @@ All other components (harmonic drive, NEMA 17 motors, FYSETC E4, T8 kit, MPU-650
 |---|---|
 | Prototype hardware (minus igus + tilt plate) | ~**270€** |
 | RU42 bearing | ~**38€** |
-| CNC ALT V3 + base plates (JLCPCB) | ~**100€** |
+| CNC ALT + base plates (JLCPCB) | ~**100€** |
 | 626ZZ bearing + fasteners | ~**5€** |
 | **Total** | ~**413€** |
 
