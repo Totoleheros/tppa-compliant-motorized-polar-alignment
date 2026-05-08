@@ -46,7 +46,7 @@ Two hardware configurations are supported. The firmware is identical in logic â€
 
 The annotated photo below shows the full astrophotography rig used to develop and validate this project. The PA platform (item 2) carries everything above it â€” roughly **20 kg of total payload**, which sits right at the recommended limit.
 
-![Setup Overview](IMAGES/ASSEMBLY/Real_World/setup_annotated.jpeg)
+![Setup Overview](IMAGES/ASSEMBLY_Proto/Real_World/setup_annotated.jpeg)
 
 | # | Component | Est. Weight | Details |
 |---|-----------|:-----------:|---------|

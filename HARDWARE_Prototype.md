@@ -75,23 +75,23 @@ Telescope + EQ Mount
 
 ### 1. Tripod Extension
 - Example: [AliExpress – 43€](https://fr.aliexpress.com/item/1005008669077575.html)
-- ![Tripod Extension](IMAGES/Parts/tripod-extension.jpg)
+- ![Tripod Extension](IMAGES/Parts_Proto/tripod-extension.jpg)
 
 ### 2. Harmonic Drive (AZM Reduction)
 - Model: **MINIF11-100** (Ratio 100:1)
 - Example: [AliExpress – 58€](https://fr.aliexpress.com/item/1005007712296652.html)
-- ![Harmonic Drive](IMAGES/Parts/harmonic-drive.jpg)
+- ![Harmonic Drive](IMAGES/Parts_Proto/harmonic-drive.jpg)
 
 ### 3. Stepper Motor (AZM Drive)
 - **1x** Standard NEMA 17 for the Harmonic Drive input.
 - Model: **17HS19-2004S1** (or similar high torque)
 - Example: [Amazon – ~12€]
-- ![Stepper Motor](IMAGES/Parts/stepper.jpg)
+- ![Stepper Motor](IMAGES/Parts_Proto/stepper.jpg)
 
 ### 4. Heavy Duty Tilt Plate (Base Structure)
 - *Replaces the old cross-slide table for better stability.*
 - Example: [AliExpress – ~80€](https://fr.aliexpress.com/item/1005009718898462.html)
-- ![Tilt Plate](IMAGES/Parts/TiltPlate.jpg)
+- ![Tilt Plate](IMAGES/Parts_Proto/TiltPlate.jpg)
 
 ### 5. ALT Worm Gear Motor (Self-Locking)
 
@@ -115,7 +115,7 @@ This mount operates in a **narrow 0–5° range** (the EQ mount handles most of 
 **Author's configuration:** UMOT 30:1 (field-validated), giving ~149:1 total effective ratio.
 
 - Example: [AliExpress – ~20€](https://fr.aliexpress.com/item/1005008325671689.html)
-- ![Worm Gear Motor](IMAGES/Parts/WormGearMotor.jpg)
+- ![Worm Gear Motor](IMAGES/Parts_Proto/WormGearMotor.jpg)
 
 #### 🌡️ Motor Thermal Note
 
@@ -137,7 +137,7 @@ The firmware ships with **300 mA** for the ALT motor. Even at this reduced curre
   - **Plate 2 (Cross):** Orthogonal (East-West), aligned flush with the North end of Plate 1 (200mm length).
 - ⚠️ **CRITICAL WARNING:** The top and bottom faces of the 15180 profiles are **NOT interchangeable** (they have different slot spacing/patterns). Be absolutely sure of your orientation and assembly direction *before* drilling any holes!
 - Cost: ~40€ (for both)
-- ![15180](IMAGES/Parts/15180.jpg)
+- ![15180](IMAGES/Parts_Proto/15180.jpg)
 
 ### 7. Orientation Ring (Bearing)
 
@@ -159,7 +159,7 @@ The firmware ships with **300 mA** for the ALT motor. Even at this reduced curre
 
 > ⚠️ **Tilting moment** (the ability to resist an off-center load trying to tip the bearing) is **not published** for the PRT-02 LC variant. The PRT-01 series (aluminum housing) is rated at 120 Nm. The PRT-02 LC (polymer housing) is likely significantly lower. This is why we cap the recommended payload at 20 kg — to account for this unknown with a safety margin. **Keep your telescope centered on the bearing as much as possible.**
 
-- ![Orientation Ring](IMAGES/Parts/orientation_ring.jpg)
+- ![Orientation Ring](IMAGES/Parts_Proto/orientation_ring.jpg)
 
 ---
 
@@ -170,7 +170,7 @@ The firmware ships with **300 mA** for the ALT motor. Even at this reduced curre
 - MCU: ESP32-WROOM-32 @ 240 MHz (dual-core, WiFi/BT)
 - Drivers: 4× TMC2209, factory-soldered, UART-addressed
 - Example: [AliExpress – ~30€](https://fr.aliexpress.com/item/1005001704413148.html)
-- ![FYSETC E4 Board](IMAGES/Parts/fysetc-e4.jpg)
+- ![FYSETC E4 Board](IMAGES/Parts_Proto/fysetc-e4.jpg)
 
 ### 9. Homing & Control
 - **Homing Sensor (ALT):** Model **V-156-1C25** (Long lever microswitch) – *< 2€*
@@ -182,7 +182,7 @@ The firmware ships with **300 mA** for the ALT motor. Even at this reduced curre
 - Model: **MPU-6500** (I2C interface, address `0x68`)
 - Purpose: Acts as a digital plumb bob for the Altitude axis. Measures the tilt plate's absolute angle using Earth's gravity vector. The firmware uses it in **observe-only mode** — it learns the true mechanical ratio after every ALT movement and saves it to EEPROM, but does not apply corrections (TPPA's plate-solve handles convergence).
 - Cost: ~3€
-- ![MPU-6500](IMAGES/Parts/MPU-6500.jpeg)
+- ![MPU-6500](IMAGES/Parts_Proto/MPU-6500.jpeg)
 
 ### 11. MicroSD Card Sniffer — The I2C Hack
 
@@ -191,7 +191,7 @@ The FYSETC E4 V1.0 is a 3D printer controller board and has **no dedicated I2C e
 Rather than soldering wires directly onto the tiny microSD socket pads (fragile and error-prone), we use a **TF/microSD card sniffer breakout board**. This is a small PCB shaped like a microSD card that slides into the slot and breaks out all the SD card signals to standard 0.1" header pins — clean, reversible, and solder-free on the E4 board side.
 
 - Example: [AliExpress – ~3€](https://fr.aliexpress.com/item/1005009243584071.html)
-- ![SD Card Sniffer](IMAGES/Parts/SDsniffeTF.jpg)
+- ![SD Card Sniffer](IMAGES/Parts_Proto/SDsniffeTF.jpg)
 
 **How the pin mapping works:**
 
@@ -219,7 +219,7 @@ To complete the assembly, you will need the following "vitamins":
 - **The Fix:** You must buy a `5mm to 8mm` coupler and manually enlarge the 5mm hole. Use a tapping tool (thread maker) or a very precise 5.5mm/5.6mm drill bit to bore out the 5mm side until it perfectly grips the 5.6mm shaft.
 - *Note: Do not use flexible spider couplers or set-screw couplers. Rigidity is mandatory here.*
 - Example: "OKE DE-Coupler Rigid Shaft" – *~3.50€*
-- ![D25L35 coupler](IMAGES/Parts/Coupler.jpg)
+- ![D25L35 coupler](IMAGES/Parts_Proto/Coupler.jpg)
 
 ### Screws & Nuts
 - **Sliding T-Nuts:** M6 for 15180 profile (Pack of 200) – *~7€*
@@ -262,7 +262,7 @@ For heavy payloads (>15 kg), it is highly recommended to CNC machine the **two m
 These plates are in the direct load path and must resist the tilting moment from the telescope. CNC aluminum is far more rigid and dimensionally stable than any 3D-printed alternative.
 
 - Estimated CNC cost: ~**90€**
-- ![Load-bearing Parts](IMAGES/Parts/CNC.jpeg)
+- ![Load-bearing Parts](IMAGES/Parts_Proto/CNC.jpeg)
 
 ### 🧮 Total Budget (with CNC)
 - ~400€ Hardware
@@ -279,7 +279,7 @@ To enable communication between the ESP32 and the TMC2209 drivers, you **MUST** 
 
 **1. Locate the Jumper Header:**
 Find the block of pins labeled with **TXD / RXD** (near the SCL/SDA pins).
-- ![E4 Jumpers](IMAGES/Parts/E4_Jumpers.jpg)
+- ![E4 Jumpers](IMAGES/Parts_Proto/E4_Jumpers.jpg)
 
 **2. Place the Jumpers:**
 Place **2 jumper caps** horizontally on the bottom rows to bridge the communication lines.
