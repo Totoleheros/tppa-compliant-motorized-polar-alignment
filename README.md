@@ -24,7 +24,7 @@ Two hardware configurations are supported. The firmware is identical in logic �
 | Firmware file | `PolarAlign_Prototype.ino` | `PolarAlign_V2.ino` |
 | `ALT_MOTOR_GEARBOX` | 148.8 (30:1 × 4.96) | 208.3 (30:1 × 6.94) |
 | Status | ✅ **Field-validated — recommended** | 🔧 Under fabrication |
-| Hardware docs | [`HARDWARE_Prototype.md`](./HARDWARE_Prototype.md) | `HARDWARE_V2.md` *(coming soon)* |
+| Hardware docs | [`HARDWARE_Prototype.md`](./HARDWARE_Prototype.md) | [`HARDWARE_V2.md`](./HARDWARE_V2.md) |
 
 > 💡 If you're building for the first time, **start with the Prototype**. It uses off-the-shelf parts, has been validated to < 0.2 arcmin under 20 kg, and the firmware is identical.
 
@@ -285,7 +285,7 @@ The limiting factor is the **igus PRT-02 LC J4 orientation ring** (azimuth beari
 | UMOT worm gearbox | ≥2 Nm output | ~0.25 Nm required | 8–16× |
 | 15180 aluminum profiles | >5 kN bending | <250 N | 20×+ |
 
-> **V2 note:** The RU42 crossed roller bearing (OD=70mm) used in V2 has fully published load ratings, eliminating the tilting-moment uncertainty of the igus LC variant. Payload ratings will be updated in `HARDWARE_V2.md`.
+> **V2 note:** The RU42 crossed roller bearing (OD=70mm) used in V2 has fully published load ratings, eliminating the tilting-moment uncertainty of the igus LC variant. See [`HARDWARE_V2.md`](./HARDWARE_V2.md) for the full V2 payload analysis.
 
 > **Builder's note:** All 3D-printed parts (motor cradles, sensor brackets, enclosures) are **non-structural** and carry only the weight of their respective components. The telescope payload is transmitted entirely through metal: tilt plate → lead screw → chassis → bearing → tripod.
 
