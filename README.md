@@ -18,7 +18,7 @@ Two hardware configurations are supported. The firmware is identical in logic �
 
 | | **Prototype** | **V2** *(in development)* |
 |---|---|---|
-| ALT axis | Commercial tilt plate + T8 lead screw | Custom CNC ALT V3 (bielle mechanism) |
+| ALT axis | Commercial tilt plate + T8 lead screw | Custom CNC ALT (bielle mechanism) |
 | AZM bearing | igus PRT-02 LC J4 slewing ring | RU42 crossed roller bearing |
 | Base | Monolithic 15180 aluminium profiles | Two-piece CNC aluminium plates |
 | Firmware file | `PolarAlign_Prototype.ino` | `PolarAlign_V2.ino` |
@@ -297,7 +297,7 @@ The limiting factor is the **igus PRT-02 LC J4 orientation ring** (azimuth beari
 The ALT axis uses a NEMA 17 + UMOT worm gearbox driving a T8×2mm lead screw through a crank-arm mechanism. The total gear ratio is `UMOT ratio × crank factor`.
 
 - **Prototype:** crank factor ≈ 4.96 → `ALT_MOTOR_GEARBOX = 148.8`
-- **V2 (ALT V3 CNC):** crank factor ≈ 6.94 (longer arm, deeper travel) → `ALT_MOTOR_GEARBOX = 208.3`
+- **V2 (ALT CNC):** crank factor ≈ 6.94 (longer arm, deeper travel) → `ALT_MOTOR_GEARBOX = 208.3`
 
 | UMOT Ratio | Total Ratio | Time for 1° | Torque Margin | Self-Locking | Status |
 |:----------:|:-----------:|:-----------:|:-------------:|:------------:|--------|
@@ -351,7 +351,7 @@ The ALT stepper receives holding current even when stationary. Inside the compac
    | Your hardware | Sketch to flash |
    |---|---|
    | Commercial tilt plate + igus bearing | `PolarAlign_Prototype.ino` |
-   | ALT V3 CNC + RU42 bearing | `PolarAlign_V2.ino` |
+   | ALT CNC + RU42 bearing | `PolarAlign_V2.ino` |
 
 > On boot, the serial monitor is silent for ~1 second (Silent Boot). Send `?` to wake it up.
 
@@ -372,7 +372,7 @@ constexpr float GEAR_RATIO_AZM = 100.0f;      // Harmonic drive ratio (both vers
 
 // ⚠️ VERSION-DEPENDENT — see table below
 constexpr float ALT_MOTOR_GEARBOX = 148.8f;   // Prototype: UMOT 30:1 × 4.96 crank
-// constexpr float ALT_MOTOR_GEARBOX = 208.3f; // V2:        UMOT 30:1 × 6.94 crank (V3 bielle)
+// constexpr float ALT_MOTOR_GEARBOX = 208.3f; // V2:        UMOT 30:1 × 6.94 crank (bielle)
 
 constexpr float ALT_SCREW_PITCH_MM = 2.0f;    // T8 lead screw: 2 mm per revolution
 constexpr float ALT_RADIUS_MM = 60.0f;        // Distance pivot → lead screw attachment
