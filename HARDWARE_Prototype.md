@@ -2,7 +2,7 @@
 
 > 📌 **This document covers the Prototype hardware build**, which uses a commercial tilt plate, igus PRT-02 LC slewing ring, and UMOT 30:1 worm gearbox. This configuration has been **field-validated** with a 20 kg payload and is the recommended starting point for first-time builders.
 >
-> A **V2 hardware revision** (custom CNC ALT V3 mechanism + RU42 crossed roller bearing) is currently under development. Use `PolarAlign_Prototype.ino` for this hardware. See `HARDWARE_V2.md` (coming soon) for the V2 build.
+> A **V2 hardware revision** (custom CNC ALT V3 mechanism + RU42 crossed roller bearing) is currently under development. Use `PolarAlign_Prototype.ino` for this hardware. See [`HARDWARE_V2.md`](./HARDWARE_V2.md) for the V2 build.
 
 ---
 
@@ -174,9 +174,26 @@ The firmware ships with **300 mA** for the ALT motor. Even at this reduced curre
 
 ### 9. Homing & Control
 - **Homing Sensor (ALT):** Model **V-156-1C25** (Long lever microswitch) – *< 2€*
-- **Home Button:** Metal Push Button (1NO, High head).
-  - Specs: Waterproof, LED (3-24V), Latching/Reset, 12mm or 16mm.
+- **Home Button:** Metal Push Button (1NO, High head, Self-reset, 12mm, 12-24V).
   - Material: Nickel-plated Brass – *< 2€*
+
+#### Wiring — Limit Switch (V-156-1C25, SPDT)
+
+The switch has 3 terminals (COM / NO / NC). Only **COM + NO** are used — NC is left unconnected.
+
+| Switch terminal | X-MIN connector pin | Logic |
+|---|---|---|
+| **COM** | SIG | — |
+| **NO** | GND | Normally open → closes when lever is hit |
+| ~~NC~~ | *(unconnected)* | — |
+
+> The firmware is **Active-LOW** on GPIO 34. When the cam hits the lever, NO closes → SIG pulled to GND → LOW → firmware triggers stop/homing. No polarity concern (mechanical switch).
+
+#### Wiring — Home Button (1NO momentary)
+
+Connect the 2 wires from Y-MIN (**SIG** and **GND**) to either terminal — **no polarity**.
+
+> The VCC pin on the 3-pin Y-MIN connector is unused. When pressed, SIG is shorted to GND → LOW → firmware triggers the full homing + MPU tare sequence.
 
 ### 10. Active Feedback Sensor (Gyroscope)
 - Model: **MPU-6500** (I2C interface, address `0x68`)
@@ -313,4 +330,4 @@ Insert the TF/microSD sniffer board into the FYSETC E4's SD card slot. Then conn
 
 ## 📸 Assembly Photos
 
-You can find detailed images in the `/IMAGES/ASSEMBLY` folder of this repository.
+You can find detailed images in the `IMAGES/ASSEMBLY_Proto` folder of this repository.
