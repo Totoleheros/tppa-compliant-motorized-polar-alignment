@@ -21,7 +21,7 @@
  *  AZM motor : NEMA 17 → Harmonic Drive 100:1  (SpreadCycle, 16 µstep, 600 mA)
  *  ALT motor : NEMA 17 → UMOT worm 30:1 → T8 lead screw → crank (SpreadCycle, 4 µstep, 300 mA)
  *  Sensor    : MPU-6500 on I2C (SCL=GPIO18, SDA=GPIO19 — repurposed SD card pins)
- *  Limit sw  : Active-LOW, GPIO34 (Z-MIN header)
+ *  Limit sw  : Active-LOW, GPIO34 (X-MIN header)
  *  Home btn  : Active-LOW, GPIO35 (Y-MIN header)
  *
  * ──────────────────────────────────────────────────────────────────────────────────────
@@ -174,7 +174,7 @@ constexpr uint8_t PIN_DIR_AZM     = 26;
 constexpr uint8_t PIN_STEP_AZM    = 27;
 constexpr uint8_t PIN_DIR_ALT     = 32;
 constexpr uint8_t PIN_STEP_ALT    = 33;
-constexpr uint8_t PIN_HOME_SENSOR = 34;   // Z-MIN header, active LOW
+constexpr uint8_t PIN_HOME_SENSOR = 34;   // X-MIN header, active LOW
 constexpr uint8_t PIN_BUTTON_HOME = 35;   // Y-MIN header, active LOW
 
 #define PIN_SERIAL_RX 21    // TMC2209 UART shared bus RX
