@@ -1,12 +1,12 @@
 /*****************************************************************************************
  * FYSETC-E4 (ESP32 + TMC2209) — POLAR ALIGNMENT CONTROLLER
- * Version : 15.03g-auto  (runtime hardware profile -- no recompile needed)
+ * Version : 15.03g-auto-p3  (runtime hardware profile -- no recompile needed)
  *
  * ══════════════════════════════════════════════════════════════════════
  * PROFILE SELECTION — uncomment ONE profile before compiling
  * ══════════════════════════════════════════════════════════════════════
- * #define PROFILE_PROTO   // Prototype: commercial tilt plate, UMOT 30:1 × 4.96
- * #define PROFILE_V2      // V2 CNC: bielle V3, UMOT 30:1 × 6.94, RU42 bearing
+ * #define PROFILE_PROTO   // Prototype hardware
+ * #define PROFILE_V2      // V2_CNC hardware
  * ══════════════════════════════════════════════════════════════════════
  *
  * ──────────────────────────────────────────────────────────────────────────────────────
@@ -26,7 +26,7 @@
  *  MCU       : FYSETC E4 V1.0  (ESP32-WROOM-32 @ 240 MHz)
  *  Drivers   : 2× TMC2209 (UART, addresses 1 & 2)
  *  AZM motor : NEMA 17 → Harmonic Drive 100:1  (SpreadCycle, 16 µstep, 600 mA)
- *  ALT motor : NEMA 17 → UMOT worm 30:1 → T8 lead screw → crank (SpreadCycle, 4 µstep, 300 mA)
+ *  ALT motor : NEMA 17 → UMOT worm 30:1 → T8 lead screw (SpreadCycle, 4 µstep, 300 mA)
  *  Sensor    : MPU-6500 on I2C (SCL=GPIO18, SDA=GPIO19 — repurposed SD card pins)
  *  Limit sw  : Active-LOW, GPIO34 (X-MIN header)
  *  Home btn  : Active-LOW, GPIO35 (Y-MIN header)
@@ -66,8 +66,8 @@
  *         startHoming(), direction reversal, and AZM:ZERO.
  *
  * v15.01 vs v14.70:
- *   CHG : ALT_MOTOR_GEARBOX 496 → 148.8  (UMOT 30:1 × 4.96 crank)
- *   CHG : ALT_LIMIT_POS 5° → 10°         (V2 tilt plate wider travel range)
+ *   CHG : ALT_MOTOR_GEARBOX 496 → 148.8  (PROTO mechanical ratio)
+ *   CHG : ALT_LIMIT_POS 5° → 10°         (wider travel range)
  *   CHG : RAMP_CRUISE_ALT_US 120 → 200   (slower cruise for 30:1 torque profile)
  *
  * v14.70 vs v14.69:
@@ -100,8 +100,8 @@
 // ══════════════════════════════════════════════════════════════════════
 // PROFILE SELECTION — uncomment exactly ONE line
 // ══════════════════════════════════════════════════════════════════════
-#define PROFILE_PROTO   // ← Proto: commercial tilt plate
-//#define PROFILE_V2    // ← V2 CNC: bielle V3 + RU42
+#define PROFILE_PROTO   // ← Prototype hardware
+//#define PROFILE_V2    // ← V2_CNC hardware
 
 #if !defined(PROFILE_PROTO) && !defined(PROFILE_V2)
   #error "No profile selected — uncomment PROFILE_PROTO or PROFILE_V2 above"
@@ -135,7 +135,7 @@ constexpr uint16_t MICROSTEPPING_ALT  = 4;         // SpreadCycle mode: maximum 
 constexpr float    GEAR_RATIO_AZM     = 100.0f;    // Harmonic drive: 100 motor turns = 1 output turn
 
 // ALT gearbox ratio — set at runtime from NVS profile (see loadOrSelectProfile())
-// PROTO=148.8  (UMOT 30:1 × 4.96)   V2=208.3  (UMOT 30:1 × 6.94)
+// PROTO=148.8   V2_CNC=124.0  (empirically measured ALT mechanical ratios)
 // Do NOT declare constexpr here — value comes from cfg_ALT_MOTOR_GEARBOX.
 
 /* ── ALT kinematics ── */
@@ -145,7 +145,7 @@ constexpr float    ALT_RADIUS_MM      = 60.0f;     // Pivot-to-screw horizontal 
 
 /* ── Axis direction ──
    AZM: same for both profiles.
-   ALT: PROTO=true (motor CW = platform up)  V2=false (kinematics inverted by V3 bielle geometry)
+   ALT: PROTO=true   V2_CNC=false (inverted kinematics)
    cfg_AXIS_REV_ALT is set at runtime from NVS profile. ── */
 constexpr bool     AXIS_REV_AZM       = true;
 // cfg_AXIS_REV_ALT — see runtime profile variables below
@@ -282,7 +282,7 @@ constexpr unsigned long MPU_SAMPLE_INTERVAL_MS = 5;   // 5 ms between samples = 
    ═══════════════════════════════════════════════════════════════════════════════════════ */
 constexpr unsigned long RAMP_START_US     = 2000;  // Starting speed (slowest)
 constexpr unsigned long RAMP_CRUISE_AZM_US = 240;  // AZM cruise speed
-// RAMP_CRUISE_ALT_US: PROTO=200µs  V2=120µs — set at runtime via cfg_RAMP_CRUISE_ALT_US
+// RAMP_CRUISE_ALT_US: PROTO=120µs  V2_CNC=150µs — set at runtime via cfg_RAMP_CRUISE_ALT_US
 constexpr long          RAMP_LENGTH        = 500;   // 3000 was too long — caused NINA 7s timeout // Steps to reach cruise speed
 
 /* ═══════════════════════════════════════════════════════════════════════════════════════
@@ -324,9 +324,9 @@ float STEPS_PER_DEG_ALT = 0.0f;   // computed in loadOrSelectProfile()
    Set once at boot by loadOrSelectProfile(), never changed afterwards.
    Prefixed cfg_ to distinguish from compile-time constants.
    ═══════════════════════════════════════════════════════════════════════════════════════ */
-float         cfg_ALT_MOTOR_GEARBOX   = 148.8f;  // PROTO=148.8  V2=208.3
+float         cfg_ALT_MOTOR_GEARBOX   = 148.8f;  // PROTO=148.8  V2_CNC=124.0
 bool          cfg_AXIS_REV_ALT        = true;     // PROTO=true   V2=false
-unsigned long cfg_RAMP_CRUISE_ALT_US  = 120;      // PROTO=120µs  V2=120µs (both same now)
+unsigned long cfg_RAMP_CRUISE_ALT_US  = 120;      // PROTO=120µs  V2_CNC=150µs
 float         cfg_ALT_LIMIT_NEG       = 0.0f;     // PROTO=0.0°   V2=-2.0°
 float         cfg_HOME_TRIGGER_ANGLE  = 0.0f;     // PROTO=0.0°   V2=-2.0°
 const char*   cfg_profile_name        = "PROTO";  // human-readable name for DIAG/boot
@@ -427,8 +427,8 @@ void loadOrSelectProfile() {
     Serial.println("|  HARDWARE PROFILE NOT SET                         |");
     Serial.println("|  Required once after each firmware flash.         |");
     Serial.println("+---------------------------------------------------+");
-    Serial.println("|  Send '1'  -> PROTO  (commercial tilt plate)      |");
-    Serial.println("|  Send '2'  -> V2     (CNC bielle V3 + RU42)       |");
+    Serial.println("|  Send '1'  -> PROTO                               |");
+    Serial.println("|  Send '2'  -> V2_CNC                              |");
     Serial.println("+---------------------------------------------------+");
 
     while (true) {
@@ -456,16 +456,16 @@ void loadOrSelectProfile() {
   // ── Apply profile ─────────────────────────────────────────────────
   if (profileId == 1) {
     cfg_profile_name        = "PROTO";
-    cfg_ALT_MOTOR_GEARBOX   = 148.8f;   // UMOT 30:1 × 4.96 crank (measured)
+    cfg_ALT_MOTOR_GEARBOX   = 148.8f;   // PROTO empirical ALT mechanical ratio
     cfg_AXIS_REV_ALT        = true;     // Motor CW = platform tilts up
     cfg_RAMP_CRUISE_ALT_US  = 120;      // 200 was too slow — caused NINA 7s timeout
     cfg_ALT_LIMIT_NEG       = 0.0f;     // Home = bottom of travel
     cfg_HOME_TRIGGER_ANGLE  = 0.0f;     // 0° = homed position
   } else {
-    cfg_profile_name        = "V2";
-    cfg_ALT_MOTOR_GEARBOX   = 208.3f;   // UMOT 30:1 × 6.94 (V3 CNC bielle geometry)
+    cfg_profile_name        = "V2_CNC";
+    cfg_ALT_MOTOR_GEARBOX   = 124.0f;   // V2_CNC empirical ALT mechanical ratio
     cfg_AXIS_REV_ALT        = false;    // Kinematics inverted — pivot below T8 axis
-    cfg_RAMP_CRUISE_ALT_US  = 120;      // Faster — better mechanical advantage on V2
+    cfg_RAMP_CRUISE_ALT_US  = 150;      // 150µs — reduces UMOT microstep clicking on V2_CNC
     cfg_ALT_LIMIT_NEG       = -2.0f;    // Platform can go 2° below home for corrections
     cfg_HOME_TRIGGER_ANGLE  = -2.0f;    // Physical home = -2° tilt
     // NOTE on cfg_HOME_TRIGGER_ANGLE=-2: if TPPA stops correcting after first jog,
@@ -677,7 +677,7 @@ bool startNextJob() {
 void enterGlobalSettle() {
   waitingForGlobalSettle = true;
   globalSettleStartMs    = millis();
-  diagPrintf("SETTLE: 2s\n");
+  diagPrintf("SETTLE\n");
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────────────
@@ -1040,7 +1040,7 @@ void startHoming() {
    Everything that can help debug a field issue is included here.
    ═══════════════════════════════════════════════════════════════════════════════════════ */
 void printDiagnostic() {
-  Serial.print("\n--- SYSTEM DIAGNOSTIC (v15.03g-auto) [");
+  Serial.print("\n--- SYSTEM DIAGNOSTIC (v15.03g-auto-p3) [");
   Serial.print(cfg_profile_name);
   Serial.println("] ---");
 
@@ -1356,14 +1356,14 @@ void processCommand(const char* line) {
    ═══════════════════════════════════════════════════════════════════════════════════════ */
 void setup() {
   Serial.begin(115200);
-  delay(1000);
+  delay(300);  // short — ESP32 must answer within TPPA's connection timeout (~1-1.5s)
 
   // MUST be first: loads profile from NVS, sets cfg_ vars, computes STEPS_PER_DEG_ALT
   // On first boot after flash: blocks until user sends 1 or 2 on serial.
   loadOrSelectProfile();
 
   Serial.println("\n=======================================================");
-  Serial.print("  BOOT: V15.03g-auto ["); Serial.print(cfg_profile_name); Serial.println("] (ESP32)");
+  Serial.print("  BOOT: V15.03g-auto-p3 ["); Serial.print(cfg_profile_name); Serial.println("] (ESP32)");
   Serial.print("  Profile: "); Serial.print(cfg_profile_name);
   Serial.print("  ALT_GEARBOX="); Serial.print(cfg_ALT_MOTOR_GEARBOX,1);
   Serial.print("  AXIS_REV_ALT="); Serial.println(cfg_AXIS_REV_ALT ? "true":"false");
@@ -1458,27 +1458,36 @@ void setup() {
       EEPROM.get(EEPROM_ADDR_MPU_OFF, savedOffset);
       float rawAngle = readMPUAngleY();
 
-      if (rawAngle > -900.0f) {
+      Serial.print("MSG: EEPROM restore: magic=VALID, offset=");
+      Serial.print(savedOffset, 3);
+      Serial.print(", rawMPU="); Serial.print(rawAngle, 3);
+
+      if (isnan(savedOffset)) {
+        Serial.println(" -> FAIL: offset is NaN. HOME required.");
+      } else if (rawAngle <= -900.0f) {
+        Serial.println(" -> FAIL: MPU read error. HOME required.");
+      } else {
         float restoredALT = rawAngle - savedOffset;
+        Serial.print(", restoredALT="); Serial.print(restoredALT, 3);
+        Serial.print(" (limits: "); Serial.print(cfg_ALT_LIMIT_NEG - 0.5f, 1);
+        Serial.print(" to "); Serial.print(ALT_LIMIT_POS + 0.5f, 1); Serial.println(")");
+
         if (restoredALT >= (cfg_ALT_LIMIT_NEG - 0.5f) &&
             restoredALT <= (ALT_LIMIT_POS + 0.5f)) {
           mpuOffset      = savedOffset;
           posDegALT      = restoredALT;
           targetAltAngle = restoredALT;
           homingDone     = true;
-          Serial.println("MSG: *** HOMING STATE RESTORED FROM EEPROM ***");
-          Serial.print  ("MSG: mpuOffset="); Serial.print(mpuOffset, 3);
-          Serial.print  ("  posDegALT=");   Serial.print(posDegALT, 3); Serial.println("°");
-          Serial.println("MSG: TPPA jogs enabled (no re-homing needed).");
+          Serial.println("MSG: *** HOMING STATE RESTORED *** — TPPA jogs enabled.");
         } else {
-          Serial.print("MSG: EEPROM ALT out of range ("); Serial.print(restoredALT, 3);
-          Serial.println("°) — please HOME.");
+          Serial.println("MSG: *** EEPROM ALT OUT OF RANGE *** — HOME required.");
         }
-      } else {
-        Serial.println("MSG: MPU read failed — please HOME.");
       }
     } else {
-      Serial.println("MSG: No saved homing state. Send HOME or press the Home button.");
+      Serial.print("MSG: EEPROM restore: magic=");
+      Serial.print(savedMagic == HOMING_MAGIC ? "VALID" : "INVALID");
+      Serial.print(", MPU="); Serial.println(mpuAvailable ? "OK" : "MISSING");
+      Serial.println("MSG: *** HOMING REQUIRED *** — send HOME or press button.");
     }
   }
   Serial.println("-------------------------------------------------------\n");

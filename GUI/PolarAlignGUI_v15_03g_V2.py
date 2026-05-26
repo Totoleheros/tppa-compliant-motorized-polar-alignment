@@ -456,9 +456,9 @@ class App:
 
         def jog(parent, label, sublabel, color, delta, axis):
             make_button(parent, f"{label}\n{sublabel}", bg=color, fg="white",
-                        font=("Helvetica", 12, "bold"), padx=10, pady=7,
+                        font=("Helvetica", 10, "bold"), padx=4, pady=4,
                         command=lambda: self._jog(axis, delta)
-                        ).pack(side="left", padx=3, pady=4)
+                        ).pack(side="left", padx=1, pady=3)
 
         # ── AZM ──────────────────────────────────────────────────────────
         azm_outer = tk.Frame(tab, bg=BG, highlightbackground=BORDER, highlightthickness=1)
@@ -481,19 +481,19 @@ class App:
         # OUEST: −30' −10' −5' −1' | −30" −10" −5" −1"
         for deg, lbl, eq in ARCMIN_STEPS:
             jog(azm_row, f"−{lbl}", eq, BTN_WEST, -deg, "AZM")
-        tk.Label(azm_row, text=" | ", bg=BG, fg=BORDER,
-                 font=("Helvetica", 14)).pack(side="left")
+        tk.Label(azm_row, text="|", bg=BG, fg=BORDER,
+                 font=("Helvetica", 11)).pack(side="left", padx=1)
         for deg, lbl, eq in ARCSEC_STEPS:
             jog(azm_row, f"−{lbl}", eq, BTN_WEST, -deg, "AZM")
 
-        tk.Label(azm_row, text="  ⊕  ", bg=BG, fg=TXT_DIM,
-                 font=("Helvetica", 16)).pack(side="left")
+        tk.Label(azm_row, text="⊕", bg=BG, fg=TXT_DIM,
+                 font=("Helvetica", 13)).pack(side="left", padx=3)
 
         # EST: +1" +5" +10" +30" | +1' +5' +10' +30'
         for deg, lbl, eq in reversed(ARCSEC_STEPS):
             jog(azm_row, f"+{lbl}", eq, BTN_EAST, deg, "AZM")
-        tk.Label(azm_row, text=" | ", bg=BG, fg=BORDER,
-                 font=("Helvetica", 14)).pack(side="left")
+        tk.Label(azm_row, text="|", bg=BG, fg=BORDER,
+                 font=("Helvetica", 11)).pack(side="left", padx=1)
         for deg, lbl, eq in reversed(ARCMIN_STEPS):
             jog(azm_row, f"+{lbl}", eq, BTN_EAST, deg, "AZM")
 
@@ -532,8 +532,8 @@ class App:
         up_row.pack(pady=(2, 4))
         for deg, lbl, eq in ARCMIN_STEPS:
             jog(up_row, f"+{lbl}", eq, BTN_UP, deg, "ALT")
-        tk.Label(up_row, text=" | ", bg=BG, fg=BORDER,
-                 font=("Helvetica", 14)).pack(side="left")
+        tk.Label(up_row, text="|", bg=BG, fg=BORDER,
+                 font=("Helvetica", 11)).pack(side="left", padx=1)
         for deg, lbl, eq in ARCSEC_STEPS:
             jog(up_row, f"+{lbl}", eq, BTN_UP, deg, "ALT")
 
@@ -544,8 +544,8 @@ class App:
         dn_row.pack(pady=(4, 2))
         for deg, lbl, eq in ARCMIN_STEPS:
             jog(dn_row, f"−{lbl}", eq, BTN_DOWN, -deg, "ALT")
-        tk.Label(dn_row, text=" | ", bg=BG, fg=BORDER,
-                 font=("Helvetica", 14)).pack(side="left")
+        tk.Label(dn_row, text="|", bg=BG, fg=BORDER,
+                 font=("Helvetica", 11)).pack(side="left", padx=1)
         for deg, lbl, eq in ARCSEC_STEPS:
             jog(dn_row, f"−{lbl}", eq, BTN_DOWN, -deg, "ALT")
         tk.Label(alt_lf, text="▼  BAS", bg=BG, fg=BTN_DOWN,
