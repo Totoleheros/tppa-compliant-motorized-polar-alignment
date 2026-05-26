@@ -68,6 +68,17 @@ pip3 install pyserial
 python3 GUI/PolarAlignGUI_v15_03g_V2.py
 ```
 
+**Build the Windows executable (Windows 11):**
+```bash
+pip install pyinstaller pyserial
+python -m PyInstaller --onefile --windowed --name PolarAlignController PolarAlignGUI_v15_03g_V2.py
+```
+The standalone executable is produced at `dist\PolarAlignController.exe`.
+
+- `--onefile` — bundles everything into a single `.exe` (no dependency folder)
+- `--windowed` — no console window behind the GUI
+- `--name` — names the output `PolarAlignController.exe`
+
 ---
 
 ## 🌟 Key Features
