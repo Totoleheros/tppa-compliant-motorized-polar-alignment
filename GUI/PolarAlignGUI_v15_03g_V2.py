@@ -47,6 +47,42 @@ except ImportError:
 
 IS_MAC = platform.system() == "Darwin"
 MONO = "Menlo" if IS_MAC else "Consolas"
+# ─────────────────────────────────────────────────────────────
+# LIGHT THEME PALETTE  (soft grays, modern)
+# ─────────────────────────────────────────────────────────────
+BG        = "#f0f2f5"   # root background
+BG  = "#ffffff"   # panel/frame background
+BORDER    = "#dee2e8"   # subtle border
+TXT       = "#1e293b"   # primary text
+TXT_DIM   = "#64748b"   # secondary text
+CYAN      = "#0284c7"   # AZM accent (sky blue)
+AMBER     = "#d97706"   # ALT accent (amber)
+GREEN     = "#16a34a"   # positive / connected
+RED_DIM   = "#dc2626"   # negative
+
+# Button palette — medium saturation, readable on white bg
+BTN_WEST  = "#dc2626"   # AZM West  (red)
+BTN_EAST  = "#16a34a"   # AZM East  (green)
+BTN_DOWN  = "#ea580c"   # ALT Down  (orange)
+BTN_UP    = "#2563eb"   # ALT Up    (blue)
+
+# Arc-unit increments used for jog buttons
+# Each tuple: (degrees, primary_label, deg_equiv_label)
+# Ordered LARGE → SMALL (left to right within each group)
+ARCMIN_STEPS = [
+    (30/60,  "30'",  "0.500°"),
+    (10/60,  "10'",  "0.167°"),
+    (5/60,   "5'",   "0.083°"),
+    (1/60,   "1'",   "0.017°"),
+]
+ARCSEC_STEPS = [
+    (30/3600, '30"', "0.0083°"),
+    (10/3600, '10"', "0.0028°"),
+    (5/3600,  '5"',  "0.0014°"),
+    (1/3600,  '1"',  "0.00028°"),
+]
+
+
 
 # ─────────────────────────────────────────────────────────────
 # HARDWARE PROFILES
@@ -293,7 +329,7 @@ class App:
         self.root.title(f"PolarAlign Controller v15.03g  —  {profile_name}")
         self.root.minsize(1200, 700)
         self.root.geometry("1400x800")
-        self.root.configure(bg="#f0f0f0")
+        self.root.configure(bg=BG)
 
         self.azm = 0.0
         self.alt = 0.0
@@ -322,10 +358,10 @@ class App:
 
     def _build(self):
         # — Top: Connection bar —
-        cf = ttk.LabelFrame(self.root, text="Connection", padding=10)
+        cf = tk.LabelFrame(self.root, text="Connection", bg=BG, fg=TXT_DIM, font=("Helvetica", 10), padx=10, pady=6)
         cf.pack(fill="x", padx=10, pady=(10, 5))
 
-        ttk.Label(cf, text="Port:", font=("Helvetica", 12)).pack(side="left")
+        tk.Label(cf, text="Port:", font=("Helvetica", 13), bg=BG, fg=TXT).pack(side="left")
         self.port_var = tk.StringVar()
         self.port_cb = ttk.Combobox(cf, textvariable=self.port_var,
                                      width=20, state="readonly",
@@ -336,7 +372,7 @@ class App:
                                     command=self._toggle_conn)
         self.conn_btn.pack(side="left", padx=10)
         self.conn_lbl = tk.Label(cf, text=" ● DISCONNECTED ",
-                                  fg="gray", font=("Helvetica", 12, "bold"))
+                                  fg="gray", bg=BG, font=("Helvetica", 12, "bold"))
         self.conn_lbl.pack(side="left", padx=10)
 
         # Profile badge
@@ -347,26 +383,26 @@ class App:
                  padx=8, pady=2).pack(side="right", padx=10)
 
         # — Status bar (AZM / ALT / MPU) —
-        sf = tk.Frame(self.root, bg="#1a1a2e", padx=16, pady=14)
+        sf = tk.Frame(self.root, bg=BORDER, padx=16, pady=12)
         sf.pack(fill="x", padx=10, pady=5)
 
         self.st_lbl = tk.Label(sf, text="—", font=("Helvetica", 20, "bold"),
-                                fg="#666", bg="#1a1a2e", width=6, anchor="w")
+                                fg="#666", bg=BG, width=6, anchor="w")
         self.st_lbl.pack(side="left", padx=(0, 20))
         self.azm_lbl = tk.Label(sf, text="AZM    0.000°    (   0.0')",
-                                 font=(MONO, 18), fg="#00e5ff", bg="#1a1a2e")
+                                 font=(MONO, 18), fg="#00e5ff", bg=BG)
         self.azm_lbl.pack(side="left", padx=(0, 30))
         self.alt_lbl = tk.Label(sf, text="ALT    0.000°    (   0.0')",
-                                 font=(MONO, 18), fg="#ffab00", bg="#1a1a2e")
+                                 font=(MONO, 18), fg="#ffab00", bg=BG)
         self.alt_lbl.pack(side="left")
         self.mpu_lbl = tk.Label(sf, text="MPU  —",
-                                 font=(MONO, 14), fg="#aaaaaa", bg="#1a1a2e")
+                                 font=(MONO, 14), fg="#aaaaaa", bg=BG)
         self.mpu_lbl.pack(side="right", padx=(20, 0))
 
         # — Main area: PanedWindow (left 65% controls, right 35% log) —
         self._paned = tk.PanedWindow(self.root, orient="horizontal",
                                       sashwidth=6, sashrelief="raised",
-                                      bg="#cccccc")
+                                      bg=BORDER)
         self._paned.pack(fill="both", expand=True, padx=10, pady=(5, 10))
 
         left = ttk.Frame(self._paned)
@@ -385,7 +421,7 @@ class App:
 
         self.log = scrolledtext.ScrolledText(log_lf, font=(MONO, 10),
                                               state="disabled", wrap="word",
-                                              bg="#0d1117", fg="#c9d1d9")
+                                              bg="#1a1a1a", fg="#c9d1d9")
         self.log.pack(fill="both", expand=True)
 
         log_btns = tk.Frame(log_lf)
@@ -414,133 +450,146 @@ class App:
         self.root.after(150, lambda: self._paned.sash_place(0, int(self.root.winfo_width() * 0.75), 0))
 
     def _build_ctrl(self, nb):
-        tab = ttk.Frame(nb, padding=14)
+        tab = tk.Frame(nb, bg=BG, padx=14, pady=12)
+        tab.configure(bg=BG)
         nb.add(tab, text="  ★ Control  ")
 
-        # — AZM —
-        af = ttk.LabelFrame(tab, text="  Azimuth (AZM)  ", padding=10)
-        af.pack(fill="x", pady=(0, 6))
+        def jog(parent, label, sublabel, color, delta, axis):
+            make_button(parent, f"{label}\n{sublabel}", bg=color, fg="white",
+                        font=("Helvetica", 12, "bold"), padx=10, pady=7,
+                        command=lambda: self._jog(axis, delta)
+                        ).pack(side="left", padx=3, pady=4)
 
-        # Jog increments: (degrees, label_deg, label_arc)
-        JOG_STEPS = [
-            (0.001,  "0.001°",  '3.6"'),
-            (0.01,   "0.01°",   '36"'),
-            (0.1,    "0.1°",    "6'"),
-            (1.0,    "1°",      "60'"),
-            (5.0,    "5°",      "300'"),
-        ]
+        # ── AZM ──────────────────────────────────────────────────────────
+        azm_outer = tk.Frame(tab, bg=BG, highlightbackground=BORDER, highlightthickness=1)
+        azm_outer.pack(fill="x", pady=(0, 8))
+        tk.Label(azm_outer, text="  Azimuth (AZM)  —  mouvements RELATIFS",
+                 bg=BG, fg=CYAN, font=("Helvetica", 11, "bold"),
+                 anchor="w").pack(fill="x", padx=8, pady=(6,2))
+        azm_lf = tk.Frame(azm_outer, bg=BG, padx=10, pady=6)
+        azm_lf.pack(fill="x")
 
-        # Header row — arc labels
-        hdr = tk.Frame(af)
-        hdr.pack()
-        tk.Label(hdr, text="", width=6).pack(side="left")  # spacer
-        for _, ldeg, larc in JOG_STEPS:
-            tk.Label(hdr, text=larc, font=("Helvetica", 9), fg="#aaaaaa",
-                     width=7, anchor="center").pack(side="left", padx=2)
+        dh = tk.Frame(azm_lf, bg=BG)
+        dh.pack(fill="x")
+        tk.Label(dh, text="← OUEST", bg=BG, fg=BTN_WEST,
+                 font=("Helvetica", 12, "bold")).pack(side="left")
+        tk.Label(dh, text="EST →",   bg=BG, fg=BTN_EAST,
+                 font=("Helvetica", 12, "bold")).pack(side="right")
 
-        # Negative row
-        rn = tk.Frame(af)
-        rn.pack(pady=(2, 1))
-        tk.Label(rn, text="  −  ", font=("Helvetica", 10, "bold"),
-                 fg="#ff5252", width=4).pack(side="left")
-        for delta, ldeg, larc in JOG_STEPS:
-            make_button(rn, f"−{ldeg}", bg="#c62828",
-                        font=("Helvetica", 11, "bold"), pady=6, padx=4,
-                        command=lambda d=-delta: self._jog("AZM", d)
-                        ).pack(side="left", padx=2)
+        azm_row = tk.Frame(azm_lf, bg=BG)
+        azm_row.pack()
+        # OUEST: −30' −10' −5' −1' | −30" −10" −5" −1"
+        for deg, lbl, eq in ARCMIN_STEPS:
+            jog(azm_row, f"−{lbl}", eq, BTN_WEST, -deg, "AZM")
+        tk.Label(azm_row, text=" | ", bg=BG, fg=BORDER,
+                 font=("Helvetica", 14)).pack(side="left")
+        for deg, lbl, eq in ARCSEC_STEPS:
+            jog(azm_row, f"−{lbl}", eq, BTN_WEST, -deg, "AZM")
 
-        # Positive row
-        rp = tk.Frame(af)
-        rp.pack(pady=(1, 6))
-        tk.Label(rp, text="  +  ", font=("Helvetica", 10, "bold"),
-                 fg="#69f0ae", width=4).pack(side="left")
-        for delta, ldeg, larc in JOG_STEPS:
-            make_button(rp, f"+{ldeg}", bg="#2e7d32",
-                        font=("Helvetica", 11, "bold"), pady=6, padx=4,
-                        command=lambda d=delta: self._jog("AZM", d)
-                        ).pack(side="left", padx=2)
+        tk.Label(azm_row, text="  ⊕  ", bg=BG, fg=TXT_DIM,
+                 font=("Helvetica", 16)).pack(side="left")
 
-        gr = tk.Frame(af)
-        gr.pack(pady=(2, 0))
-        tk.Label(gr, text="Go to (°):", font=("Helvetica", 12)).pack(side="left")
-        self.azm_e = tk.Entry(gr, width=10, font=("Helvetica", 13))
+        # EST: +1" +5" +10" +30" | +1' +5' +10' +30'
+        for deg, lbl, eq in reversed(ARCSEC_STEPS):
+            jog(azm_row, f"+{lbl}", eq, BTN_EAST, deg, "AZM")
+        tk.Label(azm_row, text=" | ", bg=BG, fg=BORDER,
+                 font=("Helvetica", 14)).pack(side="left")
+        for deg, lbl, eq in reversed(ARCMIN_STEPS):
+            jog(azm_row, f"+{lbl}", eq, BTN_EAST, deg, "AZM")
+
+        ga = tk.Frame(azm_lf, bg=BG)
+        ga.pack(pady=(8, 0))
+        tk.Label(ga, text="Aller à (°)  [ABSOLU]:", bg=BG,
+                 fg=TXT_DIM, font=("Helvetica", 13)).pack(side="left")
+        self.azm_e = tk.Entry(ga, width=10, font=("Helvetica", 12),
+                               bg=BORDER, relief="flat")
         self.azm_e.pack(side="left", padx=6)
-        ttk.Button(gr, text="  Go  ",
-                   command=lambda: self._goto("AZM", self.azm_e)).pack(side="left")
+        make_button(ga, " Go ", bg="#556677", fg="white",
+                    font=("Helvetica", 11, "bold"), padx=10, pady=4,
+                    command=lambda: self._goto("AZM", self.azm_e)
+                    ).pack(side="left")
 
-        # — ALT —
+        # ── ALT ──────────────────────────────────────────────────────────
         alt_limits = (
             self.profile.get("ALT_LIMIT_NEG",
                              next(d for k,_,d,_,_ in CONFIG_PARAMS if k=="ALT_LIMIT_NEG")),
             self.profile.get("ALT_LIMIT_POS",
                              next(d for k,_,d,_,_ in CONFIG_PARAMS if k=="ALT_LIMIT_POS")),
         )
-        al = ttk.LabelFrame(tab,
-                             text=f"  Altitude (ALT)   [{alt_limits[0]:.0f}° to +{alt_limits[1]:.0f}°]  ",
-                             padding=10)
-        al.pack(fill="x", pady=(0, 6))
+        alt_outer = tk.Frame(tab, bg=BG, highlightbackground=BORDER, highlightthickness=1)
+        alt_outer.pack(fill="x", pady=(0, 8))
+        tk.Label(alt_outer,
+                 text=f"  Altitude (ALT)  [{alt_limits[0]:.0f}° à +{alt_limits[1]:.0f}°]  —  mouvements RELATIFS",
+                 bg=BG, fg=AMBER, font=("Helvetica", 11, "bold"),
+                 anchor="w").pack(fill="x", padx=8, pady=(6,2))
+        alt_lf = tk.Frame(alt_outer, bg=BG, padx=10, pady=6)
+        alt_lf.pack(fill="x")
 
-        # Header row — arc labels
-        hdr2 = tk.Frame(al)
-        hdr2.pack()
-        tk.Label(hdr2, text="", width=6).pack(side="left")
-        for _, ldeg, larc in JOG_STEPS:
-            tk.Label(hdr2, text=larc, font=("Helvetica", 9), fg="#aaaaaa",
-                     width=7, anchor="center").pack(side="left", padx=2)
+        # UP row
+        tk.Label(alt_lf, text="▲  HAUT", bg=BG, fg=BTN_UP,
+                 font=("Helvetica", 13, "bold")).pack(anchor="w")
+        up_row = tk.Frame(alt_lf, bg=BG)
+        up_row.pack(pady=(2, 4))
+        for deg, lbl, eq in ARCMIN_STEPS:
+            jog(up_row, f"+{lbl}", eq, BTN_UP, deg, "ALT")
+        tk.Label(up_row, text=" | ", bg=BG, fg=BORDER,
+                 font=("Helvetica", 14)).pack(side="left")
+        for deg, lbl, eq in ARCSEC_STEPS:
+            jog(up_row, f"+{lbl}", eq, BTN_UP, deg, "ALT")
 
-        # Negative row
-        rn2 = tk.Frame(al)
-        rn2.pack(pady=(2, 1))
-        tk.Label(rn2, text="  −  ", font=("Helvetica", 10, "bold"),
-                 fg="#ff5252", width=4).pack(side="left")
-        for delta, ldeg, larc in JOG_STEPS:
-            make_button(rn2, f"−{ldeg}", bg="#c62828",
-                        font=("Helvetica", 11, "bold"), pady=6, padx=4,
-                        command=lambda d=-delta: self._jog("ALT", d)
-                        ).pack(side="left", padx=2)
+        tk.Frame(alt_lf, bg=BORDER, height=1).pack(fill="x", padx=4, pady=2)
 
-        # Positive row
-        rp2 = tk.Frame(al)
-        rp2.pack(pady=(1, 6))
-        tk.Label(rp2, text="  +  ", font=("Helvetica", 10, "bold"),
-                 fg="#69f0ae", width=4).pack(side="left")
-        for delta, ldeg, larc in JOG_STEPS:
-            make_button(rp2, f"+{ldeg}", bg="#2e7d32",
-                        font=("Helvetica", 11, "bold"), pady=6, padx=4,
-                        command=lambda d=delta: self._jog("ALT", d)
-                        ).pack(side="left", padx=2)
+        # DOWN row — exact mirror
+        dn_row = tk.Frame(alt_lf, bg=BG)
+        dn_row.pack(pady=(4, 2))
+        for deg, lbl, eq in ARCMIN_STEPS:
+            jog(dn_row, f"−{lbl}", eq, BTN_DOWN, -deg, "ALT")
+        tk.Label(dn_row, text=" | ", bg=BG, fg=BORDER,
+                 font=("Helvetica", 14)).pack(side="left")
+        for deg, lbl, eq in ARCSEC_STEPS:
+            jog(dn_row, f"−{lbl}", eq, BTN_DOWN, -deg, "ALT")
+        tk.Label(alt_lf, text="▼  BAS", bg=BG, fg=BTN_DOWN,
+                 font=("Helvetica", 13, "bold")).pack(anchor="w")
 
-        gr2 = tk.Frame(al)
-        gr2.pack(pady=(2, 0))
-        tk.Label(gr2, text="Go to (°):", font=("Helvetica", 12)).pack(side="left")
-        self.alt_e = tk.Entry(gr2, width=10, font=("Helvetica", 13))
+        galt = tk.Frame(alt_lf, bg=BG)
+        galt.pack(pady=(8, 0))
+        tk.Label(galt, text="Aller à (°)  [ABSOLU]:", bg=BG,
+                 fg=TXT_DIM, font=("Helvetica", 13)).pack(side="left")
+        self.alt_e = tk.Entry(galt, width=10, font=("Helvetica", 12),
+                               bg=BORDER, relief="flat")
         self.alt_e.pack(side="left", padx=6)
-        ttk.Button(gr2, text="  Go  ",
-                   command=lambda: self._goto("ALT", self.alt_e)).pack(side="left")
+        make_button(galt, " Go ", bg="#556677", fg="white",
+                    font=("Helvetica", 11, "bold"), padx=10, pady=4,
+                    command=lambda: self._goto("ALT", self.alt_e)
+                    ).pack(side="left")
 
-        # — Learning Monitor —
-        lm = ttk.LabelFrame(tab, text="  Learning Monitor  ", padding=10)
+                # — Learning Monitor —
+        lm_outer = tk.Frame(tab, bg=BG, highlightbackground=BORDER, highlightthickness=1)
+        lm_outer.pack(fill="x", pady=(0, 6))
+        tk.Label(lm_outer, text="  Learning Monitor", bg=BG, fg=TXT_DIM,
+                 font=("Helvetica", 10), anchor="w").pack(fill="x", padx=8, pady=(4,2))
+        lm = tk.Frame(lm_outer, bg=BG, pady=4, padx=8)
         lm.pack(fill="x", pady=(0, 6))
 
-        lm_left  = tk.Frame(lm)
+        lm_left  = tk.Frame(lm, bg=BG)
         lm_left.pack(side="left", expand=True, fill="both", padx=(0, 10))
-        lm_right = tk.Frame(lm)
+        lm_right = tk.Frame(lm, bg=BG)
         lm_right.pack(side="left", expand=True, fill="both")
 
         # ALT column
-        tk.Label(lm_left, text="ALT (MPU)", font=("Helvetica", 11, "bold"),
+        tk.Label(lm_left, text="ALT (MPU)", bg=BG, font=("Helvetica", 11, "bold"),
                  fg="#ffab00").grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 4))
-        tk.Label(lm_left, text="Learned ratio:", font=(MONO, 10)).grid(
+        tk.Label(lm_left, text="Learned ratio:", bg=BG, fg=TXT_DIM, font=(MONO, 11)).grid(
             row=1, column=0, sticky="w")
-        self._lbl_alt_ratio = tk.Label(lm_left, text="—", font=(MONO, 10),
+        self._lbl_alt_ratio = tk.Label(lm_left, text="—", font=(MONO, 11),
                                         fg="#4CAF50", width=14, anchor="w")
         self._lbl_alt_ratio.grid(row=1, column=1, sticky="w", padx=(6, 0))
-        tk.Label(lm_left, text="MPU error:", font=(MONO, 10)).grid(
+        tk.Label(lm_left, text="MPU error:", bg=BG, fg=TXT_DIM, font=(MONO, 11)).grid(
             row=2, column=0, sticky="w")
         self._lbl_alt_err = tk.Label(lm_left, text="—", font=(MONO, 10),
                                       fg="#4CAF50", width=14, anchor="w")
         self._lbl_alt_err.grid(row=2, column=1, sticky="w", padx=(6, 0))
-        tk.Label(lm_left, text="act / tgt:", font=(MONO, 10)).grid(
+        tk.Label(lm_left, text="act / tgt:", bg=BG, fg=TXT_DIM, font=(MONO, 11)).grid(
             row=3, column=0, sticky="w")
         self._lbl_alt_acttgt = tk.Label(lm_left, text="—", font=(MONO, 10),
                                          fg="#aaaaaa", width=18, anchor="w")
@@ -550,34 +599,38 @@ class App:
         ttk.Separator(lm, orient="vertical").pack(side="left", fill="y", padx=8)
 
         # AZM column
-        tk.Label(lm_right, text="AZM (residual)", font=("Helvetica", 11, "bold"),
+        tk.Label(lm_right, text="AZM (residual)", bg=BG, font=("Helvetica", 11, "bold"),
                  fg="#00e5ff").grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 4))
-        tk.Label(lm_right, text="Learned ratio:", font=(MONO, 10)).grid(
+        tk.Label(lm_right, text="Learned ratio:", bg=BG, fg=TXT_DIM, font=(MONO, 11)).grid(
             row=1, column=0, sticky="w")
-        self._lbl_azm_ratio = tk.Label(lm_right, text="—", font=(MONO, 10),
+        self._lbl_azm_ratio = tk.Label(lm_right, text="—", font=(MONO, 11),
                                         fg="#4CAF50", width=14, anchor="w")
         self._lbl_azm_ratio.grid(row=1, column=1, sticky="w", padx=(6, 0))
-        tk.Label(lm_right, text="Last update:", font=(MONO, 10)).grid(
+        tk.Label(lm_right, text="Last update:", bg=BG, fg=TXT_DIM, font=(MONO, 11)).grid(
             row=2, column=0, sticky="w")
         self._lbl_azm_upd = tk.Label(lm_right, text="—", font=(MONO, 10),
                                       fg="#aaaaaa", width=18, anchor="w")
         self._lbl_azm_upd.grid(row=2, column=1, sticky="w", padx=(6, 0))
 
         # — System Commands —
-        sl = ttk.LabelFrame(tab, text="  System Commands  ", padding=12)
+        sl_outer = tk.Frame(tab, bg=BG, highlightbackground=BORDER, highlightthickness=1)
+        sl_outer.pack(fill="x")
+        tk.Label(sl_outer, text="  System Commands", bg=BG, fg=TXT_DIM,
+                 font=("Helvetica", 10), anchor="w").pack(fill="x", padx=8, pady=(4,2))
+        sl = tk.Frame(sl_outer, bg=BG, pady=8, padx=10)
         sl.pack(fill="x")
-        sr = tk.Frame(sl)
+        sr = tk.Frame(sl, bg=BG)
         sr.pack()
         for cmd, txt, bg in [
-            ("HOME",     " HOME \n Homing + Tare ",     "#1565c0"),
-            ("DIAG",     " DIAG \n Full Diagnostic ",    "#e65100"),
-            ("RST",      " RST \n Soft Reset ",          "#b71c1c"),
-            ("AZM:ZERO", " AZM:ZERO \n Tare Azimuth ",  "#1b5e20"),
+            ("HOME",     " HOME \n Homing+Tare ",   "#1d4ed8"),
+            ("DIAG",     " DIAG \n Diagnostic ",    "#b45309"),
+            ("RST",      " RST \n Soft Reset ",     "#b91c1c"),
+            ("AZM:ZERO", " AZM:ZERO \n Tare AZM ", "#15803d"),
         ]:
-            make_button(sr, txt, bg=bg, font=("Helvetica", 11, "bold"),
-                        padx=14, pady=6,
+            make_button(sr, txt, bg=bg, font=("Helvetica", 12, "bold"),
+                        padx=16, pady=8,
                         command=lambda c=cmd: self._send(c)
-                        ).pack(side="left", padx=5)
+                        ).pack(side="left", padx=6)
 
     def _build_config(self, nb):
         tab = ttk.Frame(nb, padding=14)
@@ -825,7 +878,7 @@ class App:
         w.title(f"Generated Arduino Code — {self.profile_name}")
         w.geometry("700x520")
         t = scrolledtext.ScrolledText(w, font=(MONO, 11), wrap="none",
-                                       bg="#0d1117", fg="#c9d1d9")
+                                       bg="#1a1a1a", fg="#c9d1d9")
         t.pack(fill="both", expand=True, padx=10, pady=10)
         t.insert("1.0", code)
         t.configure(state="disabled")
@@ -880,17 +933,26 @@ class App:
 # ─────────────────────────────────────────────────────────────
 def main():
     root = tk.Tk()
-    root.withdraw()   # hide main window until profile is chosen
+    root.withdraw()
     try:
         if not IS_MAC: ttk.Style().theme_use("clam")
     except: pass
 
     profile_name = ask_profile(root)
+    root.deiconify()
 
-    root.deiconify()  # show main window
-    app = App(root, profile_name)
-    root.protocol("WM_DELETE_WINDOW", app.close)
-    root.mainloop()
+    try:
+        app = App(root, profile_name)
+        root.protocol("WM_DELETE_WINDOW", app.close)
+        root.mainloop()
+    except Exception as _e:
+        import traceback
+        msg = traceback.format_exc()
+        print(msg)
+        try:
+            messagebox.showerror("Erreur au démarrage", msg)
+        except:
+            pass
 
 
 if __name__ == "__main__":
