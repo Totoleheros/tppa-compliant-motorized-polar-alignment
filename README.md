@@ -32,7 +32,7 @@ Two hardware configurations are supported. A **single firmware** handles both �
 
 ## 🎬 See It In Action
 
-> 📌 Videos 1–3 show the **Prototype hardware**. Video 4 is a V2 kinematic simulation.
+> 📌 Videos 1–3 show the **Prototype hardware**. Video 4 is a V2 kinematic simulation. Video 5 is the CNC-machine V2 in action with a full setup!!
 
 | # | Video | What you'll see |
 |---|-------|-----------------|
@@ -40,7 +40,7 @@ Two hardware configurations are supported. A **single firmware** handles both �
 | 2 | [Homing Sequence (Arduino Serial Monitor)](https://youtu.be/NkoLJ03FSSY) | Live serial output: homing, limit switch detection, pull-off, MPU-6500 gyroscope tare. |
 | 3 | [**TPPA Session — Below 0.2 Arcminute!**](https://youtu.be/gfE6sZmrzuw) | Complete polar alignment run in N.I.N.A. — watch TPPA converge to < 0.2' in real-time. |
 | 4 | [**V2 ALT Bielle — Fusion 360 Kinematic Simulation**](https://youtu.be/YnkVJ2hzqB0) | Kinematic simulation of the V2 CNC bielle: full −2° to +10° travel, pivot geometry, T8 drive. |
-
+| 5 | [**V2 in the Real World — First Stress Test**](https://youtube.com/shorts/aVQfPjl87hA) | The V2 CNC assembly under full load — first real-world mechanical stress test. |
 ---
 
 ## 🖥️ Desktop Controller GUI
