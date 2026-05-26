@@ -32,7 +32,7 @@ Two hardware configurations are supported. A **single firmware** handles both �
 
 ## 🎬 See It In Action
 
-> 📌 Videos 1–3 show the **Prototype hardware**. Video 4 is a V2 kinematic simulation. Video 5 is the CNC-machine V2 in action with a full setup!!
+> 📌 Videos 1–3 show the **Prototype hardware**. Video 4 is a V2 kinematic simulation.
 
 | # | Video | What you'll see |
 |---|-------|-----------------|
@@ -40,7 +40,7 @@ Two hardware configurations are supported. A **single firmware** handles both �
 | 2 | [Homing Sequence (Arduino Serial Monitor)](https://youtu.be/NkoLJ03FSSY) | Live serial output: homing, limit switch detection, pull-off, MPU-6500 gyroscope tare. |
 | 3 | [**TPPA Session — Below 0.2 Arcminute!**](https://youtu.be/gfE6sZmrzuw) | Complete polar alignment run in N.I.N.A. — watch TPPA converge to < 0.2' in real-time. |
 | 4 | [**V2 ALT Bielle — Fusion 360 Kinematic Simulation**](https://youtu.be/YnkVJ2hzqB0) | Kinematic simulation of the V2 CNC bielle: full −2° to +10° travel, pivot geometry, T8 drive. |
-| 5 | [**V2 in the Real World — First Stress Test**](https://youtube.com/shorts/aVQfPjl87hA) | The V2 CNC assembly under full load — first real-world mechanical stress test. |
+
 ---
 
 ## 🖥️ Desktop Controller GUI
@@ -68,6 +68,17 @@ pip3 install pyserial
 python3 GUI/PolarAlignGUI_v15_03g_V2.py
 ```
 
+**Build the Windows executable (Windows 11):**
+```bash
+pip install pyinstaller pyserial
+python -m PyInstaller --onefile --windowed --name PolarAlignController PolarAlignGUI_v15_03g_V2.py
+```
+The standalone executable is produced at `dist\PolarAlignController.exe`.
+
+- `--onefile` — bundles everything into a single `.exe` (no dependency folder)
+- `--windowed` — no console window behind the GUI
+- `--name` — names the output `PolarAlignController.exe`
+
 ---
 
 ## 🌟 Key Features
@@ -82,7 +93,7 @@ python3 GUI/PolarAlignGUI_v15_03g_V2.py
 | 🛡️ **Homing Guard + DTR Persistence** | TPPA jogs are blocked until homing is completed. Homing state survives DTR-triggered reboots — no re-homing needed when switching between GUI and TPPA. |
 | ⏱️ **Optimised Timing** | RAMP_LENGTH = 500 steps, GLOBAL_SETTLE = 500 ms — comfortably within N.I.N.A.'s 7-second movement timeout. |
 | ⚡ **Zero Lag Engine** | Non-blocking trapezoidal acceleration. No `delay()` in the main loop — N.I.N.A. polls 10×/second without interruption. |
-| 🔘 **HOME button DIAG dump** | Short press during TPPA session → dumps full diagnostic to serial (TPPA ignores it). Long press → starts homing. |
+| 🔘 **Physical HOME button** | A single press triggers the homing sequence. The full diagnostic remains available any time via the `DIAG` serial command. |
 
 ---
 
@@ -95,7 +106,7 @@ The firmware stores the hardware profile in the ESP32's NVS flash (survives refl
 +---------------------------------------------------+
 |  HARDWARE PROFILE NOT SET                         |
 |  Send '1'  -> PROTO  (commercial tilt plate)      |
-|  Send '2'  -> V2     (CNC + RU42)       |
+|  Send '2'  -> V2     (CNC bielle V3 + RU42)       |
 +---------------------------------------------------+
 ```
 
@@ -124,6 +135,23 @@ Without homing, the firmware doesn't know the true physical ALT position. TPPA j
 > 💡 **Auto-recovery:** If the limit switch is already pressed at power-on, the firmware runs homing automatically.
 
 > 💡 **Bench testing without homing:** Direct serial commands (`ALT:`, `AZM:`) and GUI jog buttons work without homing.
+
+---
+
+## 🚨 Critical TPPA Plugin Settings (read this — it will save you hours)
+
+The firmware can be working perfectly and the mount will still **never move** if the TPPA plugin is misconfigured. These settings live in the TPPA plugin **Options → Settings** tab in N.I.N.A. Check them before assuming anything is wrong with the hardware.
+
+| Setting | Required value | Why it matters |
+|---------|:--------------:|----------------|
+| **Do automated adjustments?** | **ON** | ⚠️ **The #1 gotcha.** If this is **OFF**, TPPA measures and displays the error but **sends no `$J=` commands at all** — the motors never move and there is no error message. The mount just sits there. **If nothing moves, check this first.** |
+| **Polar Alignment System** | `UPAS` | Selects the Avalon/GRBL jog command dialect the firmware emulates. |
+| Azimuth / Altitude **Gear Ratio** | `1.0` | The firmware already converts arcminutes ↔ degrees internally. Any other value double-scales every correction. |
+| Reverse Azimuth Axis / Reverse Altitude Axis | `OFF` | Axis direction is handled by the firmware profile (`AXIS_REV_ALT`). Leave both OFF in TPPA. |
+
+> 💡 **Initial error must be small.** TPPA refuses to send automatic corrections if the *initial* polar alignment error exceeds ~1–1.5° (it shows *"Initial Polar Alignment error is large. Correction phase will be unreliable."*). Roughly set your mount to your latitude and rough-align to the pole **before** launching TPPA, so the starting error is under ~1°. Then let the automatic correction loop converge.
+
+> 🔍 **Debugging "no movement":** If the motors don't move, the fastest diagnostic is: run a TPPA session, then close it and reconnect with the GUI. Send `DIAG` — if the command log shows **no `$J=` lines**, TPPA never sent anything → it's a plugin setting (almost always *Do automated adjustments = OFF*), not the firmware.
 
 ---
 
