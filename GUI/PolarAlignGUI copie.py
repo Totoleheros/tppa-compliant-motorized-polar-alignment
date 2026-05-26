@@ -1,34 +1,20 @@
 #!/usr/bin/env python3
 """
-PolarAlign Controller v15.03g-V3 – Desktop GUI for the ESP32 Polar Alignment System
+PolarAlign Controller v15.03g – Desktop GUI for the ESP32 Polar Alignment System
 Cross-platform (Windows / macOS / Linux) — requires Python 3.8+ and pyserial.
+UMOT 30:1 + AZM auto-learning (guarded, automatic — no manual reset needed).
 
-Profiles: Proto V1 (commercial tilt plate) and V2 CNC (ALT V3 bielle geometry).
-Profile is selected at startup and sets all hardware-specific defaults in the
-Firmware Config tab. All other functionality is identical between profiles.
-
-Changelog vs v15.03g-V2:
-  - NEW: Jog buttons redesigned — 5 increments (0.001°/3.6" to 5°/300')
-  - NEW: Arc labels (arcmin/arcsec) shown above each button column
-  - NEW: Separate +/− rows for cleaner layout
-
-Changelog vs v15.03g:
-  - NEW: Profile selector dialog at startup (Proto V1 / V2 CNC)
-  - FIX: ALT_LIMIT_NEG default corrected to -2.0° for V2 profile
-  - FIX: AXIS_REV_ALT default corrected to False for V2 profile
-  - FIX: ALT_MOTOR_GEARBOX (via TILT_CRANK_RATIO) updated for V2 geometry
-  - FIX: ALT_LIMIT_POS default corrected to 5.0° for Proto, 10.0° for V2
-
-Previous changelog (v15.03g):
+Changelog vs v15.00:
   - FIX: Serial log no longer collapsed at startup (sash placement loop)
   - FIX: DTR/RTS disabled on connect (prevents ESP32 reboot when GUI connects)
   - FIX: AZM:LRN button removed (command doesn't exist in v15.03g firmware;
           AZM:ZERO already resets learning state internally)
   - NEW: ALT/AZM Learning panel — live display of MPU error and learned ratios,
           parsed from firmware serial output (ML Ratio: / MPU: / AZM ML: lines)
+  - Firmware Config: UMOT_RATIO + TILT_CRANK_RATIO fields verified correct
 
 Install:  pip3 install pyserial
-Run:      python3 PolarAlignGUI_v15_03g_V2.py
+Run:      python3 PolarAlignGUI.py
 """
 
 import tkinter as tk
@@ -48,78 +34,6 @@ except ImportError:
 IS_MAC = platform.system() == "Darwin"
 MONO = "Menlo" if IS_MAC else "Consolas"
 
-# ─────────────────────────────────────────────────────────────
-# HARDWARE PROFILES
-# Keys must match CONFIG_PARAMS key names exactly.
-# Only the values that differ between profiles are listed here —
-# everything else falls back to the CONFIG_PARAMS default.
-# ─────────────────────────────────────────────────────────────
-PROFILES = {
-    "Proto V1": {
-        "TILT_CRANK_RATIO": 4.96,
-        "AXIS_REV_ALT":     True,
-        "ALT_LIMIT_NEG":    0.0,
-        "ALT_LIMIT_POS":    5.0,
-    },
-    "V2 CNC": {
-        "TILT_CRANK_RATIO": 6.94,
-        "AXIS_REV_ALT":     False,
-        "ALT_LIMIT_NEG":   -2.0,
-        "ALT_LIMIT_POS":   10.0,
-    },
-}
-
-
-# ─────────────────────────────────────────────────────────────
-# PROFILE SELECTOR — shown once at startup, blocks until chosen
-# ─────────────────────────────────────────────────────────────
-def ask_profile(root):
-    """
-    Modal dialog that asks the user which hardware profile to load.
-    Returns the profile name string (key in PROFILES).
-    Destroys the app if the window is closed without choosing.
-    """
-    chosen = tk.StringVar(value="")
-
-    dlg = tk.Toplevel(root)
-    dlg.title("Select Hardware Profile")
-    dlg.resizable(False, False)
-    dlg.grab_set()          # modal
-    dlg.protocol("WM_DELETE_WINDOW", root.destroy)
-
-    tk.Label(dlg, text="Select your hardware profile:",
-             font=("Helvetica", 13, "bold"), pady=12).pack(padx=30)
-
-    btn_frame = tk.Frame(dlg)
-    btn_frame.pack(padx=30, pady=(0, 20))
-
-    profile_descs = {
-        "Proto V1": "Commercial tilt plate\nUMOT 30:1 × 4.96 crank\nALT: 0° to +5°",
-        "V2 CNC":   "V3 CNC bielle geometry\nUMOT 30:1 × 6.94 crank\nALT: −2° to +10°",
-    }
-
-    for name, desc in profile_descs.items():
-        f = tk.Frame(btn_frame, bd=2, relief="ridge", padx=14, pady=10)
-        f.pack(side="left", padx=10)
-        tk.Label(f, text=name, font=("Helvetica", 13, "bold")).pack()
-        tk.Label(f, text=desc, font=("Helvetica", 10), fg="#555",
-                 justify="center").pack(pady=(4, 8))
-        tk.Button(
-            f, text=f"  Use {name}  ",
-            font=("Helvetica", 11, "bold"),
-            bg="#1565c0", fg="white", relief="raised",
-            cursor="hand2",
-            command=lambda n=name: (chosen.set(n), dlg.destroy())
-        ).pack()
-
-    root.wait_window(dlg)
-
-    if not chosen.get():
-        root.destroy()
-        raise SystemExit(0)
-
-    return chosen.get()
-
 
 # ─────────────────────────────────────────────────────────────
 # CLICKABLE LABEL (works everywhere)
@@ -133,16 +47,16 @@ def make_button(parent, text, bg, fg="white", font=None, width=None,
     if width:
         lbl.configure(width=width)
 
-    def _enter(_):   lbl.configure(relief="groove")
-    def _leave(_):   lbl.configure(relief="raised")
-    def _press(_):   lbl.configure(relief="sunken")
+    def _enter(_):  lbl.configure(relief="groove")
+    def _leave(_):  lbl.configure(relief="raised")
+    def _press(_):  lbl.configure(relief="sunken")
     def _release(_):
         lbl.configure(relief="raised")
         if command: command()
 
-    lbl.bind("<Enter>",          _enter)
-    lbl.bind("<Leave>",          _leave)
-    lbl.bind("<ButtonPress-1>",  _press)
+    lbl.bind("<Enter>", _enter)
+    lbl.bind("<Leave>", _leave)
+    lbl.bind("<ButtonPress-1>", _press)
     lbl.bind("<ButtonRelease-1>", _release)
     return lbl
 
@@ -248,34 +162,32 @@ class SerialManager:
 
 # ─────────────────────────────────────────────────────────────
 # CONFIG DEFINITIONS
-# These are the base defaults; the selected profile overrides
-# the hardware-specific entries at runtime (see App.__init__).
 # ─────────────────────────────────────────────────────────────
 CONFIG_PARAMS = [
     ("MOTOR_FULL_STEPS",   "Motor steps per revolution",          200.0, float, "steps (1.8° = 200)"),
-    ("MICROSTEPPING_AZM",  "AZM microstepping",                    16,   int,   "µsteps"),
-    ("MICROSTEPPING_ALT",  "ALT microstepping",                     4,   int,   "µsteps"),
+    ("MICROSTEPPING_AZM",  "AZM microstepping",                   16,    int,   "µsteps"),
+    ("MICROSTEPPING_ALT",  "ALT microstepping",                   4,     int,   "µsteps"),
     ("GEAR_RATIO_AZM",     "AZM gear ratio (harmonic drive)",     100.0, float, ":1"),
-    ("UMOT_RATIO",         "ALT motor gearbox (UMOT)",             30.0, float, ":1  (30 or 100)"),
-    ("TILT_CRANK_RATIO",   "ALT tilt crank ratio",                 4.96, float, ":1  (Proto=4.96 / V2=6.94)"),
-    ("ALT_SCREW_PITCH_MM", "ALT lead screw pitch",                  2.0, float, "mm/rev (T8 = 2)"),
-    ("ALT_RADIUS_MM",      "ALT pivot-to-screw distance",          60.0, float, "mm"),
+    ("UMOT_RATIO",         "ALT motor gearbox (UMOT)",            30.0,  float, ":1  (30 or 100)"),
+    ("TILT_CRANK_RATIO",   "ALT tilt crank ratio",                4.96,  float, ":1  (T8+bielle geometry)"),
+    ("ALT_SCREW_PITCH_MM", "ALT lead screw pitch",                2.0,   float, "mm/rev (T8 = 2)"),
+    ("ALT_RADIUS_MM",      "ALT pivot-to-screw distance",         60.0,  float, "mm"),
     ("AXIS_REV_AZM",       "Reverse AZM direction",               True,  bool,  ""),
-    ("AXIS_REV_ALT",       "Reverse ALT direction",               True,  bool,  "Proto=True / V2=False"),
-    ("HOME_SAFETY_MARGIN", "Home pull-off margin",                  0.2, float, "degrees"),
+    ("AXIS_REV_ALT",       "Reverse ALT direction",               True,  bool,  ""),
+    ("HOME_SAFETY_MARGIN", "Home pull-off margin",                 0.2,   float, "degrees"),
     ("RMS_CURRENT_AZM",    "AZM motor current",                   600,   int,   "mA"),
     ("RMS_CURRENT_ALT",    "ALT motor current",                   300,   int,   "mA  (≤400 for UMOT)"),
     ("AZM_LIMIT_NEG",      "AZM travel limit (negative)",        -30.0,  float, "degrees"),
     ("AZM_LIMIT_POS",      "AZM travel limit (positive)",         30.0,  float, "degrees"),
-    ("ALT_LIMIT_NEG",      "ALT travel limit (negative)",          0.0,  float, "degrees  (Proto=0 / V2=−2)"),
-    ("ALT_LIMIT_POS",      "ALT travel limit (positive)",         10.0,  float, "degrees  (Proto=5 / V2=10)"),
-    ("FEEDBACK_MIN_SCALE", "Feedback report minimum scale",        0.50, float, "(0–1)"),
+    ("ALT_LIMIT_NEG",      "ALT travel limit (negative)",          0.0,  float, "degrees"),
+    ("ALT_LIMIT_POS",      "ALT travel limit (positive)",         10.0,  float, "degrees"),
+    ("FEEDBACK_MIN_SCALE", "Feedback report minimum scale",        0.50,  float, "(0–1)"),
 ]
 
 # Regex patterns for parsing firmware learning output
-RE_ALT_RATIO = re.compile(r"ML Ratio:\s*([\d.]+)\s*\(was\s*([\d.]+)\)")
-RE_ALT_MPU   = re.compile(r"MPU:\s*act=([\d.+-]+)\s+tgt=([\d.+-]+)\s+err=([\d.+-]+)")
-RE_AZM_ML    = re.compile(r"AZM ML:\s*([\d.]+)→([\d.]+)\s*\(prev=([\d.]+)' curr=([\d.]+)'")
+RE_ALT_RATIO  = re.compile(r"ML Ratio:\s*([\d.]+)\s*\(was\s*([\d.]+)\)")
+RE_ALT_MPU    = re.compile(r"MPU:\s*act=([\d.+-]+)\s+tgt=([\d.+-]+)\s+err=([\d.+-]+)")
+RE_AZM_ML     = re.compile(r"AZM ML:\s*([\d.]+)→([\d.]+)\s*\(prev=([\d.]+)' curr=([\d.]+)'")
 
 
 # ─────────────────────────────────────────────────────────────
@@ -285,14 +197,10 @@ class App:
 
     POLL_MS = 500
 
-    def __init__(self, root, profile_name):
+    def __init__(self, root):
         self.root = root
-        self.profile_name = profile_name
-        self.profile = PROFILES[profile_name]
-
-        self.root.title(f"PolarAlign Controller v15.03g  —  {profile_name}")
-        self.root.minsize(1200, 700)
-        self.root.geometry("1400x800")
+        self.root.title("PolarAlign Controller v15.03g")
+        self.root.minsize(1150, 700)
         self.root.configure(bg="#f0f0f0")
 
         self.azm = 0.0
@@ -301,12 +209,12 @@ class App:
         self._polling = False
 
         # Learning state — updated by parsing serial lines
-        self._alt_ratio      = None
-        self._alt_ratio_prev = None
-        self._alt_mpu_act    = None
-        self._alt_mpu_tgt    = None
-        self._alt_mpu_err    = None
-        self._azm_ratio      = None
+        self._alt_ratio      = None   # float: last learned ALT ratio
+        self._alt_ratio_prev = None   # float: previous ALT ratio (for delta display)
+        self._alt_mpu_act    = None   # float: MPU actual angle after last jog
+        self._alt_mpu_tgt    = None   # float: MPU target angle
+        self._alt_mpu_err    = None   # float: MPU error
+        self._azm_ratio      = None   # float: last learned AZM ratio
         self._azm_ratio_prev = None
 
         self.serial = SerialManager(
@@ -338,13 +246,6 @@ class App:
         self.conn_lbl = tk.Label(cf, text=" ● DISCONNECTED ",
                                   fg="gray", font=("Helvetica", 12, "bold"))
         self.conn_lbl.pack(side="left", padx=10)
-
-        # Profile badge
-        badge_bg = "#1565c0" if self.profile_name == "V2 CNC" else "#4a148c"
-        tk.Label(cf, text=f"  {self.profile_name}  ",
-                 font=("Helvetica", 11, "bold"),
-                 bg=badge_bg, fg="white", relief="flat",
-                 padx=8, pady=2).pack(side="right", padx=10)
 
         # — Status bar (AZM / ALT / MPU) —
         sf = tk.Frame(self.root, bg="#1a1a2e", padx=16, pady=14)
@@ -400,68 +301,35 @@ class App:
         self.raw_entry.bind("<Return>", lambda _: self._send_raw())
         ttk.Button(send_frame, text="Send", command=self._send_raw).pack(side="right")
 
-        # FIX: sash placement — two-pass with update_idletasks
-        self.root.after(200, self._place_sash)
+        # FIX: sash placement — loop until window is actually rendered
+        self.root.after(100, self._place_sash)
 
     def _place_sash(self):
-        self.root.update_idletasks()
+        """Retry sash placement until the window has a real width."""
         w = self.root.winfo_width()
-        if w < 400:
-            self.root.after(100, self._place_sash)
+        if w < 200:
+            self.root.after(50, self._place_sash)
             return
-        pos = int(w * 0.75)
-        self._paned.sash_place(0, pos, 0)
-        self.root.after(150, lambda: self._paned.sash_place(0, int(self.root.winfo_width() * 0.75), 0))
+        self._paned.sash_place(0, int(w * 0.65), 0)
 
     def _build_ctrl(self, nb):
         tab = ttk.Frame(nb, padding=14)
         nb.add(tab, text="  ★ Control  ")
 
         # — AZM —
-        af = ttk.LabelFrame(tab, text="  Azimuth (AZM)  ", padding=10)
+        af = ttk.LabelFrame(tab, text="  Azimuth (AZM)  ", padding=12)
         af.pack(fill="x", pady=(0, 6))
-
-        # Jog increments: (degrees, label_deg, label_arc)
-        JOG_STEPS = [
-            (0.001,  "0.001°",  '3.6"'),
-            (0.01,   "0.01°",   '36"'),
-            (0.1,    "0.1°",    "6'"),
-            (1.0,    "1°",      "60'"),
-            (5.0,    "5°",      "300'"),
-        ]
-
-        # Header row — arc labels
-        hdr = tk.Frame(af)
-        hdr.pack()
-        tk.Label(hdr, text="", width=6).pack(side="left")  # spacer
-        for _, ldeg, larc in JOG_STEPS:
-            tk.Label(hdr, text=larc, font=("Helvetica", 9), fg="#aaaaaa",
-                     width=7, anchor="center").pack(side="left", padx=2)
-
-        # Negative row
-        rn = tk.Frame(af)
-        rn.pack(pady=(2, 1))
-        tk.Label(rn, text="  −  ", font=("Helvetica", 10, "bold"),
-                 fg="#ff5252", width=4).pack(side="left")
-        for delta, ldeg, larc in JOG_STEPS:
-            make_button(rn, f"−{ldeg}", bg="#c62828",
-                        font=("Helvetica", 11, "bold"), pady=6, padx=4,
-                        command=lambda d=-delta: self._jog("AZM", d)
-                        ).pack(side="left", padx=2)
-
-        # Positive row
-        rp = tk.Frame(af)
-        rp.pack(pady=(1, 6))
-        tk.Label(rp, text="  +  ", font=("Helvetica", 10, "bold"),
-                 fg="#69f0ae", width=4).pack(side="left")
-        for delta, ldeg, larc in JOG_STEPS:
-            make_button(rp, f"+{ldeg}", bg="#2e7d32",
-                        font=("Helvetica", 11, "bold"), pady=6, padx=4,
-                        command=lambda d=delta: self._jog("AZM", d)
-                        ).pack(side="left", padx=2)
-
+        row = tk.Frame(af)
+        row.pack()
+        for d in [-5.0, -1.0, -0.1, 0.1, 1.0, 5.0]:
+            s = "+" if d > 0 else ""
+            bg = "#c62828" if d < 0 else "#2e7d32"
+            make_button(row, f" {s}{d}° ", bg=bg,
+                        font=("Helvetica", 14, "bold"), pady=8,
+                        command=lambda d=d: self._jog("AZM", d)
+                        ).pack(side="left", padx=3)
         gr = tk.Frame(af)
-        gr.pack(pady=(2, 0))
+        gr.pack(pady=(10, 0))
         tk.Label(gr, text="Go to (°):", font=("Helvetica", 12)).pack(side="left")
         self.azm_e = tk.Entry(gr, width=10, font=("Helvetica", 13))
         self.azm_e.pack(side="left", padx=6)
@@ -469,49 +337,19 @@ class App:
                    command=lambda: self._goto("AZM", self.azm_e)).pack(side="left")
 
         # — ALT —
-        alt_limits = (
-            self.profile.get("ALT_LIMIT_NEG",
-                             next(d for k,_,d,_,_ in CONFIG_PARAMS if k=="ALT_LIMIT_NEG")),
-            self.profile.get("ALT_LIMIT_POS",
-                             next(d for k,_,d,_,_ in CONFIG_PARAMS if k=="ALT_LIMIT_POS")),
-        )
-        al = ttk.LabelFrame(tab,
-                             text=f"  Altitude (ALT)   [{alt_limits[0]:.0f}° to +{alt_limits[1]:.0f}°]  ",
-                             padding=10)
+        al = ttk.LabelFrame(tab, text="  Altitude (ALT)  ", padding=12)
         al.pack(fill="x", pady=(0, 6))
-
-        # Header row — arc labels
-        hdr2 = tk.Frame(al)
-        hdr2.pack()
-        tk.Label(hdr2, text="", width=6).pack(side="left")
-        for _, ldeg, larc in JOG_STEPS:
-            tk.Label(hdr2, text=larc, font=("Helvetica", 9), fg="#aaaaaa",
-                     width=7, anchor="center").pack(side="left", padx=2)
-
-        # Negative row
-        rn2 = tk.Frame(al)
-        rn2.pack(pady=(2, 1))
-        tk.Label(rn2, text="  −  ", font=("Helvetica", 10, "bold"),
-                 fg="#ff5252", width=4).pack(side="left")
-        for delta, ldeg, larc in JOG_STEPS:
-            make_button(rn2, f"−{ldeg}", bg="#c62828",
-                        font=("Helvetica", 11, "bold"), pady=6, padx=4,
-                        command=lambda d=-delta: self._jog("ALT", d)
-                        ).pack(side="left", padx=2)
-
-        # Positive row
-        rp2 = tk.Frame(al)
-        rp2.pack(pady=(1, 6))
-        tk.Label(rp2, text="  +  ", font=("Helvetica", 10, "bold"),
-                 fg="#69f0ae", width=4).pack(side="left")
-        for delta, ldeg, larc in JOG_STEPS:
-            make_button(rp2, f"+{ldeg}", bg="#2e7d32",
-                        font=("Helvetica", 11, "bold"), pady=6, padx=4,
-                        command=lambda d=delta: self._jog("ALT", d)
-                        ).pack(side="left", padx=2)
-
+        row2 = tk.Frame(al)
+        row2.pack()
+        for d in [-5.0, -1.0, -0.1, 0.1, 1.0, 5.0]:
+            s = "+" if d > 0 else ""
+            bg = "#c62828" if d < 0 else "#2e7d32"
+            make_button(row2, f" {s}{d}° ", bg=bg,
+                        font=("Helvetica", 14, "bold"), pady=8,
+                        command=lambda d=d: self._jog("ALT", d)
+                        ).pack(side="left", padx=3)
         gr2 = tk.Frame(al)
-        gr2.pack(pady=(2, 0))
+        gr2.pack(pady=(10, 0))
         tk.Label(gr2, text="Go to (°):", font=("Helvetica", 12)).pack(side="left")
         self.alt_e = tk.Entry(gr2, width=10, font=("Helvetica", 13))
         self.alt_e.pack(side="left", padx=6)
@@ -522,6 +360,7 @@ class App:
         lm = ttk.LabelFrame(tab, text="  Learning Monitor  ", padding=10)
         lm.pack(fill="x", pady=(0, 6))
 
+        # Two columns: ALT (MPU-based) | AZM (residual-based)
         lm_left  = tk.Frame(lm)
         lm_left.pack(side="left", expand=True, fill="both", padx=(0, 10))
         lm_right = tk.Frame(lm)
@@ -530,16 +369,19 @@ class App:
         # ALT column
         tk.Label(lm_left, text="ALT (MPU)", font=("Helvetica", 11, "bold"),
                  fg="#ffab00").grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 4))
+
         tk.Label(lm_left, text="Learned ratio:", font=(MONO, 10)).grid(
             row=1, column=0, sticky="w")
         self._lbl_alt_ratio = tk.Label(lm_left, text="—", font=(MONO, 10),
                                         fg="#4CAF50", width=14, anchor="w")
         self._lbl_alt_ratio.grid(row=1, column=1, sticky="w", padx=(6, 0))
+
         tk.Label(lm_left, text="MPU error:", font=(MONO, 10)).grid(
             row=2, column=0, sticky="w")
         self._lbl_alt_err = tk.Label(lm_left, text="—", font=(MONO, 10),
                                       fg="#4CAF50", width=14, anchor="w")
         self._lbl_alt_err.grid(row=2, column=1, sticky="w", padx=(6, 0))
+
         tk.Label(lm_left, text="act / tgt:", font=(MONO, 10)).grid(
             row=3, column=0, sticky="w")
         self._lbl_alt_acttgt = tk.Label(lm_left, text="—", font=(MONO, 10),
@@ -552,22 +394,26 @@ class App:
         # AZM column
         tk.Label(lm_right, text="AZM (residual)", font=("Helvetica", 11, "bold"),
                  fg="#00e5ff").grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 4))
+
         tk.Label(lm_right, text="Learned ratio:", font=(MONO, 10)).grid(
             row=1, column=0, sticky="w")
         self._lbl_azm_ratio = tk.Label(lm_right, text="—", font=(MONO, 10),
                                         fg="#4CAF50", width=14, anchor="w")
         self._lbl_azm_ratio.grid(row=1, column=1, sticky="w", padx=(6, 0))
+
         tk.Label(lm_right, text="Last update:", font=(MONO, 10)).grid(
             row=2, column=0, sticky="w")
         self._lbl_azm_upd = tk.Label(lm_right, text="—", font=(MONO, 10),
                                       fg="#aaaaaa", width=18, anchor="w")
         self._lbl_azm_upd.grid(row=2, column=1, sticky="w", padx=(6, 0))
 
-        # — System Commands —
+        # — System —
         sl = ttk.LabelFrame(tab, text="  System Commands  ", padding=12)
         sl.pack(fill="x")
         sr = tk.Frame(sl)
         sr.pack()
+        # NOTE: AZM:LRN button REMOVED — command doesn't exist in v15.03g.
+        #       AZM:ZERO already calls resetAzmLearning() internally.
         for cmd, txt, bg in [
             ("HOME",     " HOME \n Homing + Tare ",     "#1565c0"),
             ("DIAG",     " DIAG \n Full Diagnostic ",    "#e65100"),
@@ -594,26 +440,23 @@ class App:
         sb.pack(side="right", fill="y")
 
         ttk.Label(sf,
-            text=f"Profile: {self.profile_name}  —  edit values, then 'Generate Arduino Code'",
-            foreground="#1565c0", font=("Helvetica", 11, "bold")
+            text="Edit values, then 'Generate Arduino Code' to copy-paste into the .ino",
+            foreground="gray", font=("Helvetica", 11)
         ).grid(row=0, column=0, columnspan=3, sticky="w", pady=(0, 12))
 
         self.cfg = {}
         for i, (key, label, default, typ, hint) in enumerate(CONFIG_PARAMS, 1):
-            # Apply profile override if present
-            effective_default = self.profile.get(key, default)
-
             ttk.Label(sf, text=label, font=("Helvetica", 11)).grid(
                 row=i, column=0, sticky="w", padx=(0, 10), pady=3)
             if typ == bool:
-                var = tk.BooleanVar(value=effective_default)
+                var = tk.BooleanVar(value=default)
                 ttk.Checkbutton(sf, variable=var).grid(row=i, column=1, sticky="w")
-                self.cfg[key] = ("bool", var, effective_default)
+                self.cfg[key] = ("bool", var, default)
             else:
-                var = tk.StringVar(value=str(effective_default))
+                var = tk.StringVar(value=str(default))
                 ttk.Entry(sf, textvariable=var, width=12,
                           font=("Helvetica", 11)).grid(row=i, column=1, sticky="w")
-                self.cfg[key] = (typ.__name__, var, effective_default)
+                self.cfg[key] = (typ.__name__, var, default)
             ttk.Label(sf, text=hint, foreground="gray",
                       font=("Helvetica", 10)).grid(
                 row=i, column=2, sticky="w", padx=(10, 0))
@@ -791,26 +634,27 @@ class App:
 
     def _gen_code(self):
         v = self._read_cfg()
+        # ALT_MOTOR_GEARBOX = UMOT_RATIO × TILT_CRANK_RATIO
         alt_gearbox = v['UMOT_RATIO'] * v['TILT_CRANK_RATIO']
         lines = [
-            f"/* ───── HARDWARE SETTINGS ({self.profile_name}) ───── */",
-            f"constexpr float    MOTOR_FULL_STEPS   = {v['MOTOR_FULL_STEPS']:.1f}f;",
-            f"constexpr uint16_t MICROSTEPPING_AZM  = {v['MICROSTEPPING_AZM']};",
-            f"constexpr uint16_t MICROSTEPPING_ALT  = {v['MICROSTEPPING_ALT']};",
-            f"constexpr float    GEAR_RATIO_AZM     = {v['GEAR_RATIO_AZM']:.1f}f;",
-            f"constexpr float    ALT_MOTOR_GEARBOX  = {alt_gearbox:.1f}f;"
+            "/* ───── HARDWARE SETTINGS ───── */",
+            f"constexpr float MOTOR_FULL_STEPS = {v['MOTOR_FULL_STEPS']:.1f}f;",
+            f"constexpr uint16_t MICROSTEPPING_AZM = {v['MICROSTEPPING_AZM']};",
+            f"constexpr uint16_t MICROSTEPPING_ALT = {v['MICROSTEPPING_ALT']};",
+            f"constexpr float GEAR_RATIO_AZM = {v['GEAR_RATIO_AZM']:.1f}f;",
+            f"constexpr float ALT_MOTOR_GEARBOX = {alt_gearbox:.1f}f;"
             f"       // UMOT {v['UMOT_RATIO']:.0f}:1 × {v['TILT_CRANK_RATIO']:.2f} crank",
-            f"constexpr float    ALT_SCREW_PITCH_MM = {v['ALT_SCREW_PITCH_MM']:.1f}f;",
-            f"constexpr float    ALT_RADIUS_MM      = {v['ALT_RADIUS_MM']:.1f}f;",
+            f"constexpr float ALT_SCREW_PITCH_MM = {v['ALT_SCREW_PITCH_MM']:.1f}f;",
+            f"constexpr float ALT_RADIUS_MM = {v['ALT_RADIUS_MM']:.1f}f;",
             "",
-            f"constexpr bool     AXIS_REV_AZM       = {'true' if v['AXIS_REV_AZM'] else 'false'};",
-            f"constexpr bool     AXIS_REV_ALT       = {'true' if v['AXIS_REV_ALT'] else 'false'};",
+            f"constexpr bool AXIS_REV_AZM = {'true' if v['AXIS_REV_AZM'] else 'false'};",
+            f"constexpr bool AXIS_REV_ALT = {'true' if v['AXIS_REV_ALT'] else 'false'};",
             "",
-            f"constexpr float    HOME_SAFETY_MARGIN = {v['HOME_SAFETY_MARGIN']:.1f}f;",
-            f"constexpr uint16_t RMS_CURRENT_AZM    = {v['RMS_CURRENT_AZM']};",
-            f"constexpr uint16_t RMS_CURRENT_ALT    = {v['RMS_CURRENT_ALT']};",
+            f"constexpr float HOME_SAFETY_MARGIN = {v['HOME_SAFETY_MARGIN']:.1f}f;",
+            f"constexpr uint16_t RMS_CURRENT_AZM = {v['RMS_CURRENT_AZM']};",
+            f"constexpr uint16_t RMS_CURRENT_ALT = {v['RMS_CURRENT_ALT']};",
             "",
-            "/* ───── TRAVEL LIMITS (degrees) ───── */",
+            "/* ───── TRAVEL LIMITS (in degrees) ───── */",
             f"constexpr float AZM_LIMIT_NEG = {v['AZM_LIMIT_NEG']:.1f}f;",
             f"constexpr float AZM_LIMIT_POS = {v['AZM_LIMIT_POS']:+.1f}f;",
             f"constexpr float ALT_LIMIT_NEG = {v['ALT_LIMIT_NEG']:+.1f}f;",
@@ -822,8 +666,8 @@ class App:
         code = "\n".join(lines)
 
         w = tk.Toplevel(self.root)
-        w.title(f"Generated Arduino Code — {self.profile_name}")
-        w.geometry("700x520")
+        w.title("Generated Arduino Code")
+        w.geometry("660x500")
         t = scrolledtext.ScrolledText(w, font=(MONO, 11), wrap="none",
                                        bg="#0d1117", fg="#c9d1d9")
         t.pack(fill="both", expand=True, padx=10, pady=10)
@@ -842,11 +686,10 @@ class App:
 
     def _save_cfg(self):
         v = self._read_cfg()
-        v["_profile"] = self.profile_name   # embed profile name in JSON
         p = filedialog.asksaveasfilename(
             defaultextension=".json",
             filetypes=[("JSON", "*.json")],
-            initialfile=f"polaralign_{self.profile_name.replace(' ', '_').lower()}.json")
+            initialfile="polaralign_config.json")
         if p:
             with open(p, "w") as f: json.dump(v, f, indent=2)
             messagebox.showinfo("Saved", f"Saved to:\n{p}")
@@ -856,13 +699,6 @@ class App:
         if not p: return
         try:
             with open(p) as f: v = json.load(f)
-            saved_profile = v.get("_profile", "")
-            if saved_profile and saved_profile != self.profile_name:
-                if not messagebox.askyesno(
-                    "Profile mismatch",
-                    f"Config was saved for '{saved_profile}' but current profile "
-                    f"is '{self.profile_name}'.\nLoad anyway?"):
-                    return
             for key, *_ in CONFIG_PARAMS:
                 if key in v:
                     wt, var, _ = self.cfg[key]
@@ -880,18 +716,12 @@ class App:
 # ─────────────────────────────────────────────────────────────
 def main():
     root = tk.Tk()
-    root.withdraw()   # hide main window until profile is chosen
     try:
         if not IS_MAC: ttk.Style().theme_use("clam")
     except: pass
-
-    profile_name = ask_profile(root)
-
-    root.deiconify()  # show main window
-    app = App(root, profile_name)
+    app = App(root)
     root.protocol("WM_DELETE_WINDOW", app.close)
     root.mainloop()
-
 
 if __name__ == "__main__":
     main()

@@ -126,7 +126,7 @@ constexpr float    ALT_RADIUS_MM      = 60.0f;     // Pivot-to-screw horizontal 
 
 /* ── Axis direction — flip to 'false' if your mount moves the wrong way ── */
 constexpr bool     AXIS_REV_AZM       = true;
-constexpr bool     AXIS_REV_ALT       = true;
+constexpr bool     AXIS_REV_ALT       = false;
 
 /* ── Homing ── */
 constexpr float    HOME_SAFETY_MARGIN = 0.2f;      // Pull-off distance after limit switch triggers (°)
@@ -155,7 +155,7 @@ constexpr float    AZM_HOLD_MULTIPLIER  = 0.5f;
    ═══════════════════════════════════════════════════════════════════════════════════════ */
 constexpr float AZM_LIMIT_NEG = -30.0f;
 constexpr float AZM_LIMIT_POS =  30.0f;
-constexpr float ALT_LIMIT_NEG =   0.0f;
+constexpr float ALT_LIMIT_NEG =   -2.0f;
 constexpr float ALT_LIMIT_POS =  10.0f;   // V2 tilt plate (5° for V1)
 
 /* ═══════════════════════════════════════════════════════════════════════════════════════
@@ -196,7 +196,7 @@ constexpr uint8_t MPU_ADDR = 0x68; // MPU-6500 default I2C address (AD0 = GND)
    SECTION 6 — ALT MACHINE LEARNING THRESHOLDS
    The MPU-6500 measures actual tilt after each ALT move and updates the gear ratio.
    ═══════════════════════════════════════════════════════════════════════════════════════ */
-constexpr float HOME_TRIGGER_ANGLE    = 0.0f;   // ALT angle assigned at homing (degrees)
+constexpr float HOME_TRIGGER_ANGLE    = -2.0f;   // ALT angle assigned at homing (degrees)
 constexpr float ALT_TOLERANCE_DEG     = 0.05f;  // Minimum ALT move to start MPU observation
 constexpr float MIN_LEARNING_ANGLE    = 0.5f;   // Minimum ALT move to update the learned ratio
 
