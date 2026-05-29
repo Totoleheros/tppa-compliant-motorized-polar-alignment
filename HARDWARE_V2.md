@@ -410,8 +410,9 @@ None are in the telescope load path.
 
 ## 📸 Assembly Photos
 
-> 📷 *Field photos coming soon — V2 assembly under testing.*
-<!-- Replace with: ![V2 Setup](IMAGES/ASSEMBLY_V2/setup.jpg) -->
+### Annotated Setup Overview
+
+![V2 Setup — Annotated](IMAGES/ASSEMBLY_V2/Real_World/setup_annotated_V2.jpg)
 
 You can find 3D model assembly views in `IMAGES/ASSEMBLY_V2/3D_Model/`.
 
