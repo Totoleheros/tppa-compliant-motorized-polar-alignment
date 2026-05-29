@@ -374,4 +374,8 @@ Insert the TF/microSD sniffer board into the FYSETC E4's SD card slot. Then conn
 
 ## 📸 Assembly Photos
 
+### Annotated Setup Overview
+
+![Prototype Setup — Annotated](IMAGES/ASSEMBLY_Proto/Real_World/setup_annotated.jpeg)
+
 You can find detailed images in the `IMAGES/ASSEMBLY_Proto` folder of this repository.
