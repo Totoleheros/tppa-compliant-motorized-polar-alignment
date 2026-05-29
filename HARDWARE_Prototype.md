@@ -2,7 +2,7 @@
 
 > 📌 **This document covers the Prototype hardware build**, which uses a commercial tilt plate, igus PRT-02 LC slewing ring, and UMOT 30:1 worm gearbox. This configuration has been **field-validated** with a 20 kg payload and is the recommended starting point for first-time builders.
 >
-> A **V2 hardware revision** (custom CNC ALT V3 mechanism + RU42 crossed roller bearing) is currently under development. Use `PolarAlign_Prototype.ino` for this hardware. See [`HARDWARE_V2.md`](./HARDWARE_V2.md) for the V2 build.
+> A **V2 hardware revision** (custom CNC ALT V3 mechanism + RU42 crossed roller bearing) has been delivered and is currently under testing. Use `PolarAlign_auto.ino` for this hardware (unified firmware, select profile `1` at first boot). See [`HARDWARE_V2.md`](./HARDWARE_V2.md) for the V2 build.
 
 ---
 
@@ -68,6 +68,8 @@ Telescope + EQ Mount
 | 3D-printed parts (cradles, brackets, cases) | Non-structural | Motor/sensor weight only | N/A | **Not in load path** |
 
 > 💡 **Upgrading to 30+ kg?** The first component to upgrade would be the igus bearing. The **PRT-01-20** (aluminum housing, same 80 mm diameter) has a published tilting moment of **120 Nm** and would comfortably support 35+ kg setups. It is a drop-in replacement for the PRT-02 LC.
+
+> 💡 **Counterweights lower the effective centre of gravity.** If your EQ mount uses a counterweight bar, the counterweights hanging below the RA axis reduce the effective torque arm seen by the ALT mechanism — a 32 kg setup (mount + scope + 8 kg counterweights) behaves mechanically closer to a 20 kg unbalanced load. Always calculate your payload budget using the **full assembly** (mount + scope + counterweights + accessories), not scope alone.
 
 ---
 
@@ -290,6 +292,48 @@ These plates are in the direct load path and must resist the tilting moment from
 
 ## 🔌 Wiring & Configuration (CRITICAL)
 
+### The Brain: FYSETC E4 V1.0
+
+| Spec | Value |
+|------|-------|
+| MCU | ESP32-WROOM-32 @ 240 MHz |
+| Drivers | 4× TMC2209, UART-addressed |
+| Used channels | MOT-X (Azimuth) + MOT-Y (Altitude) |
+| Power input | 12 V DC |
+
+> ⚠️ **FYSETC E4 V1.0 only!** V2.0 has different pin mapping — not compatible.
+
+### Motors
+
+| Axis | Port | Mode | µstep | Run current | Hold current | Note |
+|------|------|------|:-----:|:-----------:|:------------:|------|
+| AZM | MOT-X | SpreadCycle | 16 | 600 mA | 300 mA | Harmonic drive is not self-locking — active hold required |
+| ALT | MOT-Y | SpreadCycle | 4 | 300 mA | 30 mA | T8 screw is self-locking — hold current irrelevant |
+
+### Safety Inputs
+
+| Function | GPIO | Header | Type |
+|----------|:----:|--------|------|
+| ALT Limit Switch | 34 | X-MIN | Input only, active LOW |
+| Home Button | 35 | Y-MIN | Input only, active LOW |
+
+### Full GPIO Map
+
+| Signal | GPIO | E4 silkscreen |
+|--------|:----:|---------------|
+| STEP AZM | 27 | MOT-X |
+| DIR AZM | 26 | MOT-X |
+| EN (both) | 25 | /ENABLE |
+| UART RX/TX | 21/22 | Shared bus (Addr 1=AZM, Addr 2=ALT) |
+| STEP ALT | 33 | MOT-Y |
+| DIR ALT | 32 | MOT-Y |
+| SCL | 18 | SD Card `SCK` |
+| SDA | 19 | SD Card `MISO` |
+| Limit switch | 34 | Z-MIN |
+| Home button | 35 | Y-MIN |
+
+---
+
 ### ⚠️ UART Jumper Setup
 
 To enable communication between the ESP32 and the TMC2209 drivers, you **MUST** place the jumpers to activate "UART Mode", exactly as shown in the **FYSETC E4 Wiki**.
@@ -311,7 +355,7 @@ Place **2 jumper caps** horizontally on the bottom rows to bridge the communicat
 - **Reference Guide:**
   See the "UART Mode" section in the official wiki: [https://wiki.fysetc.com/docs/E4](https://wiki.fysetc.com/docs/E4)
 
-> 💡 Use `PolarAlign_Prototype.ino` for this hardware configuration.
+> 💡 Use `PolarAlign_auto.ino` for this hardware — select profile `1` (PROTO) at first boot.
 
 ### 📡 MPU-6500 I2C Wiring (via SD Card Sniffer)
 
