@@ -1,8 +1,9 @@
 # Polar Align System – Hardware Setup (V2)
 
-> 🔧 **This document covers the V2 hardware revision**, which uses a custom CNC ALT bielle mechanism and an RU42 crossed roller bearing for the AZM axis. This configuration is **currently under intense testing** — not yet fully field-validated.
+> 🔧 **This document covers the V2 hardware revision**, which uses a custom CNC ALT bielle mechanism and an RU42 crossed roller bearing for the AZM axis. All parts have been delivered, assembled, and the system is currently **under field testing**.
 >
-> For a proven, ready-to-build starting point, see [`HARDWARE_Prototype.md`](./HARDWARE_Prototype.md). 
+> For a proven, ready-to-build starting point, see [`HARDWARE_Prototype.md`](./HARDWARE_Prototype.md).
+> Use `PolarAlign_auto.ino` (unified firmware) and select profile `2` (V2) at first boot.
 
 ---
 
@@ -10,7 +11,7 @@
 
 > I'm just an enthusiast sharing this open hardware project, **with no guarantee of success**.
 > I'll do my best to support others trying this build, but my **time is limited**, and my **skills are not professional-grade**.
-> V2 is a **work in progress** — design validated in simulation, fabrication in progress. Field results and corrections will be published here once complete.
+> V2 is fully assembled and under active testing. Field results and corrections will be published here as they come in.
 
 ---
 
@@ -20,28 +21,27 @@ V2 addresses the two main limitations of the Prototype:
 
 | Axis | Prototype | V2 | Benefit |
 |------|-----------|-----|---------|
-| **AZM bearing** | igus PRT-02 LC — tilting moment unknown (⚠️ assumed weakest link) | **RU42 crossed roller** — tilting moment ~153 Nm (4× margin at 25 kg) | Known, published margins. No more uncertainty. |
+| **AZM bearing** | igus PRT-02 LC — tilting moment unknown (⚠️ assumed weakest link) | **RU42 crossed roller** — tilting moment ~153 Nm (4.1× margin at 25 kg) | Known, published margins. No more uncertainty. |
 | **ALT mechanism** | Commercial tilt plate (5.6 mm non-standard shaft, custom coupler) | **Custom CNC ALT bielle** — pivot below T8, optimized kinematics | Full 12° travel range, clean geometry, no off-spec shafts. |
 | **Base plate** | Monolithic 15180 aluminium profiles | **Two-piece CNC aluminium** — assembly tolerance on 4 pillars | Adjustable at assembly, lower JLCCNC cost. |
 
-All electronics, firmware logic, MPU wiring, and GRBL protocol are **identical to the Prototype**. Only the hardware constants change (see [`README.md` — Configuration Knobs](./README.md)).
+All electronics, firmware logic, MPU wiring, and GRBL protocol are **identical to the Prototype**. Only the hardware constants differ — the firmware handles both via runtime profile selection.
 
 ---
 
 ## 🧩 3D Model & Files
 
-- The full 3D design (STEP format) is included in the downloadable archive:
-  📦 `PolarALIGN_V2_STEP.zip`
+- Full 3D design (STEP format): 📦 `PolarALIGN_V2_STEP.zip`
 
-> 💡 All CNC part dimensions are directly readable from the STEP file. The sections below describe the architecture and design rationale; refer to the STEP for fabrication tolerances and exact dimensions.
+> 💡 All CNC part dimensions are directly readable from the STEP file. The sections below describe architecture and design rationale; refer to the STEP for fabrication tolerances and exact dimensions.
 
 > ⚠️ **Manufacturing drawings** (2D technical PDFs as submitted to JLCCNC) are available in `3D STEP Models/Manufacturing_Drawings_V2/`. These reflect the design **as fabricated**. If the design is revised post-validation, the STEP file is the source of truth.
-> 
-- The full 3D design is available here: 👉 [Shapr3D Project Viewer](https://app.shapr3d.com/p/c5be962f-1274-4f6f-9b4a-4f21080a35d3)
-  - Parts in **green** in the model: CNC aluminium (JLCCNC recommended).
-  - Parts in **blue**: 3D-printed (PLA+CF or PETG).
 
-- 🎬 **Kinematic simulation (Fusion 360):** [V2 ALT Bielle — Full Travel Range](https://youtu.be/YnkVJ2hzqB0) — watch the bielle mechanism sweep from −2° to +10°, pivot geometry and T8 drive in motion.
+- 👉 [Shapr3D Project Viewer](https://app.shapr3d.com/p/c5be962f-1274-4f6f-9b4a-4f21080a35d3) — parts in **green**: CNC aluminium; parts in **blue**: 3D-printed.
+
+- 🎬 **Kinematic simulation (Fusion 360):** [V2 ALT Bielle — Full Travel Range](https://youtu.be/YnkVJ2hzqB0) — bielle mechanism sweeping −2° to +10°, pivot geometry and T8 drive in motion.
+
+- 🎬 **First real-world stress test:** [V2 in the Real World](https://youtube.com/shorts/aVQfPjl87hA) — V2 CNC assembly under full load.
 
 ---
 
@@ -71,7 +71,7 @@ Telescope + EQ Mount
 
 ### Why crossed roller instead of slewing ring?
 
-The igus PRT-02 LC (Prototype) is a polymer slewing ring with unpublished tilting moment for its LC variant. This was the single biggest uncertainty in the Prototype's payload analysis. The RU42 replaces it with a precision steel crossed roller bearing with known, published ratings.
+The igus PRT-02 LC (Prototype) is a polymer slewing ring with unpublished tilting moment for its LC variant — the single biggest uncertainty in the Prototype's payload analysis. The RU42 replaces it with a precision steel crossed roller bearing with known, published ratings.
 
 | Parameter | igus PRT-02 LC | RU42 (V2) |
 |---|---|---|
@@ -83,9 +83,9 @@ The igus PRT-02 LC (Prototype) is a polymer slewing ring with unpublished tiltin
 | Maintenance | None (polymer) | Grease via lubrication hole (Ø3.1mm) |
 | Cost | ~63€ | **~38€** |
 
-> **Tilting moment calculation:** The RU42's dynamic radial load rating C = 7,350 N applied at the roller pitch circle radius dp/2 = 20.75 mm gives an estimated tilting moment capacity of 7,350 × 0.02075 ≈ **153 Nm**. At 25 kg with a 150 mm eccentric arm (worst case), the load is ~37 Nm — **4.1× safety factor**. This is a standard approximation for crossed roller bearings under pure moment loading; the static rating (C₀ = 8,350 N) gives 173 Nm (**4.7×**).
+> **Tilting moment calculation:** C = 7,350 N × dp/2 = 0.02075 m → **153 Nm**. At 25 kg with a 150 mm eccentric arm: 37 Nm → **4.1× SF**. Static rating (C₀ = 8,350 N) gives 173 Nm (**4.7×**).
 
-> **Comparison:** The igus PRT-01-20 (aluminium housing, the published upgrade path for the Prototype) is rated at 120 Nm tilting moment (3.3× SF). The RU42 exceeds this at lower cost and smaller footprint.
+> **Comparison:** The igus PRT-01-20 (the published upgrade path for the Prototype) is rated at 120 Nm (3.3× SF). The RU42 exceeds this at lower cost and smaller footprint.
 
 ### RU42 Full Specifications
 
@@ -106,26 +106,24 @@ The igus PRT-02 LC (Prototype) is a polymer slewing ring with unpublished tiltin
 
 | Ring | PCD | Holes | Type |
 |---|---|---|---|
-| **Inner ring** | 28 mm | 6× M3 | Threaded through |
-| **Outer ring** | 57 mm | 6× Ø3.4 | Through + Ø6.5 counterbore, depth 3.3 mm |
-
-> 💡 Inner ring = fixed to base plate via 6×M3. Outer ring = rotating platform (telescope side), driven by harmonic drive adapter via 6×Ø3.4 through-holes.
+| **Inner ring** | 28 mm | 6× M3 | Threaded through — fixed to base plate |
+| **Outer ring** | 57 mm | 6× Ø3.4 | Through + Ø6.5 counterbore, depth 3.3 mm — rotating platform (telescope side) |
 
 - ![RU42 Crossed Roller Bearing](IMAGES/Parts_V2/RU42.jpg)
 
 ### Harmonic Drive Adapter
 
-A 3D-printed PLA+CF adapter bridges the harmonic drive output (PCD = 20.5 mm) to the RU42 outer ring (PCD = 57 mm, mounting holes at Ø3.4). The adapter carries motor torque only — no telescope load passes through it.
+A 3D-printed PLA+CF adapter bridges the harmonic drive output (PCD = 20.5 mm) to the RU42 outer ring (PCD = 57 mm, Ø3.4 holes). The adapter carries **motor torque only** — no telescope load passes through it.
 
 ---
 
 ## 🔩 AZM Axis: Base Plate (Two-Piece CNC)
 
-The V2 base replaces the Prototype's monolithic 15180 aluminium profiles with two separate CNC-machined aluminium plates joined by four precision pillars.
+The V2 base replaces the Prototype's monolithic 15180 aluminium profiles with two CNC-machined aluminium plates joined by four precision pillars.
 
 **Design rationale:**
 - **JLCCNC cost:** Two separate small blocks are significantly cheaper than a large monolithic part.
-- **Assembly tolerance:** The four pillars allow for fine parallelism adjustment during assembly, compensating for minor CNC flatness variation.
+- **Assembly tolerance:** The four pillars allow fine parallelism adjustment during assembly, compensating for minor CNC flatness variation.
 - **Anti-tip gap:** A 1 mm gap between the two plates on the anti-tip side prevents binding during AZM rotation under eccentric load.
 
 **AZM adjustment interface:**
@@ -138,15 +136,15 @@ The V2 base replaces the Prototype's monolithic 15180 aluminium profiles with tw
 
 ## 🔧 ALT Axis: CNC Bielle Mechanism
 
-The V2 ALT axis replaces the commercial tilt plate with a fully custom CNC aluminium bielle (crank-arm) mechanism. The key design change is the **pivot repositioned below the T8 lead screw**, which recovers the full travel range that was reduced in earlier geometry iterations.
+The V2 ALT axis replaces the commercial tilt plate with a fully custom CNC aluminium bielle (crank-arm) mechanism. The key design insight: **pivot repositioned below the T8 lead screw** — this dramatically improves mechanical advantage and recovers the full travel range that was lost in earlier geometry iterations.
 
-### Geometry (validated in simulation)
+### Geometry (Geometry V3 — validated in simulation + fabricated)
 
 | Parameter | Value |
 |---|---|
 | Pivot position | (0, 0) — reference origin |
 | T8 screw position | Y = +17.5 mm above pivot |
-| Ball joint (BH) | (58, 40.25) mm |
+| Ball joint upper (BH) | (58, 40.25) mm |
 | T8 nut attachment (BB) | (97.54, 17.5) mm |
 | Bielle length (L) | 45.6 mm |
 | Left bearing (Palier G) | X = −19 mm |
@@ -155,7 +153,9 @@ The V2 ALT axis replaces the commercial tilt plate with a fully custom CNC alumi
 | Linear course | 17.59 mm over 12° |
 | Effective mm/° (linearized) | 1.466 mm/° at mid-travel |
 
-### Structural margins
+> 💡 **Why pivot below T8?** Earlier designs (V1, V2) placed the pivot above the T8 axis. This created a kinematic configuration where travel range degraded sharply. Moving the pivot below the T8 (V3 geometry) restores full 12° range and reduces peak T8 forces by ~3× compared to the above-pivot configuration.
+
+### Structural Margins
 
 | Component | Specification | Actual load | Safety Factor |
 |---|---|---|---|
@@ -163,7 +163,7 @@ The V2 ALT axis replaces the commercial tilt plate with a fully custom CNC alumi
 | Bielle (rod) | Steel, 5.6 mm² section | ~11 N compression | **20.7×** |
 | UMOT 30:1 output torque | ~2–4 Nm | ~0.04 Nm required | **51×** |
 
-### Right bearing (Palier D): 626ZZ
+### Right Bearing (Palier D): 626ZZ
 
 The right-side bearing seat carries the T8 axial reaction force.
 
@@ -176,51 +176,116 @@ The right-side bearing seat carries the T8 axial reaction force.
 | Through-hole in aluminium | Ø6.5 mm |
 | Combined axial/radial SF | 5.3× |
 
+> ⚠️ **Critical assembly note:** The Ø8→Ø6 shoulder must bear against the **inner ring** of the 626ZZ, not the aluminium housing. Aluminium is too soft to serve as an axial stop under repeated T8 load cycles.
+
 - ![626ZZ Bearing](IMAGES/Parts_V2/626ZZ.jpg)
 
-> ⚠️ **Critical assembly note:** The Ø8→Ø6 shoulder must bear against the **inner ring** of the 626ZZ, not against the aluminium housing. Aluminium is too soft to serve as an axial stop under repeated T8 load cycles.
+### Chariot (T8 Nut Carrier)
 
-### Chariot (T8 nut carrier): Anti-backlash system
-
-The T8 nut carrier uses a **three-nut anti-backlash system**:
+The T8 nut carrier uses **two large nuts**, one on each side of the chariot body, both fixed to the chariot:
 
 | Position | Nut | Role |
 |---|---|---|
-| Left | Small nut + spring + large anti-backlash nut | Active spring pre-load, removes T8 backlash |
-| Right | Large simple nut | Axial reaction stop |
+| Left | Large nut, fixed to chariot | Axial stop for rightward T8 forces |
+| Right | Large nut, fixed to chariot | Axial stop for leftward T8 forces |
 
-- Distance between the two large nuts (inner faces): **19 mm** — satisfies the N×2+1 mm opposition-of-phase rule for anti-backlash nut geometry.
-- Left bearing housing is **blind (borgne)** — serves as the axial stop for leftward T8 forces.
+> ⚠️ **Design change vs original spec:** The three-nut anti-backlash system (spring + secondary nut) was removed. The spring assembly created a collision with the left bearing (Palier G) at the end of travel. The current two-nut design eliminates the collision and is sufficient given the T8 mesh quality and the MPU learning system's ability to compensate for any residual backlash effect.
 
-> 📐 Logement bore diameter: sized to accommodate the M3 fixing hole PCD (16 mm) of the large anti-backlash nut — do not use the nut OD alone as the bore spec.
-
-### Firmware constant for V2
-
-The bielle geometry gives a different effective crank ratio than the Prototype's commercial tilt plate:
+### Firmware Profile for V2
 
 ```cpp
-// V2 — ALT CNC bielle (UMOT 30:1 × 6.94 linearized crank factor)
-constexpr float ALT_MOTOR_GEARBOX = 208.3f;
+// V2 profile — set automatically when profile '2' is selected at first boot
+constexpr float  ALT_MOTOR_GEARBOX  = 124.0f;  // Initial estimate — ML converges to true value within 2–3 jogs
+constexpr bool   AXIS_REV_ALT       = false;    // Prototype is true, V2 is false
+constexpr float  HOME_TRIGGER_ANGLE = -2.0f;    // ALT homes to −2° (limit switch position)
+constexpr float  ALT_LIMIT_NEG      = -2.0f;    // Travel limit matches home position
+constexpr float  ALT_LIMIT_POS      = 10.0f;    // Max tilt
 ```
 
-The MPU-6500 learning system will converge to the true value within 2–3 ALT jogs regardless of this starting estimate. The ±20% acceptance band means the firmware will tolerate a ~40 mm/° error before rejecting the update — well within the V2 geometry's expected range.
+> ⚠️ The `ALT_MOTOR_GEARBOX` value of 124 is a terrain-validated starting estimate. The MPU-6500 ML system will converge to the true ratio within 2–3 ALT jogs and save it to EEPROM. The ±20% acceptance band gives the learning system room to work regardless of exact geometry.
 
-> 💡 **GUI users:** In the **Firmware Config tab**, set `TILT_CRANK_RATIO = 6.94` (instead of 4.96 for the Prototype). The `ALT_MOTOR_GEARBOX` field will auto-compute to 208.3. No separate GUI version is needed — one `PolarAlignGUI.py` works for both hardware versions.
+> 💡 **GUI users:** In the **Firmware Config tab**, select the **V2 CNC** profile at startup. `TILT_CRANK_RATIO` is pre-set to the correct value. No manual entry needed.
 
 ---
 
 ## ⚡ Electronics & Wiring
 
-**Identical to the Prototype.** Refer to [`HARDWARE_Prototype.md` — Electronics & Wiring section](./HARDWARE_Prototype.md#-electronics--control) for:
+Electronics are **identical to the Prototype** for all shared components. The sections below cover the complete wiring for V2.
 
-- FYSETC E4 V1.0 board
-- MPU-6500 via SD card sniffer (GPIO 18/19)
-- UART jumper setup
-- Full GPIO map
-- Motor wiring
-- Safety inputs
+### Controller Board: FYSETC E4 V1.0
 
-The only firmware difference is `ALT_MOTOR_GEARBOX = 208.3` in `PolarAlign_V2.ino`.
+| Spec | Value |
+|------|-------|
+| MCU | ESP32-WROOM-32 @ 240 MHz |
+| Drivers | 4× TMC2209, UART-addressed |
+| Used channels | MOT-X (Azimuth) + MOT-Y (Altitude) |
+| Power input | 12 V DC |
+
+> ⚠️ **FYSETC E4 V1.0 only!** V2.0 has different pin mapping — not compatible.
+
+### Motors
+
+| Axis | Port | Mode | µstep | Run current | Hold current | Note |
+|------|------|------|:-----:|:-----------:|:------------:|------|
+| AZM | MOT-X | SpreadCycle | 16 | 600 mA | 300 mA | Harmonic drive is not self-locking — active hold required |
+| ALT | MOT-Y | SpreadCycle | 4 | 300 mA | 30 mA | T8 screw is self-locking — hold current irrelevant |
+
+> **AZM motor (V2):** 17HS19-2004S1 — identical to Prototype. Parameters unchanged.
+
+> **Why SpreadCycle on both axes?** SpreadCycle provides firmer, more predictable holding torque than StealthChop on the AZM harmonic drive. The perceived AZM "soft zone then hard stop" at rest is intrinsic flex-spline elastic behavior, not a current issue — SpreadCycle is retained regardless as it improves static holding stiffness.
+
+### Power Supply
+
+| Parameter | Value |
+|---|---|
+| **Model** | Mean Well LRS-100-12 |
+| **Output** | 12 V DC, 8.5 A (100 W) |
+| **Cooling** | Passive (no fan) — no noise during sessions |
+| **Headroom** | ×2.4 over peak draw (~3.5 A) |
+| **Cost** | ~18€ |
+
+> 💡 **Why LRS-100-12 and not LRS-75-12?** At only 3€ more, the 100W model provides ×2.4 headroom (vs ×1.8) while remaining fully passive. The 150W model has a thermostatically controlled fan — unwanted noise outdoors at night. The 100W is the sweet spot: silent, sufficient margin for future additions (Raspberry Pi, dew heaters, additional axes).
+
+### Safety Inputs
+
+| Function | GPIO | Header | Type |
+|----------|:----:|--------|------|
+| ALT Limit Switch | 34 | X-MIN | Input only, active LOW |
+| Home Button | 35 | Y-MIN | Input only, active LOW |
+
+### Full GPIO Map
+
+| Signal | GPIO | E4 silkscreen |
+|--------|:----:|---------------|
+| STEP AZM | 27 | MOT-X |
+| DIR AZM | 26 | MOT-X |
+| EN (both) | 25 | /ENABLE |
+| UART RX/TX | 21/22 | Shared bus (Addr 1=AZM, Addr 2=ALT) |
+| STEP ALT | 33 | MOT-Y |
+| DIR ALT | 32 | MOT-Y |
+| SCL | 18 | SD Card `SCK` |
+| SDA | 19 | SD Card `MISO` |
+| Limit switch | 34 | Z-MIN |
+| Home button | 35 | Y-MIN |
+
+### UART Jumper Setup
+
+To enable TMC2209 communication, place **2 jumper caps** on the TXD/RXD header. Without them, motors won't respond. See [FYSETC E4 Wiki](https://wiki.fysetc.com/docs/E4) for placement.
+
+> Driver addressing: AZM (Driver X) = Address 1 / ALT (Driver Y) = Address 2.
+
+### MPU-6500 I2C Wiring (via SD Card Sniffer)
+
+Insert the TF/microSD sniffer board into the FYSETC E4's SD card slot, then wire the MPU-6500:
+
+| Wire Color | Signal | Sniffer Pin | ESP32 GPIO |
+|:----------:|--------|:-----------:|:----------:|
+| 🔴 Red | VCC | 3.3V | — | **3.3V only — do not use 5V** |
+| 🟡 Yellow | GND | GND | — | |
+| 🔵 Blue | SCL | SCK | GPIO 18 | |
+| 🟢 Green | SDA | MISO | GPIO 19 | |
+
+> ⚠️ Keep I2C wires away from stepper motor cables to prevent EMI. The firmware detects I2C failures and reports them via `DIAG`.
 
 ---
 
@@ -241,65 +306,114 @@ The RU42 crossed roller bearing eliminates the tilting moment uncertainty that c
 | RU42 – Tilting moment (est.) | ~153 Nm | ~37 Nm @150mm arm | **4.1×** | ⚠️ Weakest (but known & comfortable) |
 | T8 lead screw (bronze nut) | 500–1,000 N | ~25–40 N @2° tilt | **15–25×** | No |
 | UMOT 30:1 output torque | ~2–4 Nm | ~0.04 Nm @operating angle | **51×** | No |
-| Bielle (CNC rod) | Steel, SF 20.7× | 11 N compression | **20.7×** | No |
+| Bielle (CNC aluminium rod) | SF 20.7× | 11 N compression | **20.7×** | No |
 | 626ZZ right bearing | Combined SF 5.3× | Axial reaction only | **5.3×** | No |
 | 3D-printed parts | Non-structural | Motor/sensor weight only | N/A | No |
 
-> **Note:** These are simulation-derived values. Field validation with the fabricated hardware is pending and will update this table.
+> 💡 **Counterweights lower the effective centre of gravity.** If your EQ mount uses a counterweight bar, the counterweights hanging below the RA axis reduce the effective torque arm seen by the ALT mechanism — a 32 kg setup (mount + scope + 8 kg counterweights) behaves mechanically closer to a 20 kg unbalanced load. Always calculate your payload budget using the **full assembly** (mount + scope + counterweights + accessories), not scope alone.
+
+> ⚠️ Margin values above are simulation-derived. Field validation is in progress and will update this table.
+
+---
+
+## 🌡️ Motor Thermal Management
+
+The UMOT worm gearbox encloses the NEMA 17 in a compact housing with poor heat dissipation. The firmware ships with 300 mA for ALT — the only safe value for PLA+ motor cradles.
+
+| RMS Current | Power | Temperature | PLA-safe? |
+|:-----------:|:-----:|:-----------:|:---------:|
+| 800 mA (old default) | ~1.6 W | 55–65°C | ❌ |
+| **300 mA (default)** | ~0.2 W | Barely warm | ✅ |
+| 400 mA (cold weather) | ~0.4 W | ~35°C | ✅ |
+
+> Use **PETG** or **ABS** for the ALT motor cradle above 300 mA.
 
 ---
 
 ## 🖨️ 3D Printing & CNC Fabrication
 
-### CNC Parts (aluminium, recommended JLCCNC)
+### CNC Parts (aluminium, JLCCNC)
 
 | Part | Role | Structural? |
 |---|---|---|
 | Base plate — piece 1 | Lower platform, tripod interface, RU42 outer ring mount | ✅ Yes |
 | Base plate — piece 2 | Upper platform, RU42 inner ring mount, pillar tops | ✅ Yes |
-| ALT tilt plate | Bielle mechanism, pivot, 626ZZ seats, chariot guide | ✅ Yes |
+| ALT tilt plate assembly | Bielle mechanism, pivot, 626ZZ seats, chariot guide | ✅ Yes |
 
 - ![CNC Parts — Exploded View](IMAGES/Parts_V2/CNC_exploded.jpg)
 - ![CNC Parts — Assembly View](IMAGES/ASSEMBLY_V2/3D_Model/40.jpg)
 
-> All CNC dimensions in `PolarALIGN_V2_STEP.zip`. Standard tap drill sizes: M3=2.5mm, M4=3.3mm, M5=4.2mm, M6=5.0mm.
+> Standard tap drill sizes: M3=2.5mm, M4=3.3mm, M5=4.2mm, M6=5.0mm. All dimensions in `PolarALIGN_V2_STEP.zip`.
 
-- Estimated CNC cost (JLCCNC): **~320€**
+Estimated CNC cost (JLCCNC): **~320€**
 
 ### 3D Printed Parts
 
-Same role and constraints as the Prototype — none are in the telescope load path.
+None are in the telescope load path.
 
 | Part | Material | Note |
 |---|---|---|
-| Harmonic drive adapter (AZM) | PLA+CF | Motor torque only — no load |
-| ALT motor cradle (UMOT) | PLA+CF (PETG if >300 mA) | Thermal concern at high current |
+| Harmonic drive adapter (AZM) | PLA+CF | Motor torque only — no telescope load |
+| ALT motor cradle (UMOT) | PLA+CF (PETG if >300 mA) | Direct contact with UMOT housing |
 | MPU-6500 bracket | PLA | Negligible load |
 | Homing switch bracket | PLA | Negligible load |
-| FYSETC E4 enclosure | PLA | None |
+| FYSETC E4 enclosure | PLA | Electronics housing only |
 
 ---
 
-## 🛒 Parts List (V2-specific changes vs Prototype)
+## 🛒 Parts List & Cost Estimate
+
+### V2-specific components (replaces or new vs Prototype)
 
 | # | Component | Change | Est. Cost |
 |---|---|---|---|
 | — | ~~igus PRT-02 LC J4~~ | **Removed** | — |
+| — | ~~T8 coupler (5.6mm hack)~~ | **Removed** — V2 is native T8 | — |
+| — | ~~15180 aluminium profiles~~ | **Removed** — replaced by CNC base plates | — |
 | 1 | **RU42UUCCO** crossed roller bearing | New — AZM bearing | ~38€ |
 | 2 | **CNC ALT** tilt plate assembly | New — replaces commercial tilt plate | ~320€ (JLCCNC) |
 | 3 | **626ZZ** bearing (6×19×6 mm) | New — right-side T8 axial stop | <2€ |
-| — | ~~T8 tilt plate coupler (5.6mm hack)~~ | **Removed** — V2 is native T8 | — |
+| 4 | **Mean Well LRS-100-12** power supply | New — 12V 8.5A passive PSU | ~18€ |
 
+### Shared components (identical to Prototype)
 
+| Component | Est. Cost |
+|---|---|
+| Tripod extension (Angeleyes 400 or equivalent) | ~43€ |
+| Harmonic drive MiniF11-100 (100:1) | ~58€ |
+| NEMA 17 motor — AZM (17HS19-2004S1) | ~12€ |
+| NEMA 17 + UMOT worm gearbox 30:1 — ALT | ~20€ |
+| FYSETC E4 V1.0 controller board | ~30€ |
+| MPU-6500 gyroscope | ~3€ |
+| MicroSD card sniffer (I2C hack) | ~3€ |
+| T8×2mm lead screw kit (screw + nut + KP08 bearings) | ~15€ |
+| Limit switch (V-156-1C25) + home button | ~4€ |
+| Assorted screws, fasteners, T-nuts | ~20€ |
+| **Shared subtotal** | ~**208€** |
+
+### 💰 Complete V2 Budget
 
 | Category | Cost |
 |---|---|
-| RU42 bearing | ~**38€** |
-| CNC parts — ALT + base plates (JLCCNC) | ~**320€** |
-| 626ZZ bearing + fasteners | ~**5€** |
-| **V2-specific total** | ~**363€** |
+| V2-specific: RU42 bearing | ~38€ |
+| V2-specific: CNC parts (JLCCNC) | ~320€ |
+| V2-specific: 626ZZ bearing | ~2€ |
+| V2-specific: Mean Well LRS-100-12 | ~18€ |
+| Shared components | ~208€ |
+| **Total** | ~**586€** |
 
-> All other components (harmonic drive, NEMA 17 motors, FYSETC E4, T8 kit, MPU-6500, sniffer, tripod extension) are shared with the Prototype — see [`HARDWARE_Prototype.md`](./HARDWARE_Prototype.md) for their costs.
+*(Excluding 3D printing filament)*
+
+> The Prototype costs ~490€ (including CNC junction plates). V2 costs more primarily due to the full CNC ALT mechanism (~320€ vs ~90€ for the Prototype's two junction plates). The RU42 bearing actually saves ~25€ vs the igus PRT-02 LC.
+
+---
+
+## 📸 Assembly Photos
+
+> 📷 *Field photos coming soon — V2 assembly under testing.*
+<!-- Replace with: ![V2 Setup](IMAGES/ASSEMBLY_V2/setup.jpg) -->
+
+You can find 3D model assembly views in `IMAGES/ASSEMBLY_V2/3D_Model/`.
 
 ---
 
