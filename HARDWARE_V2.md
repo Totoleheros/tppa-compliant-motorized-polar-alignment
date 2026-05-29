@@ -1,8 +1,8 @@
 # Polar Align System – Hardware Setup (V2)
 
-> 🔧 **This document covers the V2 hardware revision**, which uses a custom CNC ALT bielle mechanism and an RU42 crossed roller bearing for the AZM axis. This configuration is **currently under fabrication** — not yet field-validated.
+> 🔧 **This document covers the V2 hardware revision**, which uses a custom CNC ALT bielle mechanism and an RU42 crossed roller bearing for the AZM axis. This configuration is **currently under intense testing** — not yet fully field-validated.
 >
-> For a proven, ready-to-build starting point, see [`HARDWARE_Prototype.md`](./HARDWARE_Prototype.md). Use `PolarAlign_V2.ino` for this hardware.
+> For a proven, ready-to-build starting point, see [`HARDWARE_Prototype.md`](./HARDWARE_Prototype.md). 
 
 ---
 
