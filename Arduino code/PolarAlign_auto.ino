@@ -1,6 +1,6 @@
 /*****************************************************************************************
  * FYSETC-E4 (ESP32 + TMC2209) — POLAR ALIGNMENT CONTROLLER
- * Version : 15.03g-auto-p3  (runtime hardware profile -- no recompile needed)
+ * Version : 15.03g-auto-p4  (runtime hardware profile -- no recompile needed)
  *
  * ══════════════════════════════════════════════════════════════════════
  * PROFILE SELECTION — uncomment ONE profile before compiling
@@ -360,6 +360,16 @@ float         targetAltAngle     = 0.0f; // ALT target for current move
 float         learningStartAngle = 0.0f; // MPU angle at start of move (for ML delta)
 float         learningRequestedDelta = 0.0f; // Commanded ALT delta (for ML ratio)
 bool          lastMoveWasUp      = true; // Direction of last ALT move (skip ML on reversal)
+
+/* ── ALT LEARNING CONVERGENCE (Optimization B) ──
+   Once the learned ratio is stable across ALT_CONVERGE_COUNT consecutive
+   observations, MPU observation is disabled for the rest of the session.
+   This removes the ~750 ms observe overhead from every subsequent ALT jog.
+   Reset on reboot (RAM-only) and on homing, so the ratio is re-validated
+   over the first few jogs of each session. ── */
+constexpr uint8_t ALT_CONVERGE_COUNT = 3;     // stable observations needed to lock
+uint8_t altStableCount   = 0;                  // consecutive stable measurements
+bool    altRatioConverged = false;             // true = skip observation (fast mode)
 
 bool  homingDone = false;  // TPPA jogs blocked until true
 
@@ -756,11 +766,21 @@ void tickMotion() {
           float oldRatio      = activeStepsPerDegALT;
           activeStepsPerDegALT = (activeStepsPerDegALT * (1.0f - LEARNING_SMOOTHING))
                                + (measuredRatio * LEARNING_SMOOTHING);
-          if (fabsf(activeStepsPerDegALT - oldRatio) > EEPROM_WRITE_THRESHOLD) {
+          float change = fabsf(activeStepsPerDegALT - oldRatio);
+          if (change > EEPROM_WRITE_THRESHOLD) {
             EEPROM.put(EEPROM_ADDR_RATIO, activeStepsPerDegALT);
             EEPROM.commit();
+            altStableCount = 0;                 // significant change — not converged yet
+          } else {
+            // Measurement barely moved the ratio → count as stable
+            if (++altStableCount >= ALT_CONVERGE_COUNT) {
+              altRatioConverged = true;
+              diagPrintf("ML: ratio converged (%.2f) — observation disabled\n",
+                         activeStepsPerDegALT);
+            }
           }
-          diagPrintf("ML Ratio: %.2f (was %.2f)\n", activeStepsPerDegALT, oldRatio);
+          diagPrintf("ML Ratio: %.2f (was %.2f) stable=%u\n",
+                     activeStepsPerDegALT, oldRatio, altStableCount);
         }
       }
     }
@@ -770,7 +790,14 @@ void tickMotion() {
     inFeedbackCycle = false;
     posDegALT       = targetAltAngle;
     diagPrintf("DONE: reported=%.3f mpuActual=%.3f\n", posDegALT, actualAngle);
-    if (!startNextJob()) enterGlobalSettle();
+
+    /* Optimization A: the mount already sat still for SETTLE_DELAY_MS + sampling
+       (~750 ms) during observation — vibrations are long gone. Skip the
+       redundant global settle and report Idle immediately. */
+    if (!startNextJob()) {
+      isMoving = false;
+      diagPrintf("IDLE (post-observe, global settle skipped)\n");
+    }
     return;
   }
 
@@ -833,7 +860,8 @@ void tickMotion() {
 
     // For ALT moves above tolerance: enter MPU observation instead of settling directly.
     // This is where the machine learning measurement happens.
-    if (!mot.isAzm && mpuAvailable && !feedHold && fabsf(mot.deltaDeg) >= ALT_TOLERANCE_DEG) {
+    if (!mot.isAzm && mpuAvailable && !feedHold && !altRatioConverged &&
+        fabsf(mot.deltaDeg) >= ALT_TOLERANCE_DEG) {
       diagPrintf("Observe: tgt=%.3f start=%.3f\n", targetAltAngle, feedbackStartPos);
       settlingForObserve = true;
       settleStartMs      = millis();
@@ -843,7 +871,9 @@ void tickMotion() {
       return;
     }
 
-    // No observation needed: snap to exact target, start next job or enter settle
+    // No observation needed (AZM, sub-tolerance ALT, or converged ALT):
+    // clear feedback scaling, snap to exact target, then next job or settle.
+    inFeedbackCycle = false;   // required: converged ALT moves set this true in startNextJob
     *mot.globalPos = mot.targetPos;
     if (!startNextJob()) enterGlobalSettle();
   }
@@ -904,6 +934,8 @@ void softReset() {
   waitingForGlobalSettle = false;
   inFeedbackCycle        = false;
   learningRequestedDelta = 0;
+  altStableCount         = 0;       // re-validate ALT ratio after reset
+  altRatioConverged      = false;
   resetAzmLearning();   // Atomically clear all AZM learning state
   diagClear();
   Serial.println("\r\nGrbl 1.1h ['$' for help]");
@@ -1019,6 +1051,8 @@ void startHoming() {
   isMoving               = false;
   homingDone             = true;
   learningRequestedDelta = 0;
+  altStableCount         = 0;       // re-validate ALT ratio over first few jogs of session
+  altRatioConverged      = false;
   resetAzmLearning();  // Fresh start — previous session's AZM learning is invalid
 
   // Persist homing state to EEPROM so it survives a DTR-triggered reboot
@@ -1040,7 +1074,7 @@ void startHoming() {
    Everything that can help debug a field issue is included here.
    ═══════════════════════════════════════════════════════════════════════════════════════ */
 void printDiagnostic() {
-  Serial.print("\n--- SYSTEM DIAGNOSTIC (v15.03g-auto-p3) [");
+  Serial.print("\n--- SYSTEM DIAGNOSTIC (v15.03g-auto-p4) [");
   Serial.print(cfg_profile_name);
   Serial.println("] ---");
 
@@ -1363,7 +1397,7 @@ void setup() {
   loadOrSelectProfile();
 
   Serial.println("\n=======================================================");
-  Serial.print("  BOOT: V15.03g-auto-p3 ["); Serial.print(cfg_profile_name); Serial.println("] (ESP32)");
+  Serial.print("  BOOT: V15.03g-auto-p4 ["); Serial.print(cfg_profile_name); Serial.println("] (ESP32)");
   Serial.print("  Profile: "); Serial.print(cfg_profile_name);
   Serial.print("  ALT_GEARBOX="); Serial.print(cfg_ALT_MOTOR_GEARBOX,1);
   Serial.print("  AXIS_REV_ALT="); Serial.println(cfg_AXIS_REV_ALT ? "true":"false");
