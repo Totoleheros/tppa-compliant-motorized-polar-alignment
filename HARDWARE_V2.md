@@ -414,6 +414,8 @@ None are in the telescope load path.
 
 ![V2 Setup — Annotated](IMAGES/ASSEMBLY_V2/Real_World/setup_annotated_V2.jpg)
 
+![V2 Setup — Zoom](IMAGES/ASSEMBLY_V2/Real_World/setup_annotated_V2ZOOM.jpg)
+
 You can find 3D model assembly views in `IMAGES/ASSEMBLY_V2/3D_Model/`.
 
 ---
