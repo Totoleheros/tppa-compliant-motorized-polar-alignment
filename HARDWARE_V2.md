@@ -37,7 +37,7 @@ All electronics, firmware logic, MPU wiring, and GRBL protocol are **identical t
 
 > ⚠️ **Manufacturing drawings** (2D technical PDFs as submitted to JLCCNC) are available in `3D STEP Models/Manufacturing_Drawings_V2/`. These reflect the design **as fabricated**. If the design is revised post-validation, the STEP file is the source of truth.
 
-- 👉 [Shapr3D Project Viewer](https://app.shapr3d.com/p/c5be962f-1274-4f6f-9b4a-4f21080a35d3) — parts in **green**: CNC aluminium; parts in **blue**: 3D-printed.
+- 👉 [Shapr3D Project Viewer](https://app.shapr3d.com/p/c5be962f-1274-4f6f-9b4a-4f21080a35d3/v/tPa6U5BlQVnb4cDBH3I2a) — parts in **green**: CNC aluminium; parts in **blue**: 3D-printed.
 
 - 🎬 **Kinematic simulation (Fusion 360):** [V2 ALT Bielle — Full Travel Range](https://youtu.be/YnkVJ2hzqB0) — bielle mechanism sweeping −2° to +10°, pivot geometry and T8 drive in motion.
 
