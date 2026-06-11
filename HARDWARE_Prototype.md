@@ -1,32 +1,31 @@
 # Polar Align System – Hardware Setup (Prototype)
 
 > 📌 **This document covers the Prototype hardware build**, which uses a commercial tilt plate, igus PRT-02 LC slewing ring, and UMOT 30:1 worm gearbox. This configuration has been **field-validated** with a 20 kg payload and is the recommended starting point for first-time builders.
->
+> 
 > A **V2 hardware revision** (custom CNC ALT V3 mechanism + RU42 crossed roller bearing) has been delivered and is currently under testing. Use `PolarAlign_auto.ino` for this hardware (unified firmware, select profile `1` at first boot). See [`HARDWARE_V2.md`](./HARDWARE_V2.md) for the V2 build.
 
----
+-----
 
 ## ⚠️ Disclaimer
 
-> I'm just an enthusiast sharing this open hardware project, **with no guarantee of success**.
-> I'll do my best to support others trying this build, but my **time is limited**, and my **skills are not professional-grade**.
+> I’m just an enthusiast sharing this open hardware project, **with no guarantee of success**.
+> I’ll do my best to support others trying this build, but my **time is limited**, and my **skills are not professional-grade**.
 > This is a **validated prototype** — field-tested to sub-0.2 arcminute precision with a 20 kg payload. A refined V2 hardware revision is in development.
 
----
+-----
 
 ## 🧩 3D Model & Files
 
 - The full 3D design is available here:
   👉 [Shapr3D Project Viewer](https://app.shapr3d.com/v/xjBj0DmmQmfPPzAL_mYX5)
-  > Parts in blue are to be printed in 3D (PLA+CF recommended); Parts in green: CNC machining recommended.
 
+> Parts in blue are to be printed in 3D (PLA+CF recommended); Parts in green: CNC machining recommended.
 - All 3D parts (STEP format) are included in the downloadable archive:
   📦 `PolarALIGN_Proto_STEP.zip`
-
 - 🛠️ **Drilling Jig Included:** The 3D model archive now includes a custom **Drilling Jig (Gabarit de perçage)**. You can 3D print this tool to easily and accurately mark the drilling hole locations on the 200mm 15180 profile.
 - A small cable management piece for the gyroscope wires is also included.
 
----
+-----
 
 ## ⚖️ Mechanical Design Philosophy & Payload Rating
 
@@ -50,47 +49,52 @@ Telescope + EQ Mount
 
 ### Payload Ratings
 
-| Rating | Max Payload | Use Case |
-|--------|-------------|----------|
-| **Recommended** | **20 kg** | Safe for all builders with ~2× margin on every component. |
-| **Advanced** | **25 kg** | Author-tested. Requires centered payload, proper fastener torque, and careful assembly. |
+|Rating         |Max Payload|Use Case                                                                               |
+|---------------|-----------|---------------------------------------------------------------------------------------|
+|**Recommended**|**20 kg**  |Safe for all builders with ~2× margin on every component.                              |
+|**Advanced**   |**25 kg**  |Author-tested. Requires centered payload, proper fastener torque, and careful assembly.|
 
 ### Component-by-Component Capacity
 
-| Component | Specification | Load @25 kg | Margin | Limiting? |
-|-----------|--------------|-------------|--------|-----------|
-| igus PRT-02 – Axial (dynamic) | 4,000 N | ~245 N | **16×** | No |
-| igus PRT-02 – Radial (dynamic) | 500 N | ~50 N worst case | **10×** | No |
-| igus PRT-02 – Tilting moment | Not published (LC variant) | ~25–37 Nm estimated | **Unknown** | ⚠️ **Assumed weakest** |
-| T8×2mm lead screw (bronze nut) | 500–1000 N axial | ~25–40 N @2° tilt | **15–25×** | No |
-| UMOT 30:1 output torque | ~2–4 Nm | ~0.25 Nm required | **8–16×** | No |
-| 15180 profiles (crossed, bolted) | >5 kN in bending | <250 N | **20×+** | No |
-| 3D-printed parts (cradles, brackets, cases) | Non-structural | Motor/sensor weight only | N/A | **Not in load path** |
+|Component                                  |Specification             |Load @25 kg             |Margin     |Limiting?            |
+|-------------------------------------------|--------------------------|------------------------|-----------|---------------------|
+|igus PRT-02 – Axial (dynamic)              |4,000 N                   |~245 N                  |**16×**    |No                   |
+|igus PRT-02 – Radial (dynamic)             |500 N                     |~50 N worst case        |**10×**    |No                   |
+|igus PRT-02 – Tilting moment               |Not published (LC variant)|~25–37 Nm estimated     |**Unknown**|⚠️ **Assumed weakest**|
+|T8×2mm lead screw (bronze nut)             |500–1000 N axial          |~25–40 N @2° tilt       |**15–25×** |No                   |
+|UMOT 30:1 output torque                    |~2–4 Nm                   |~0.25 Nm required       |**8–16×**  |No                   |
+|15180 profiles (crossed, bolted)           |>5 kN in bending          |<250 N                  |**20×+**   |No                   |
+|3D-printed parts (cradles, brackets, cases)|Non-structural            |Motor/sensor weight only|N/A        |**Not in load path** |
+
 
 > 💡 **Upgrading to 30+ kg?** The first component to upgrade would be the igus bearing. The **PRT-01-20** (aluminum housing, same 80 mm diameter) has a published tilting moment of **120 Nm** and would comfortably support 35+ kg setups. It is a drop-in replacement for the PRT-02 LC.
 
 > 💡 **Counterweights lower the effective centre of gravity.** If your EQ mount uses a counterweight bar, the counterweights hanging below the RA axis reduce the effective torque arm seen by the ALT mechanism — a 32 kg setup (mount + scope + 8 kg counterweights) behaves mechanically closer to a 20 kg unbalanced load. Always calculate your payload budget using the **full assembly** (mount + scope + counterweights + accessories), not scope alone.
 
----
+-----
 
 ## 🛒 Mechanical Components (Major)
 
 ### 1. Tripod Extension
+
 - Example: [AliExpress – 43€](https://fr.aliexpress.com/item/1005008669077575.html)
 - ![Tripod Extension](IMAGES/Parts_Proto/tripod-extension.jpg)
 
 ### 2. Harmonic Drive (AZM Reduction)
+
 - Model: **MINIF11-100** (Ratio 100:1)
 - Example: [AliExpress – 58€](https://fr.aliexpress.com/item/1005007712296652.html)
 - ![Harmonic Drive](IMAGES/Parts_Proto/harmonic-drive.jpg)
 
 ### 3. Stepper Motor (AZM Drive)
+
 - **1x** Standard NEMA 17 for the Harmonic Drive input.
 - Model: **17HS19-2004S1** (or similar high torque)
 - Example: [Amazon – ~12€]
 - ![Stepper Motor](IMAGES/Parts_Proto/stepper.jpg)
 
 ### 4. Heavy Duty Tilt Plate (Base Structure)
+
 - *Replaces the old cross-slide table for better stability.*
 - Example: [AliExpress – ~80€](https://fr.aliexpress.com/item/1005009718898462.html)
 - ![Tilt Plate](IMAGES/Parts_Proto/TiltPlate.jpg)
@@ -103,37 +107,41 @@ The ALT axis uses a **NEMA 17 stepper + UMOT worm gearbox** driving a T8×2mm le
 
 This mount operates in a **narrow 0–5° range** (the EQ mount handles most of the latitude setting). The torque requirements at these low tilt angles are minimal, so you can trade torque margin for speed:
 
-| UMOT Ratio | Speed (per 1°) | Typical 2° Adjustment | Torque Margin @25 kg | Self-Locking | Verdict |
-|------------|----------------|----------------------|---------------------|--------------|---------|
-| **100:1** | 6.3 s | 12.6 s | 80× | ✅ Worm + screw | Current prototype — very safe, very slow |
-| **50:1** | 3.1 s | 6.2 s | 40× | ✅ Worm + screw | Conservative choice |
-| **30:1** ⭐ | 1.9 s | 3.8 s | 23× | ⚠️ Screw only | **Recommended — best balance** *(current build, field-validated)* |
-| **17:1** | 1.1 s | 2.2 s | 13× | ❌ Screw only | Fast, tight margins in cold |
+|UMOT Ratio|Speed (per 1°)|Typical 2° Adjustment|Torque Margin @25 kg|Self-Locking  |Verdict                                                          |
+|----------|--------------|---------------------|--------------------|--------------|-----------------------------------------------------------------|
+|**100:1** |6.3 s         |12.6 s               |80×                 |✅ Worm + screw|Current prototype — very safe, very slow                         |
+|**50:1**  |3.1 s         |6.2 s                |40×                 |✅ Worm + screw|Conservative choice                                              |
+|**30:1** ⭐|1.9 s         |3.8 s                |23×                 |⚠️ Screw only  |**Recommended — best balance** *(current build, field-validated)*|
+|**17:1**  |1.1 s         |2.2 s                |13×                 |❌ Screw only  |Fast, tight margins in cold                                      |
 
-> **Why 30:1?** A TPPA session involves 6–8 altitude corrections. At 100:1, this means 1–2 minutes of waiting for motors alone. At 30:1, the same session saves over a minute — significant when you're setting up in the cold and dark.
+
+> **Why 30:1?** A TPPA session involves 6–8 altitude corrections. At 100:1, this means 1–2 minutes of waiting for motors alone. At 30:1, the same session saves over a minute — significant when you’re setting up in the cold and dark.
 
 > **Self-locking explained:** At 100:1 and 50:1, both the worm gear AND the lead screw prevent the telescope from back-driving under gravity (double self-locking). At 30:1 and below, the worm may lose self-locking, but the **T8×2mm lead screw is always self-locking** (helix angle 4° < friction angle ~8.5°). The load on the screw at operating angles is only 25–40 N — trivial for a bronze nut rated at 500–1000 N.
 
-**Author's configuration:** UMOT 30:1 (field-validated), giving ~149:1 total effective ratio.
+**Author’s configuration:** UMOT 30:1 (field-validated), giving ~149:1 total effective ratio.
 
 - Example: [AliExpress – ~20€](https://fr.aliexpress.com/item/1005008325671689.html)
 - ![Worm Gear Motor](IMAGES/Parts_Proto/WormGearMotor.jpg)
+
+> 💡 **UMOT shaft note:** The dual-shaft version was used here, but the second shaft serves no functional purpose — it just provides a visual confirmation that the ALT axis is actually moving. If you want a slightly more compact assembly, go for the **single-shaft** version instead. Both are available from the same AliExpress listing.
 
 #### 🌡️ Motor Thermal Note
 
 The UMOT worm gearbox encloses the NEMA 17 in a compact housing with poor heat dissipation. Even at rest, the TMC2209 sends a holding current that generates heat:
 
-| RMS Current | Power Dissipated | Surface Temperature | Safe for PLA cradle? |
-|-------------|-----------------|---------------------|---------------------|
-| 800 mA (old default) | ~1.6 W | 55–65°C | ❌ No (PLA softens at ~55°C) |
-| **300 mA (new default)** | ~0.2 W | Barely warm | ✅ Yes |
-| 400 mA (cold weather) | ~0.4 W | ~35°C | ✅ Yes |
+|RMS Current             |Power Dissipated|Surface Temperature|Safe for PLA cradle?       |
+|------------------------|----------------|-------------------|---------------------------|
+|800 mA (old default)    |~1.6 W          |55–65°C            |❌ No (PLA softens at ~55°C)|
+|**300 mA (new default)**|~0.2 W          |Barely warm        |✅ Yes                      |
+|400 mA (cold weather)   |~0.4 W          |~35°C              |✅ Yes                      |
 
 The firmware ships with **300 mA** for the ALT motor. Even at this reduced current, the torque margin remains ≥23× for 30:1 and ≥30× for 100:1 at operating angles (0–5°).
 
 > **Recommendation:** Use **PETG** or **ABS** for the motor cradle if you plan to experiment with higher currents. PLA is fine at 300 mA.
 
 ### 6. Structural Profiles (Base Chassis)
+
 - Type: **15180 Aluminum Extrusion** (2 Plates needed)
   - **Plate 1 (Main):** Length **250mm**, oriented North-South.
   - **Plate 2 (Cross):** Orthogonal (East-West), aligned flush with the North end of Plate 1 (200mm length).
@@ -149,25 +157,27 @@ The firmware ships with **300 mA** for the ALT motor. Even at this reduced curre
 
 **Key specs (from igus datasheet):**
 
-| Parameter | Value | Relevance |
-|-----------|-------|-----------|
-| Dynamic axial load | **4,000 N** (~408 kg) | Telescope weight — no concern |
-| Static axial load | **13,000 N** (~1,325 kg) | — |
-| Dynamic radial load | **500 N** (~51 kg) | Side loads from wind — comfortable |
-| Static radial load | **2,000 N** (~204 kg) | — |
-| Max RPM | 250 | AZM rotates at <1 RPM — no concern |
-| Max temperature | 90°C | Outdoor use — no concern |
-| Axial/radial play | ±0.25 mm | Acceptable for polar alignment precision |
+|Parameter          |Value                   |Relevance                               |
+|-------------------|------------------------|----------------------------------------|
+|Dynamic axial load |**4,000 N** (~408 kg)   |Telescope weight — no concern           |
+|Static axial load  |**13,000 N** (~1,325 kg)|—                                       |
+|Dynamic radial load|**500 N** (~51 kg)      |Side loads from wind — comfortable      |
+|Static radial load |**2,000 N** (~204 kg)   |—                                       |
+|Max RPM            |250                     |AZM rotates at <1 RPM — no concern      |
+|Max temperature    |90°C                    |Outdoor use — no concern                |
+|Axial/radial play  |±0.25 mm                |Acceptable for polar alignment precision|
+
 
 > ⚠️ **Tilting moment** (the ability to resist an off-center load trying to tip the bearing) is **not published** for the PRT-02 LC variant. The PRT-01 series (aluminum housing) is rated at 120 Nm. The PRT-02 LC (polymer housing) is likely significantly lower. This is why we cap the recommended payload at 20 kg — to account for this unknown with a safety margin. **Keep your telescope centered on the bearing as much as possible.**
 
 - ![Orientation Ring](IMAGES/Parts_Proto/orientation_ring.jpg)
 
----
+-----
 
 ## ⚡ Electronics & Control
 
 ### 8. Main Controller Board
+
 - Board: **FYSETC E4 V1.0** (⚠️ **Pin mapping differs on V2.0 — not compatible!**)
 - MCU: ESP32-WROOM-32 @ 240 MHz (dual-core, WiFi/BT)
 - Drivers: 4× TMC2209, factory-soldered, UART-addressed
@@ -175,6 +185,7 @@ The firmware ships with **300 mA** for the ALT motor. Even at this reduced curre
 - ![FYSETC E4 Board](IMAGES/Parts_Proto/fysetc-e4.jpg)
 
 ### 9. Homing & Control
+
 - **Homing Sensor (ALT):** Model **V-156-1C25** (Long lever microswitch) – *< 2€*
 - **Home Button:** Metal Push Button (1NO, High head, Self-reset, 12mm, 12-24V).
   - Material: Nickel-plated Brass – *< 2€*
@@ -183,11 +194,12 @@ The firmware ships with **300 mA** for the ALT motor. Even at this reduced curre
 
 The switch has 3 terminals (COM / NO / NC). Only **COM + NO** are used — NC is left unconnected.
 
-| Switch terminal | X-MIN connector pin | Logic |
-|---|---|---|
-| **COM** | SIG | — |
-| **NO** | GND | Normally open → closes when lever is hit |
-| ~~NC~~ | *(unconnected)* | — |
+|Switch terminal|X-MIN connector pin|Logic                                   |
+|---------------|-------------------|----------------------------------------|
+|**COM**        |SIG                |—                                       |
+|**NO**         |GND                |Normally open → closes when lever is hit|
+|~NC~           |*(unconnected)*    |—                                       |
+
 
 > The firmware is **Active-LOW** on GPIO 34. When the cam hits the lever, NO closes → SIG pulled to GND → LOW → firmware triggers stop/homing. No polarity concern (mechanical switch).
 
@@ -198,59 +210,63 @@ Connect the 2 wires from Y-MIN (**SIG** and **GND**) to either terminal — **no
 > The VCC pin on the 3-pin Y-MIN connector is unused. When pressed, SIG is shorted to GND → LOW → firmware triggers the full homing + MPU tare sequence.
 
 ### 10. Active Feedback Sensor (Gyroscope)
+
 - Model: **MPU-6500** (I2C interface, address `0x68`)
-- Purpose: Acts as a digital plumb bob for the Altitude axis. Measures the tilt plate's absolute angle using Earth's gravity vector. The firmware uses it in **observe-only mode** — it learns the true mechanical ratio after every ALT movement and saves it to EEPROM, but does not apply corrections (TPPA's plate-solve handles convergence).
+- Purpose: Acts as a digital plumb bob for the Altitude axis. Measures the tilt plate’s absolute angle using Earth’s gravity vector. The firmware uses it in **observe-only mode** — it learns the true mechanical ratio after every ALT movement and saves it to EEPROM, but does not apply corrections (TPPA’s plate-solve handles convergence).
 - Cost: ~3€
 - ![MPU-6500](IMAGES/Parts_Proto/MPU-6500.jpeg)
 
 ### 11. MicroSD Card Sniffer — The I2C Hack
 
-The FYSETC E4 V1.0 is a 3D printer controller board and has **no dedicated I2C expansion header**. The SCL/SDA pins we need (GPIO 18 and GPIO 19) are physically wired to the onboard **microSD card reader** (as SPI clock and MISO data lines). Since our firmware uses the ESP32's internal EEPROM and RAM for data storage, the SD card slot is completely unused — so we hijack it.
+The FYSETC E4 V1.0 is a 3D printer controller board and has **no dedicated I2C expansion header**. The SCL/SDA pins we need (GPIO 18 and GPIO 19) are physically wired to the onboard **microSD card reader** (as SPI clock and MISO data lines). Since our firmware uses the ESP32’s internal EEPROM and RAM for data storage, the SD card slot is completely unused — so we hijack it.
 
-Rather than soldering wires directly onto the tiny microSD socket pads (fragile and error-prone), we use a **TF/microSD card sniffer breakout board**. This is a small PCB shaped like a microSD card that slides into the slot and breaks out all the SD card signals to standard 0.1" header pins — clean, reversible, and solder-free on the E4 board side.
+Rather than soldering wires directly onto the tiny microSD socket pads (fragile and error-prone), we use a **TF/microSD card sniffer breakout board**. This is a small PCB shaped like a microSD card that slides into the slot and breaks out all the SD card signals to standard 0.1” header pins — clean, reversible, and solder-free on the E4 board side.
 
 - Example: [AliExpress – ~3€](https://fr.aliexpress.com/item/1005009243584071.html)
 - ![SD Card Sniffer](IMAGES/Parts_Proto/SDsniffeTF.jpg)
 
 **How the pin mapping works:**
 
-| SD Card Function | FYSETC E4 Pin | ESP32 GPIO | Our I2C Use |
-|:----------------:|:-------------:|:----------:|:-----------:|
-| SCK (Clock) | SD Card slot | **GPIO 18** | **SCL** (I2C clock) |
-| MISO (Data Out) | SD Card slot | **GPIO 19** | **SDA** (I2C data) |
-| 3.3V | SD Card slot | — | **VCC** for MPU-6500 |
-| GND | SD Card slot | — | **GND** for MPU-6500 |
+|SD Card Function|FYSETC E4 Pin|ESP32 GPIO |Our I2C Use         |
+|:--------------:|:-----------:|:---------:|:------------------:|
+|SCK (Clock)     |SD Card slot |**GPIO 18**|**SCL** (I2C clock) |
+|MISO (Data Out) |SD Card slot |**GPIO 19**|**SDA** (I2C data)  |
+|3.3V            |SD Card slot |—          |**VCC** for MPU-6500|
+|GND             |SD Card slot |—          |**GND** for MPU-6500|
 
-> 💡 **Why this works:** The ESP32's GPIO pins are not hard-wired to specific functions. GPIO 18 and 19 are routed to the SD card slot on the PCB, but the firmware can reconfigure them as I2C pins using `Wire.begin(SDA_PIN, SCL_PIN)`. As long as no SD card library is initialized (and ours isn't), there's no conflict.
 
-> ⚠️ **Assembly:** Insert the sniffer board into the E4's microSD slot, then solder the MPU-6500's 4 wires to the sniffer's breakout headers following the color code in the wiring section below.
+> 💡 **Why this works:** The ESP32’s GPIO pins are not hard-wired to specific functions. GPIO 18 and 19 are routed to the SD card slot on the PCB, but the firmware can reconfigure them as I2C pins using `Wire.begin(SDA_PIN, SCL_PIN)`. As long as no SD card library is initialized (and ours isn’t), there’s no conflict.
 
----
+> ⚠️ **Assembly:** Insert the sniffer board into the E4’s microSD slot, then solder the MPU-6500’s 4 wires to the sniffer’s breakout headers following the color code in the wiring section below.
+
+-----
 
 ## 🔩 Small Hardware & Fasteners
 
-To complete the assembly, you will need the following "vitamins":
+To complete the assembly, you will need the following “vitamins”:
 
 ### Coupler (Crucial DIY Modification Required!)
+
 - **Type:** Rigid Clamping Coupler (D25L35)
 - **Base Size to Buy:** **5mm to 8mm**
-- ⚠️ **THE 5.6mm TRAP:** The external input shaft on the Tilt Plate (where the original manual knob was attached) is **NOT a standard 5mm or 6mm**. It is a weird **5.6mm** diameter shaft driving the internal T8 screw. A standard 6mm coupler will slip, and a 5mm won't fit.
+- ⚠️ **THE 5.6mm TRAP:** The external input shaft on the Tilt Plate (where the original manual knob was attached) is **NOT a standard 5mm or 6mm**. It is a weird **5.6mm** diameter shaft driving the internal T8 screw. A standard 6mm coupler will slip, and a 5mm won’t fit.
 - **The Fix:** You must buy a `5mm to 8mm` coupler and manually enlarge the 5mm hole. Use a tapping tool (thread maker) or a very precise 5.5mm/5.6mm drill bit to bore out the 5mm side until it perfectly grips the 5.6mm shaft.
 - *Note: Do not use flexible spider couplers or set-screw couplers. Rigidity is mandatory here.*
-- Example: "OKE DE-Coupler Rigid Shaft" – *~3.50€*
+- Example: “OKE DE-Coupler Rigid Shaft” – *~3.50€*
 - ![D25L35 coupler](IMAGES/Parts_Proto/Coupler.jpg)
 
 ### Screws & Nuts
+
 - **Sliding T-Nuts:** M6 for 15180 profile (Pack of 200) – *~7€*
 - **Assorted Screws:** M3, M4, M5, M6 (Various lengths: 10mm to 40mm) – *~20€ total*
 
----
+-----
 
 ### 💰 Estimated Total: ~**400€**
 
 *(Excluding 3D printing filament)*
 
----
+-----
 
 ## 🖨️ 3D Printing & Fabrication
 
@@ -258,25 +274,26 @@ To complete the assembly, you will need the following "vitamins":
 
 Several components are 3D-printed. **None of them are in the telescope load path** — the payload is transmitted entirely through metal components (tilt plate → lead screw → 15180 profiles → igus bearing → tripod).
 
-| Part | Role | Structural Load | Thermal Concern |
-|------|------|----------------|-----------------|
-| **ALT motor cradle** | Holds the UMOT + NEMA 17, aligns with lead screw | Motor weight only (~350 g) | ⚠️ **Yes** — in direct contact with UMOT housing |
-| **AZM motor cradle** | Prevents the Harmonic Drive motor from spinning on itself | Motor weight only, no torque transfer | No |
-| **MPU-6500 bracket** | Holds the gyroscope sensor on the tilt plate | Negligible (~5 g sensor) | No |
-| **Homing sensor bracket** | Positions the limit switch for ALT homing | Negligible (microswitch actuation force) | No |
-| **FYSETC E4 enclosure** | Protects the controller board | None (electronics housing) | No |
-| **Power supply case** | Protects the PSU | None (electronics housing) | No |
+|Part                     |Role                                                     |Structural Load                         |Thermal Concern                                |
+|-------------------------|---------------------------------------------------------|----------------------------------------|-----------------------------------------------|
+|**ALT motor cradle**     |Holds the UMOT + NEMA 17, aligns with lead screw         |Motor weight only (~350 g)              |⚠️ **Yes** — in direct contact with UMOT housing|
+|**AZM motor cradle**     |Prevents the Harmonic Drive motor from spinning on itself|Motor weight only, no torque transfer   |No                                             |
+|**MPU-6500 bracket**     |Holds the gyroscope sensor on the tilt plate             |Negligible (~5 g sensor)                |No                                             |
+|**Homing sensor bracket**|Positions the limit switch for ALT homing                |Negligible (microswitch actuation force)|No                                             |
+|**FYSETC E4 enclosure**  |Protects the controller board                            |None (electronics housing)              |No                                             |
+|**Power supply case**    |Protects the PSU                                         |None (electronics housing)              |No                                             |
 
-- **Author's material:** **PLA+CF** (carbon fiber reinforced PLA) — stiffer than standard PLA with slightly better heat resistance (~60°C).
+- **Author’s material:** **PLA+CF** (carbon fiber reinforced PLA) — stiffer than standard PLA with slightly better heat resistance (~60°C).
 - **Recommended material:** **PETG** (heat resistant to 75°C) for the **ALT motor cradle** specifically, since it sits in direct contact with the UMOT worm gearbox housing which can reach 55–65°C at high motor currents. All other parts can be printed in standard PLA without concern.
-- **With the firmware's thermal fix** (`RMS_CURRENT_ALT = 300 mA`), the UMOT housing stays barely warm and PLA+CF or even standard PLA is fine for the ALT cradle.
+- **With the firmware’s thermal fix** (`RMS_CURRENT_ALT = 300 mA`), the UMOT housing stays barely warm and PLA+CF or even standard PLA is fine for the ALT cradle.
 - **Infill:** 100% for the motor cradles (dimensional stability). Other parts can use 50–80%.
 
 ### CNC Machining (Recommended)
 
 For heavy payloads (>15 kg), it is highly recommended to CNC machine the **two main load-bearing junction plates** (highlighted in green in the image below):
-  1. The plate connecting the Tilt Plate to the igus Orientation Ring.
-  2. The junction plate connecting the igus Orientation Ring to the 250mm 15180 profile.
+
+1. The plate connecting the Tilt Plate to the igus Orientation Ring.
+1. The junction plate connecting the igus Orientation Ring to the 250mm 15180 profile.
 
 These plates are in the direct load path and must resist the tilting moment from the telescope. CNC aluminum is far more rigid and dimensionally stable than any 3D-printed alternative.
 
@@ -284,93 +301,87 @@ These plates are in the direct load path and must resist the tilting moment from
 - ![Load-bearing Parts](IMAGES/Parts_Proto/CNC.jpeg)
 
 ### 🧮 Total Budget (with CNC)
+
 - ~400€ Hardware
-- + ~90€ CNC Parts
+- - ~90€ CNC Parts
 - 🟰 **~490€ Final Project Cost**
 
----
+-----
 
 ## 🔌 Wiring & Configuration (CRITICAL)
 
-### The Brain: FYSETC E4 V1.0
-
-| Spec | Value |
-|------|-------|
-| MCU | ESP32-WROOM-32 @ 240 MHz |
-| Drivers | 4× TMC2209, UART-addressed |
-| Used channels | MOT-X (Azimuth) + MOT-Y (Altitude) |
-| Power input | 12 V DC |
-
-> ⚠️ **FYSETC E4 V1.0 only!** V2.0 has different pin mapping — not compatible.
-
 ### Motors
 
-| Axis | Port | Mode | µstep | Run current | Hold current | Note |
-|------|------|------|:-----:|:-----------:|:------------:|------|
-| AZM | MOT-X | SpreadCycle | 16 | 600 mA | 300 mA | Harmonic drive is not self-locking — active hold required |
-| ALT | MOT-Y | SpreadCycle | 4 | 300 mA | 30 mA | T8 screw is self-locking — hold current irrelevant |
+|Axis|Port |Mode       |µstep|Run current|Hold current|Note                                                     |
+|----|-----|-----------|:---:|:---------:|:----------:|---------------------------------------------------------|
+|AZM |MOT-X|SpreadCycle|16   |600 mA     |300 mA      |Harmonic drive is not self-locking — active hold required|
+|ALT |MOT-Y|SpreadCycle|4    |300 mA     |30 mA       |T8 screw is self-locking — hold current irrelevant       |
 
 ### Safety Inputs
 
-| Function | GPIO | Header | Type |
-|----------|:----:|--------|------|
-| ALT Limit Switch | 34 | X-MIN | Input only, active LOW |
-| Home Button | 35 | Y-MIN | Input only, active LOW |
+|Function        |GPIO|Header|Type                  |
+|----------------|:--:|------|----------------------|
+|ALT Limit Switch|34  |X-MIN |Input only, active LOW|
+|Home Button     |35  |Y-MIN |Input only, active LOW|
 
 ### Full GPIO Map
 
-| Signal | GPIO | E4 silkscreen |
-|--------|:----:|---------------|
-| STEP AZM | 27 | MOT-X |
-| DIR AZM | 26 | MOT-X |
-| EN (both) | 25 | /ENABLE |
-| UART RX/TX | 21/22 | Shared bus (Addr 1=AZM, Addr 2=ALT) |
-| STEP ALT | 33 | MOT-Y |
-| DIR ALT | 32 | MOT-Y |
-| SCL | 18 | SD Card `SCK` |
-| SDA | 19 | SD Card `MISO` |
-| Limit switch | 34 | Z-MIN |
-| Home button | 35 | Y-MIN |
+|Signal      |GPIO |E4 silkscreen                      |
+|------------|:---:|-----------------------------------|
+|STEP AZM    |27   |MOT-X                              |
+|DIR AZM     |26   |MOT-X                              |
+|EN (both)   |25   |/ENABLE                            |
+|UART RX/TX  |21/22|Shared bus (Addr 1=AZM, Addr 2=ALT)|
+|STEP ALT    |33   |MOT-Y                              |
+|DIR ALT     |32   |MOT-Y                              |
+|SCL         |18   |SD Card `SCK`                      |
+|SDA         |19   |SD Card `MISO`                     |
+|Limit switch|34   |Z-MIN                              |
+|Home button |35   |Y-MIN                              |
 
----
+-----
 
 ### ⚠️ UART Jumper Setup
 
-To enable communication between the ESP32 and the TMC2209 drivers, you **MUST** place the jumpers to activate "UART Mode", exactly as shown in the **FYSETC E4 Wiki**.
+To enable communication between the ESP32 and the TMC2209 drivers, you **MUST** place the jumpers to activate “UART Mode”, exactly as shown in the **FYSETC E4 Wiki**.
 
 **1. Locate the Jumper Header:**
 Find the block of pins labeled with **TXD / RXD** (near the SCL/SDA pins).
+
 - ![E4 Jumpers](IMAGES/Parts_Proto/E4_Jumpers.jpg)
 
 **2. Place the Jumpers:**
 Place **2 jumper caps** horizontally on the bottom rows to bridge the communication lines.
-* **Without these jumpers**, the ESP32 cannot talk to the motors.
-* **Result:** This connects the drivers to the shared UART bus.
+
+- **Without these jumpers**, the ESP32 cannot talk to the motors.
+- **Result:** This connects the drivers to the shared UART bus.
 
 > **Note on Addressing:**
-> Once these jumpers are in place, the firmware automatically targets the correct drivers using the board's internal routing:
-> * **Azimuth (Driver X):** Address 1
-> * **Altitude (Driver Y):** Address 2
+> Once these jumpers are in place, the firmware automatically targets the correct drivers using the board’s internal routing:
+> 
+> - **Azimuth (Driver X):** Address 1
+> - **Altitude (Driver Y):** Address 2
 
 - **Reference Guide:**
-  See the "UART Mode" section in the official wiki: [https://wiki.fysetc.com/docs/E4](https://wiki.fysetc.com/docs/E4)
+  See the “UART Mode” section in the official wiki: <https://wiki.fysetc.com/docs/E4>
 
 > 💡 Use `PolarAlign_auto.ino` for this hardware — select profile `1` (PROTO) at first boot.
 
 ### 📡 MPU-6500 I2C Wiring (via SD Card Sniffer)
 
-Insert the TF/microSD sniffer board into the FYSETC E4's SD card slot. Then connect the MPU-6500 module to the sniffer's breakout headers using the following standardized wire colors:
+Insert the TF/microSD sniffer board into the FYSETC E4’s SD card slot. Then connect the MPU-6500 module to the sniffer’s breakout headers using the following standardized wire colors:
 
-| Wire Color | Signal | Sniffer Pin | ESP32 GPIO | Notes |
-|:----------:|--------|:-----------:|:----------:|-------|
-| 🔴 Red | VCC | 3.3V | — | **3.3V only!** Do not use 5V. |
-| 🟡 Yellow | GND | GND | — | |
-| 🔵 Blue | SCL (I2C Clock) | SCK | GPIO 18 | Originally SD card clock |
-| 🟢 Green | SDA (I2C Data) | MISO | GPIO 19 | Originally SD card data out |
+|Wire Color|Signal         |Sniffer Pin|ESP32 GPIO|Notes                        |
+|:--------:|---------------|:---------:|:--------:|-----------------------------|
+|🔴 Red     |VCC            |3.3V       |—         |**3.3V only!** Do not use 5V.|
+|🟡 Yellow  |GND            |GND        |—         |                             |
+|🔵 Blue    |SCL (I2C Clock)|SCK        |GPIO 18   |Originally SD card clock     |
+|🟢 Green   |SDA (I2C Data) |MISO       |GPIO 19   |Originally SD card data out  |
+
 
 > ⚠️ **Anti-EMI Tip:** Keep the I2C wires (Blue/Green) as far away as possible from the stepper motor cables to prevent electromagnetic interference. If possible, twist the GND (Yellow) wire around the I2C lines to act as a shield. The firmware detects I2C failures and reports them via the `DIAG` command.
 
----
+-----
 
 ## 📸 Assembly Photos
 

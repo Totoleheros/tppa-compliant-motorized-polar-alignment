@@ -33,6 +33,10 @@ All electronics, firmware logic, MPU wiring, and GRBL protocol are **identical t
 
 - Full 3D design (STEP format): 📦 `PolarALIGN_V2_STEP.zip`
 
+> 📦 **Updated STEP file — Reinforced V2 design:** `PolarALIGN_V2_STEP_reinforced.zip` — bielles and ALT brackets have increased wall thickness; upper and lower ALT plates have additional material in high-stress zones. **The previous version is not at risk** — safety margins were already comfortable at 25 kg. This update provides additional margin for setups pushing toward 30+ kg. **Some fasteners will need to be longer** to accommodate the increased material thickness — check all screw lengths against the STEP file before ordering. In particular, **shoulder screws holding the bielles must have a shoulder length of 8 mm** (M6 shoulder diameter). All other components (motors, bearings, lead screw, electronics) are identical.
+>
+> ⚠️ **The reinforced version is theoretical — not yet fabricated or field-tested.** No JLCCNC manufacturing drawings (PDF) are included. Makers will need to generate them from the STEP file. If I place an order for these parts, I will publish the drawings here.
+
 > 💡 All CNC part dimensions are directly readable from the STEP file. The sections below describe architecture and design rationale; refer to the STEP for fabrication tolerances and exact dimensions.
 
 > ⚠️ **Manufacturing drawings** (2D technical PDFs as submitted to JLCCNC) are available in `3D STEP Models/Manufacturing_Drawings_V2/`. These reflect the design **as fabricated**. If the design is revised post-validation, the STEP file is the source of truth.
@@ -56,9 +60,9 @@ Telescope + EQ Mount
        ↓
   Two-piece CNC base plate
        ↓
-  RU42 crossed roller bearing (inner ring fixed, outer ring rotates)
+  RU42 crossed roller bearing (outer ring fixed to CNC brackets, inner ring rotates)
        ↓
-  MiniF harmonic drive 100:1 (drives outer ring via 3D-printed adapter)
+  MiniF harmonic drive 100:1 (drives inner ring via 3D-printed adapter)
        ↓
   Angeleyes 400 tripod extension / pier
 ```
@@ -106,14 +110,18 @@ The igus PRT-02 LC (Prototype) is a polymer slewing ring with unpublished tiltin
 
 | Ring | PCD | Holes | Type |
 |---|---|---|---|
-| **Inner ring** | 28 mm | 6× M3 | Threaded through — fixed to base plate |
-| **Outer ring** | 57 mm | 6× Ø3.4 | Through + Ø6.5 counterbore, depth 3.3 mm — rotating platform (telescope side) |
+| **Inner ring** | 28 mm | 6× M3 | Threaded through — rotates with harmonic drive, driven via PLA+CF adapter |
+| **Outer ring** | 57 mm | 6× Ø3.4 | Through + Ø6.5 counterbore, depth 3.3 mm — fixed to `fixIGUS1` CNC brackets |
+
+> 💡 **Assembly:** The outer ring is bolted to the `fixIGUS1 (1)` and `fixIGUS1 (2)` CNC brackets, which are themselves fixed to the tripod extension pillars — it is stationary. The inner ring is driven by the harmonic drive via the PLA+CF adapter and carries the AZM rotation. The telescope load is borne entirely by the outer ring through the CNC brackets — the motor and harmonic drive carry **no vertical load**.
 
 - ![RU42 Crossed Roller Bearing](IMAGES/Parts_V2/RU42.jpg)
 
 ### Harmonic Drive Adapter
 
-A 3D-printed PLA+CF adapter bridges the harmonic drive output (PCD = 20.5 mm) to the RU42 outer ring (PCD = 57 mm, Ø3.4 holes). The adapter carries **motor torque only** — no telescope load passes through it.
+A 3D-printed PLA+CF adapter bridges the harmonic drive output (PCD = 20.5 mm) to the RU42 **inner ring** (PCD = 28 mm, 6×M3). The adapter carries **motor torque only** — no telescope load passes through it.
+
+> 💡 **4 optional 3D-printed anti-tilt parts on the RU42 outer ring:** These were included in the original design as a precaution against potential tilt play on the RU42. After testing, the RU42's ≤0.03 mm axial play is perfectly adequate and there is no measurable tilt. **These parts are optional** and can be omitted without affecting performance or safety.
 
 ---
 
@@ -170,7 +178,7 @@ The right-side bearing seat carries the T8 axial reaction force.
 | Parameter | Value |
 |---|---|
 | Type | 626ZZ (6×19×6 mm) |
-| Shaft | Ø6 mm, with Ø8→Ø6 shoulder |
+| Shaft | Ø6 mm, with Ø8→Ø6 shoulder — **machined over 20 mm** |
 | Axial stop | Shoulder against bearing inner ring (metal-on-metal — not aluminium) |
 | Axial clearance | 0.5 mm |
 | Through-hole in aluminium | Ø6.5 mm |
@@ -179,6 +187,8 @@ The right-side bearing seat carries the T8 axial reaction force.
 > ⚠️ **Critical assembly note:** The Ø8→Ø6 shoulder must bear against the **inner ring** of the 626ZZ, not the aluminium housing. Aluminium is too soft to serve as an axial stop under repeated T8 load cycles.
 
 - ![626ZZ Bearing](IMAGES/Parts_V2/626ZZ.jpg)
+
+> 💡 **T8 lead screw machining:** The T8 screw must be turned down to Ø6 mm over 20 mm on the right-side end. This allows the screw to rest on the 626ZZ bearing and transfer axial forces directly to the bearing — rather than back into the UMOT gearbox. Any local machine shop can do this in minutes. The overall T8 length is ~100 mm.
 
 ### Chariot (T8 Nut Carrier)
 
@@ -193,14 +203,18 @@ The T8 nut carrier uses **two large nuts**, one on each side of the chariot body
 
 ### Firmware Profile for V2
 
+The V2 profile is selected at **first boot via serial** and stored in NVS — no recompile needed. When profile `2` is selected, the firmware applies:
+
 ```cpp
-// V2 profile — set automatically when profile '2' is selected at first boot
-constexpr float  ALT_MOTOR_GEARBOX  = 124.0f;  // Initial estimate — ML converges to true value within 2–3 jogs
-constexpr bool   AXIS_REV_ALT       = false;    // Prototype is true, V2 is false
-constexpr float  HOME_TRIGGER_ANGLE = -2.0f;    // ALT homes to −2° (limit switch position)
-constexpr float  ALT_LIMIT_NEG      = -2.0f;    // Travel limit matches home position
-constexpr float  ALT_LIMIT_POS      = 10.0f;    // Max tilt
+cfg_profile_name       = "V2_CNC";
+cfg_ALT_MOTOR_GEARBOX  = 124.0f;   // Initial estimate — ML converges to true value within 2–3 jogs
+cfg_AXIS_REV_ALT       = false;    // Kinematics inverted — pivot below T8 axis
+cfg_RAMP_CRUISE_ALT_US = 150;      // µs — reduces UMOT microstep clicking on V2_CNC
+cfg_ALT_LIMIT_NEG      = -2.0f;    // Platform can go 2° below home for corrections
+cfg_HOME_TRIGGER_ANGLE = -2.0f;    // Physical home = -2° tilt
 ```
+
+These values are computed once at boot and treated as read-only constants thereafter. The `#define PROFILE_PROTO` at the top of the `.ino` is a compile-time safety guard only — the actual profile is always driven by NVS.
 
 > ⚠️ The `ALT_MOTOR_GEARBOX` value of 124 is a terrain-validated starting estimate. The MPU-6500 ML system will converge to the true ratio within 2–3 ALT jogs and save it to EEPROM. The ±20% acceptance band gives the learning system room to work regardless of exact geometry.
 
@@ -336,8 +350,8 @@ The UMOT worm gearbox encloses the NEMA 17 in a compact housing with poor heat d
 
 | Part | Role | Structural? |
 |---|---|---|
-| Base plate — piece 1 | Lower platform, tripod interface, RU42 outer ring mount | ✅ Yes |
-| Base plate — piece 2 | Upper platform, RU42 inner ring mount, pillar tops | ✅ Yes |
+| Base plate — piece 1 | Lower platform, tripod interface, RU42 **outer ring** mount via fixIGUS brackets | ✅ Yes |
+| Base plate — piece 2 | Upper platform, RU42 **outer ring** mount via fixIGUS brackets, pillar tops | ✅ Yes |
 | ALT tilt plate assembly | Bielle mechanism, pivot, 626ZZ seats, chariot guide | ✅ Yes |
 
 - ![CNC Parts — Exploded View](IMAGES/Parts_V2/CNC_exploded.jpg)
@@ -382,7 +396,7 @@ None are in the telescope load path.
 | Tripod extension (Angeleyes 400 or equivalent) | ~43€ |
 | Harmonic drive MiniF11-100 (100:1) | ~58€ |
 | NEMA 17 motor — AZM (17HS19-2004S1) | ~12€ |
-| NEMA 17 + UMOT worm gearbox 30:1 — ALT | ~20€ |
+| NEMA 17 + UMOT worm gearbox 30:1 — ALT | ~20€ — [AliExpress](https://fr.aliexpress.com/item/1005008325671689.html) |
 | FYSETC E4 V1.0 controller board | ~30€ |
 | MPU-6500 gyroscope | ~3€ |
 | MicroSD card sniffer (I2C hack) | ~3€ |
@@ -390,6 +404,8 @@ None are in the telescope load path.
 | Limit switch (V-156-1C25) + home button | ~4€ |
 | Assorted screws, fasteners, T-nuts | ~20€ |
 | **Shared subtotal** | ~**208€** |
+
+> 💡 **UMOT shaft note:** The dual-shaft version was used here, but the second shaft serves no functional purpose — it just provides a visual confirmation that the ALT axis is actually moving. If you want a slightly more compact assembly, go for the **single-shaft** version instead. Both are available from the same AliExpress listing.
 
 ### 💰 Complete V2 Budget
 
