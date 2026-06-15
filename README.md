@@ -67,7 +67,7 @@ Most motorized polar alignment projects stop at "move a motor when TPPA says so.
 | 3 | [**TPPA Session — Below 0.2 Arcminute!**](https://youtu.be/gfE6sZmrzuw) | Complete TPPA run converging to < 0.2' in real-time. |
 | 4 | [V2 ALT Bielle — Fusion 360 Simulation](https://youtu.be/YnkVJ2hzqB0) | Full −2° to +10° travel, pivot geometry, T8 drive. |
 | 5 | [V2 in the Real World — First Stress Test](https://youtube.com/shorts/aVQfPjl87hA) | V2 CNC assembly under full load. |
-| 6 | *(coming soon)* V2 Field Demo — TPPA Session | First TPPA session on the assembled V2. |
+| 6 | [**V2 Field Demo — TPPA Full Auto Session**](https://youtu.be/jZpT88h_pEg) | Complete TPPA automated polar alignment session on the V2 hardware in N.I.N.A. |
 
 ---
 
