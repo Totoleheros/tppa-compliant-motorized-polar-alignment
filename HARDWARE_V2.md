@@ -46,6 +46,7 @@ All electronics, firmware logic, MPU wiring, and GRBL protocol are **identical t
 - 🎬 **Kinematic simulation (Fusion 360):** [V2 ALT Bielle — Full Travel Range](https://youtu.be/YnkVJ2hzqB0) — bielle mechanism sweeping −2° to +10°, pivot geometry and T8 drive in motion.
 
 - 🎬 **First real-world stress test:** [V2 in the Real World](https://youtube.com/shorts/aVQfPjl87hA) — V2 CNC assembly under full load.
+- 🎬 **V2 Field Demo — TPPA Full Auto Session:** [Watch on YouTube](https://youtu.be/jZpT88h_pEg) — complete automated polar alignment run in N.I.N.A. on the assembled V2 hardware.
 
 ---
 
