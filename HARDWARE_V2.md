@@ -323,7 +323,7 @@ The RU42 crossed roller bearing eliminates the tilting moment uncertainty that c
 | UMOT 30:1 output torque | ~2–4 Nm | ~0.04 Nm @operating angle | **51×** | No |
 | Bielle (CNC aluminium rod) | SF 20.7× | 11 N compression | **20.7×** | No |
 | 626ZZ right bearing | Combined SF 5.3× | Axial reaction only | **5.3×** | No |
-| 3D-printed parts | Non-structural | Motor/sensor weight only | N/A | No |
+| 3D-printed parts | Non-structural | Harmonic drive adapter + sensor brackets only | N/A | No |
 
 > 💡 **Counterweights lower the effective centre of gravity.** If your EQ mount uses a counterweight bar, the counterweights hanging below the RA axis reduce the effective torque arm seen by the ALT mechanism — a 32 kg setup (mount + scope + 8 kg counterweights) behaves mechanically closer to a 20 kg unbalanced load. Always calculate your payload budget using the **full assembly** (mount + scope + counterweights + accessories), not scope alone.
 
@@ -369,7 +369,6 @@ None are in the telescope load path.
 | Part | Material | Note |
 |---|---|---|
 | Harmonic drive adapter (AZM) | PLA+CF | Motor torque only — no telescope load |
-| ALT motor cradle (UMOT) | PLA+CF (PETG if >300 mA) | Direct contact with UMOT housing |
 | MPU-6500 bracket | PLA | Negligible load |
 | Homing switch bracket | PLA | Negligible load |
 | FYSETC E4 enclosure | PLA | Electronics housing only |
