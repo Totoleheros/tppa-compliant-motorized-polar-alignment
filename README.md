@@ -68,6 +68,7 @@ Most motorized polar alignment projects stop at "move a motor when TPPA says so.
 | 4 | [V2 ALT Bielle — Fusion 360 Simulation](https://youtu.be/YnkVJ2hzqB0) | Full −2° to +10° travel, pivot geometry, T8 drive. |
 | 5 | [V2 in the Real World — First Stress Test](https://youtube.com/shorts/aVQfPjl87hA) | V2 CNC assembly under full load. |
 | 6 | [**V2 Field Demo — TPPA Full Auto Session**](https://youtu.be/jZpT88h_pEg) | Complete TPPA automated polar alignment session on the V2 hardware in N.I.N.A. |
+| 7 | [**V2 PA Session + Observation Session**](https://youtu.be/C0Mx80t3AEk) | PA session starting from a few arcmin error, followed by a full observation session — Askar APO 140 + reducer, 80 mm guide scope, SkyEye 62M, 7-position filter wheel, DIY rotator, ClearSky ST25 Pro. PHD2 guiding performance visible throughout. |
 
 ---
 
