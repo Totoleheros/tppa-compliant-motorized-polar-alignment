@@ -31,11 +31,20 @@ All electronics, firmware logic, MPU wiring, and GRBL protocol are **identical t
 
 ## 🧩 3D Model & Files
 
-- Full 3D design (STEP format): 📦 `PolarALIGN_V2_STEP.zip`
+- Full 3D design (STEP format): 📦 `PolarALIGN_V2_STEP.zip` — original design (reference)
 
-> 📦 **Updated STEP file — Reinforced V2 design:** `PolarALIGN_V2_STEP_reinforced.zip` — bielles and ALT brackets have increased wall thickness; upper and lower ALT plates have additional material in high-stress zones. **The previous version is not at risk** — safety margins were already comfortable at 25 kg. This update provides additional margin for setups pushing toward 30+ kg. **Some fasteners will need to be longer** to accommodate the increased material thickness — check all screw lengths against the STEP file before ordering. In particular, **shoulder screws holding the bielles must have a shoulder length of 8 mm** (M6 shoulder diameter). All other components (motors, bearings, lead screw, electronics) are identical.
+> 📦 **Reinforced designs — two versions available:**
 >
-> ⚠️ **The reinforced version is theoretical — not yet fabricated or field-tested.** No JLCCNC manufacturing drawings (PDF) are included. Makers will need to generate them from the STEP file. If I place an order for these parts, I will publish the drawings here.
+> | File | Status | Manufacturing drawings | Recommendation |
+> |------|--------|----------------------|----------------|
+> | `PolarALIGN_V2_STEP_reinforced.zip` | First reinforced version | ❌ Not included | Available for those who already ordered from this version |
+> | `PolarALIGN_V2_2_STEP_reinforced.zip` | ✅ **Latest — V2.2** | ✅ **Included** in `3D STEP Models/Manufacturing_Drawings_V2_2_reinforced/` | **Recommended for new builds** |
+>
+> Both reinforced versions feature: increased wall thickness on bielles and ALT brackets, additional material on upper and lower ALT plates. **The original V2 is not at risk** — safety margins were already comfortable at 25 kg. The reinforced versions provide additional margin for setups pushing toward 30+ kg.
+>
+> ⚠️ **Fasteners:** some screws will need to be longer to accommodate the increased material thickness — check all screw lengths against the STEP file before ordering. In particular, **shoulder screws holding the bielles must have a shoulder length of 8 mm** (M6 shoulder diameter). All other components (motors, bearings, lead screw, electronics) are identical.
+>
+> The differences between V2_reinforced and V2_2_reinforced are minor adjustments — **V2.2 is recommended for all new builds.**
 
 > 💡 All CNC part dimensions are directly readable from the STEP file. The sections below describe architecture and design rationale; refer to the STEP for fabrication tolerances and exact dimensions.
 
@@ -368,7 +377,7 @@ None are in the telescope load path.
 
 | Part | Material | Note |
 |---|---|---|
-| Harmonic drive adapter (AZM) | PLA+CF | Motor torque only — no telescope load |
+| Harmonic drive adapter / AZM motor bride (AZM) | PLA+CF | Motor torque only — no telescope load. Can be CNC-machined for improved durability, but PLA+CF is perfectly adequate as no structural load passes through it. |
 | MPU-6500 bracket | PLA | Negligible load |
 | Homing switch bracket | PLA | Negligible load |
 | FYSETC E4 enclosure | PLA | Electronics housing only |
