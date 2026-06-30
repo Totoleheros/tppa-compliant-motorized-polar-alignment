@@ -116,22 +116,30 @@ To change later: `PROFILE:RESET` — To verify: `PROFILEINFO`
 
 ### The GUI
 
-`GUI/PolarAlignGUI_v15_03g_V2.py` controls the mount without N.I.N.A. — essential for bench testing, pre-alignment, and diagnostics.
+`GUI/PolarAlignGUI_v15_03g_V4.py` controls the mount without N.I.N.A. — essential for bench testing, pre-alignment, and diagnostics.
+
+<p align="center">
+  <img src="IMAGES/GUI/SelectHardware.jpg" alt="Profile selector at startup" width="45%"/>
+  &nbsp;&nbsp;
+  <img src="IMAGES/GUI/PolarAlignController.jpg" alt="PolarAlign Controller main window" width="52%"/>
+</p>
+<p align="center"><em>Left: profile picker shown at startup (Prototype vs V2 CNC). Right: main controller window.</em></p>
 
 **Run from source (Windows / macOS / Linux):**
 ```bash
 pip3 install pyserial
-python3 GUI/PolarAlignGUI_v15_03g_V2.py
+python3 GUI/PolarAlignGUI_v15_03g_V4.py
 ```
 > No pre-built executable. Python 3.8+ and pyserial are the only dependencies.
 
 **Key panels:**
-- **Jog controls** — AZM (West/East) and ALT (Up/Down) in arcminutes and arcseconds, with degree readout
+- **Jog controls** — AZM (West/East) and ALT (Up/Down) from ±1° down to ±10″, color-coded per axis (AZM blue, ALT orange)
 - **Absolute positioning** — Go to any angle directly
-- **Live position + Learning Monitor** — real-time AZM/ALT position, MPU error, learned ratios
+- **Live position + Learning Monitor** — real-time AZM/ALT position, MPU error, learned ratios (all in the top status bar)
 - **System commands** — HOME, DIAG, RST, AZM:ZERO in one click
 - **Raw serial console** — send any command, see full log
 - **Firmware Config tab** — edit hardware constants and generate ready-to-paste Arduino code
+- **Last COM port remembered** between sessions (`~/.polaralign_gui.json`)
 
 ---
 
@@ -281,8 +289,8 @@ Retrieve with `DIAG` from the GUI console. The buffer clears on `RST` or DTR reb
 │   ├── PolarAlign_auto.ino          ← ✅ Current unified firmware (PROTO + V2)
 │   └── archive/                     ← Legacy versions (reference only)
 ├── GUI/
-│   ├── PolarAlignGUI_v15_03g_V2.py  ← ✅ Current GUI
-│   └── archive/
+│   ├── PolarAlignGUI_v15_03g_V4.py  ← ✅ Current GUI
+│   └── archive/                     ← Legacy versions (reference only)
 ├── 3D STEP Models/
 │   ├── Manufacturing_Drawings_V2/          ← Original V2 fabrication drawings
 │   ├── Manufacturing_Drawings_V2_2_reinforced/ ← ✅ V2.2 reinforced fabrication drawings
