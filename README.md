@@ -47,7 +47,7 @@ Most motorized polar alignment projects stop at "move a motor when TPPA says so.
 
 **⚡ It never blocks.** The entire firmware is a non-blocking state machine. Motor pulses, gyroscope sampling, settle timers, and serial communication are all interleaved — N.I.N.A. polls status 10×/second and never gets a timeout. No `delay()` anywhere in the motion path.
 
-**🔬 It understands TPPA.** The firmware knows that TPPA's `GearRatio` is not a physical gear ratio but a software scaling multiplier — a lever for balancing convergence speed against final precision. The `Speed` parameter is capped by the firmware's cruise step interval (`RAMP_CRUISE_ALT_US = 150 µs` → ~462 arcmin/min on ALT); values above this have no effect without a firmware change. TPPA's adaptive controller (`AutomatedAdjustmentController`) builds a 2×2 response matrix and resets it when any corrective move worsens total error by more than 5% — which means backlash on direction reversals can indefinitely stall convergence.
+**🔬 It understands TPPA.** The firmware knows that TPPA's `GearRatio` is not a physical gear ratio but a software scaling multiplier — a lever for balancing convergence speed against final precision. The `Speed` parameter is capped by the firmware's cruise step interval (`RAMP_CRUISE_ALT_US = 150 µs` → ~462 arcmin/min on ALT); values above this have no effect without a firmware change. TPPA's adaptive controller (`AutomatedAdjustmentController`) builds a 2×2 response matrix and resets it when any corrective move worsens total error by more than 5% — which means backlash on direction reversals can indefinitely stall convergence. **v15.04 fixes this at the source**: firmware injects dead steps on every direction reversal (both AZM and ALT), sized by auto-learned per-axis backlash values (MPU-observed on ALT, TPPA-residual inferred on AZM once the ratio is stable, both persisted to EEPROM). TPPA sees a clean linear response; the matrix stays intact.
 
 | Feature | Detail |
 |---------|--------|
@@ -188,6 +188,7 @@ Before launching TPPA in full auto mode, **use the GUI to get within ~1° of tru
 | **Default Move Rate** | `10` | Factory default `3` is too slow for this hardware. |
 | **Settle Time** | `3 s` | 5 s is unnecessary — firmware settle absorbs vibration first. |
 | **Alignment Tolerance** | `0.2–1.0 arcmin` | See convergence strategy below. |
+| **AZM Backlash Compensation** | **OFF** | v15.04+ handles both-axis backlash inside the firmware with auto-learned values. Leaving TPPA's plugin comp on causes double-correction. |
 
 > 💡 **Initial error alert.** If TPPA displays *"Initial Polar Alignment error is large. Correction phase will be unreliable."*, corrections still proceed as long as moves stay within firmware travel limits. Pre-aligning with the GUI avoids this.
 
@@ -260,6 +261,8 @@ Open the Serial Monitor (115200 baud, Newline terminator) or the GUI Raw console
 | `AZM:ZERO` | Redefine current AZM position as 0° and reset AZM learning |
 | `RST` | Soft reset — abort motion, clear log |
 | `MPU` | Lightweight gyroscope query → `MPU:tared,raw` |
+| `BLC?` | Query both backlash values + learning state |
+| `BLC:AZM:<deg>` / `BLC:ALT:<deg>` | Force a backlash value (persisted immediately). Ex: `BLC:ALT:0.04` = 2.4′ |
 
 #### GRBL Protocol (used by N.I.N.A./TPPA)
 
