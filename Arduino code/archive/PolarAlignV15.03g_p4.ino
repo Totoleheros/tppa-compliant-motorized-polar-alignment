@@ -1,6 +1,6 @@
 /*****************************************************************************************
  * FYSETC-E4 (ESP32 + TMC2209) — POLAR ALIGNMENT CONTROLLER
- * Version : 15.04-p5  (backlash comp + auto-learning for both axes)
+ * Version : 15.03g-auto-p4  (runtime hardware profile -- no recompile needed)
  *
  * ══════════════════════════════════════════════════════════════════════
  * PROFILE SELECTION — uncomment ONE profile before compiling
@@ -18,7 +18,7 @@
  *
  * The firmware receives jog commands in arcminutes from TPPA, converts them to
  * degrees, moves the motors, and reports position back in arcminutes. It silently
- * learns the true mechanical gear ratios AND backlash values over successive sessions.
+ * learns the true mechanical gear ratios over successive sessions.
  *
  * ──────────────────────────────────────────────────────────────────────────────────────
  * HARDWARE
@@ -34,78 +34,6 @@
  * ──────────────────────────────────────────────────────────────────────────────────────
  * CHANGELOG
  * ──────────────────────────────────────────────────────────────────────────────────────
- * v15.04-p5 vs v15.04-p4 (field testing round 2):
- *   FIX : startNextJob() would clobber active motion when called from a command
- *         handler (ALT:, AZM:, $J=) while the previous move was still running.
- *         Symptom: two consecutive "ALT BACKLASH" log entries with only one
- *         observe cycle — the first move was aborted mid-flight.
- *         Fix: return early if mot.active is already true; the tickMotion
- *         completion path picks up the queued job cleanly.
- *   FIX : EEPROM backlash slot for the un-updated axis was left with garbage
- *         (NaN) after the first single-axis learning write, because only that
- *         axis's slot + the magic word were written. DIAG showed "AZM=nan'".
- *         Fix: new saveBacklashSlots() helper always writes BOTH slots + magic
- *         atomically. All 5 write sites now use the helper.
- *
- * v15.04-p4 vs v15.04-p3 (field testing fixes):
- *   FIX : Any command containing '?' after the first byte was truncated at that
- *         '?' by the realtime GRBL char interceptor (BLC?, BLC:AZM? etc.
- *         silently failed, only sending a status query). The interceptor now
- *         fires only when '?'/'!' / '~' / 0x18 is the FIRST byte of a line.
- *         TPPA's use of these characters is always at position 0, so no impact.
- *   FIX : DIAG header string was hardcoded to old version; now shows v15.04-p4.
- *   FIX : Invalid AZM ratio stored in EEPROM (NaN from a prior corrupted write)
- *         is now overwritten with the theoretical value at boot, so DIAG stops
- *         reporting "EEPROM AZM Ratio : nan".
- *
- * v15.04-p3 vs v15.04-p2 (post-review round 3):
- *   FIX : AZM ping-pong deadlock. In severe over-compensation (C >> B, e.g.
- *         after a forced BLC:AZM:x too high), the mount overshoots on every
- *         reversal, causing TPPA to reverse immediately in the opposite
- *         direction. The steady-state 0.995 leak never fires because the
- *         probe requires a same-direction follow-up — which never arrives.
- *         Fix: detect the ping-pong signature (pending flag already true when
- *         entering Guard 3) and apply a 20% multiplicative penalty per hit.
- *         Convergence from a stuck 30' hardstop → true B in ~13 reversals.
- *
- * v15.04-p2 vs v15.04-p1 (post-review round 2):
- *   FIX : AZM backlash ratchet vulnerability. The signal (|azmDeltaDeg| after
- *         reversal) is positive-only and includes atmospheric noise + residual
- *         TPPA correction work — never fully zero. Pure additive update thus
- *         monotonically grows C over many sessions, eventually hitting the
- *         hardstop and causing wild over-shoot.
- *         Fix: apply 0.5% multiplicative leak per probe, but only in steady
- *         state (samples > BACKLASH_WARMUP_SAMPLES). Warmup phase remains
- *         pure additive so cold-start convergence to true B stays clean.
- *         Steady-state equilibrium: C ≈ 0.91×(B+ε) under-comp, C capped at
- *         ~10' in the noise-only over-comp regime.
- *
- * v15.04-p1 vs v15.04 (post-review fixes):
- *   FIX : AZM backlash EWMA changed from multiplicative blend to additive update.
- *         Old formula C_new = (1-α)C + αS converges to B/2 (only half the true
- *         backlash). Correct formula C_new = C + αS converges to B.
- *   FIX : azmBacklashLearnPending was leaking across:
- *           (1) interrupted jogs — the armed flag was consumed by an unrelated
- *               subsequent jog after TPPA replaced the in-flight command.
- *           (2) tiny (< MIN_AZM_LEARNING_ANGLE) moves — the flag stayed armed
- *               and was consumed with stale sequence data on the next big jog.
- *         Both paths now clear the pending flag explicitly.
- *
- * v15.04 vs v15.03g-p2:
- *   NEW : ALT backlash compensation — dead steps injected on direction reversal
- *         (mirror of the existing AZM mechanism from v15.03g).
- *   NEW : Auto-learning of backlash values on BOTH axes:
- *           ALT — MPU-based, residual = |commanded| − |actualMoved|
- *           AZM — TPPA-residual-based, only after ratio stability reached
- *         Adaptive α (15% for first 10 samples, 5% steady). Persisted to EEPROM.
- *   NEW : EEPROM layout extended 16 → 32 bytes with BACKLASH_MAGIC guard.
- *         Transparent migration from v15.03g (missing magic → profile defaults).
- *   NEW : AZM ratio stability tracking (5 consecutive sub-1.0 steps/deg updates)
- *         gates AZM backlash learning.
- *   NEW : Serial commands BLC?, BLC:AZM?, BLC:ALT?, BLC:AZM:<v>, BLC:ALT:<v>
- *   DEP : TPPA plugin's built-in AZM BacklashCompensation must be disabled
- *         (both axes now handled inside the firmware — see README).
- *
  * v15.03g-p2 vs v15.03g-p1:
  *   CHG : AZM driver switched from StealthChop to SpreadCycle (en_spreadCycle = true).
  *         SpreadCycle provides firmer, more predictable holding behaviour on the harmonic
@@ -308,33 +236,16 @@ constexpr float LEARNING_SMOOTHING    = 0.10f;
 constexpr float LEARNING_MIN_ACTUAL   = 0.1f;   // MPU must measure ≥0.1° actual movement
 constexpr float EEPROM_WRITE_THRESHOLD = 0.5f;  // Only write EEPROM if ratio changed by ≥0.5
 
-// Backlash learning (v15.04) — adaptive α, applies to both AZM and ALT
-constexpr float   BACKLASH_LEARNING_RATE_INIT   = 0.15f;  // α for first N samples
-constexpr float   BACKLASH_LEARNING_RATE_STEADY = 0.05f;  // α after warmup
-constexpr uint8_t BACKLASH_WARMUP_SAMPLES       = 10;     // sample count for α transition
-constexpr float   BACKLASH_MAX_SINGLE_UPDATE    = 0.30f;  // residual clamp = 30% of hardstop
-constexpr float   BACKLASH_HARDSTOP_AZM_DEG     = 0.50f;  // 30' max
-constexpr float   BACKLASH_HARDSTOP_ALT_DEG     = 1.00f;  // 60' max
-constexpr float   BACKLASH_EEPROM_THRESHOLD     = 0.005f; // 0.3' → EEPROM write
-constexpr float   MIN_BLC_LEARNING_ANGLE        = 0.05f;  // 3' — smaller than MIN_LEARNING_ANGLE
-constexpr float   BLC_MIN_ACTUAL                = 0.03f;  // 1.8' — MPU noise floor guard
-
 /* ═══════════════════════════════════════════════════════════════════════════════════════
-   SECTION 7 — EEPROM LAYOUT (v15.04: extended to 32 bytes)
-   Backlash slots added at offsets 16-23, guarded by BACKLASH_MAGIC at 24-27.
-   Migration from v15.03g layout (16 bytes) is transparent: if BACKLASH_MAGIC
-   is missing/corrupt, the profile default values are kept (see setup()).
+   SECTION 7 — EEPROM LAYOUT
+   16 bytes total — fits in a single 32-byte EEPROM page for atomic updates.
    ═══════════════════════════════════════════════════════════════════════════════════════ */
-constexpr int      EEPROM_SIZE          = 32;
-constexpr int      EEPROM_ADDR_RATIO    = 0;    // float (4): activeStepsPerDegALT
-constexpr int      EEPROM_ADDR_MPU_OFF  = 4;    // float (4): mpuOffset (gyro tare)
-constexpr int      EEPROM_ADDR_MAGIC    = 8;    // uint32 (4): HOMING_MAGIC
-constexpr int      EEPROM_ADDR_AZM_RATIO = 12;  // float (4): activeStepsPerDegAZM
-constexpr int      EEPROM_ADDR_AZM_BLC  = 16;   // float (4): activeBacklashDegAZM   (v15.04)
-constexpr int      EEPROM_ADDR_ALT_BLC  = 20;   // float (4): activeBacklashDegALT   (v15.04)
-constexpr int      EEPROM_ADDR_BLC_MAGIC = 24;  // uint32 (4): BACKLASH_MAGIC        (v15.04)
-constexpr uint32_t HOMING_MAGIC         = 0x484F4D45; // "HOME"
-constexpr uint32_t BACKLASH_MAGIC       = 0x424C4348; // "BLCH" — backlash slots valid
+constexpr int      EEPROM_SIZE          = 16;
+constexpr int      EEPROM_ADDR_RATIO    = 0;    // float (4 bytes): activeStepsPerDegALT
+constexpr int      EEPROM_ADDR_MPU_OFF  = 4;    // float (4 bytes): mpuOffset (gyro tare)
+constexpr int      EEPROM_ADDR_MAGIC    = 8;    // uint32 (4 bytes): homing validity flag
+constexpr int      EEPROM_ADDR_AZM_RATIO = 12;  // float (4 bytes): activeStepsPerDegAZM
+constexpr uint32_t HOMING_MAGIC         = 0x484F4D45; // "HOME" in ASCII
 
 /* ═══════════════════════════════════════════════════════════════════════════════════════
    SECTION 8 — AZM RATIO LEARNING PARAMETERS
@@ -350,16 +261,6 @@ constexpr float AZM_RATIO_BAND_HIGH    = 1.10f;
 // More conservative smoothing than ALT (5% vs 10%) — AZM signal is noisier
 // (plate-solve residuals conflate AZM error with flexure / seeing / ALT coupling).
 constexpr float AZM_LEARNING_SMOOTHING = 0.05f;
-
-// v15.04 — AZM RATIO STABILITY tracking (gates backlash learning)
-// After AZM_STABLE_COUNT consecutive ratio updates each < AZM_STABLE_DELTA_STEPS,
-// the ratio is considered "locked" and AZM backlash learning is enabled.
-constexpr float   AZM_STABLE_DELTA_STEPS = 1.0f;   // steps/deg change threshold
-constexpr uint8_t AZM_STABLE_COUNT       = 5;      // consecutive stable samples
-
-// v15.04 — AZM BACKLASH learning uses the *post-reversal probe* move as signal.
-// Guard: reject signals > MAX_AZM_BLC_SIGNAL_DEG (dominated by alignment error, not backlash).
-constexpr float   MAX_AZM_BLC_SIGNAL_DEG = 0.083f; // 5' cap
 
 // Guard 1: minimum jog size to record learning state (below this = noise)
 constexpr float MIN_AZM_LEARNING_ANGLE = 1.0f / 60.0f;  // 1 arcmin in degrees
@@ -400,9 +301,10 @@ constexpr float FEEDBACK_MIN_SCALE     = 0.50f;  // Never compress below 50% of 
 // Prevents TPPA from plate-solving on a still-vibrating mount.
 constexpr unsigned long GLOBAL_SETTLE_MS = 500;    // 1000 was too long — caused NINA 7s timeout
 
-// AZM backlash: moved to runtime state (activeBacklashDegAZM) in v15.04
-// so it can be initialized per profile and (later) auto-learned.
-// See RUNTIME STATE section below.
+// AZM backlash: harmonic drive elastic deformation (lost motion) on direction reversal.
+// Extra steps injected at start of reversal — motor moves but position isn't updated.
+// ~2 arcminutes is typical for a 100:1 harmonic drive under load.
+constexpr float AZM_BACKLASH_DEG = 0.033f; // 2' = 0.033° — harmonic drive elastic zone compensation
 
 /* ═══════════════════════════════════════════════════════════════════════════════════════
    COMPUTED KINEMATICS
@@ -440,16 +342,6 @@ bool  mpuAvailable        = false;   // true if MPU-6500 responded on I2C
 float activeStepsPerDegALT = 0.0f;  // set by loadOrSelectProfile()
 float activeStepsPerDegAZM = STEPS_PER_DEG_AZM; // Updated by residual learning
 
-/* ── AZM/ALT BACKLASH COMPENSATION (v15.04 — runtime variables) ──
-   Extra steps injected at direction reversal — motor moves but position isn't
-   updated (dead steps). TPPA sees only the "real" position change, so the
-   response stays linear and the adaptive matrix doesn't get confused.
-   AZM value ~ 2' typical for a 100:1 harmonic drive under load.
-   Both values initialized per profile in loadOrSelectProfile() and will be
-   auto-learned in later steps. ── */
-float activeBacklashDegAZM = 0.033f; // seeded, overwritten by profile
-float activeBacklashDegALT = 0.033f; // seeded, overwritten by profile
-
 /* ═══════════════════════════════════════════════════════════════════════════════════════
    GLOBAL STATE
    ═══════════════════════════════════════════════════════════════════════════════════════ */
@@ -468,10 +360,6 @@ float         targetAltAngle     = 0.0f; // ALT target for current move
 float         learningStartAngle = 0.0f; // MPU angle at start of move (for ML delta)
 float         learningRequestedDelta = 0.0f; // Commanded ALT delta (for ML ratio)
 bool          lastMoveWasUp      = true; // Direction of last ALT move (skip ML on reversal)
-bool          learningIsReversal = false; // v15.04: true when current ALT move is a reversal
-                                          // → routes MPU observation to backlash learning
-                                          // instead of ratio learning
-uint8_t       altBacklashSamples = 0;   // v15.04: EWMA sample count for adaptive α
 
 /* ── ALT LEARNING CONVERGENCE (Optimization B) ──
    Once the learned ratio is stable across ALT_CONVERGE_COUNT consecutive
@@ -487,7 +375,6 @@ bool  homingDone = false;  // TPPA jogs blocked until true
 
 // AZM backlash tracking — separate from AZM learning state (independent concerns)
 int8_t lastAzmDir = 0;  // +1 = last move positive, -1 = negative, 0 = unknown
-int8_t lastAltDir = 0;  // v15.04: ALT backlash tracking (mirror of lastAzmDir)
 
 /* ── AZM Learning state ──
    resetAzmLearning() is the SINGLE point of truth for clearing this.
@@ -495,13 +382,6 @@ int8_t lastAltDir = 0;  // v15.04: ALT backlash tracking (mirror of lastAzmDir)
 float  azmLrnPrevDeltaDeg = 0.0f;  // Signed delta from the previous AZM jog (degrees)
 int8_t azmLrnPrevDir      = 0;     // Direction of previous AZM jog (+1 / -1)
 bool   azmLrnValid        = false; // true only when previous jog data is trustworthy
-
-// v15.04 — AZM ratio stability + backlash learning state
-uint8_t azmStableCount           = 0;     // consecutive stable ratio updates
-bool    azmRatioStable           = false; // ratio locked → backlash learning enabled
-bool    azmBacklashLearnPending  = false; // set on reversal (after stability),
-                                          // consumed on next same-direction move
-uint8_t azmBacklashSamples       = 0;     // EWMA sample count for adaptive α
 
 /* ── MPU sampling accumulators ── */
 int           mpuSampleCount  = 0;
@@ -591,8 +471,6 @@ void loadOrSelectProfile() {
     cfg_RAMP_CRUISE_ALT_US  = 120;      // 200 was too slow — caused NINA 7s timeout
     cfg_ALT_LIMIT_NEG       = 0.0f;     // Home = bottom of travel
     cfg_HOME_TRIGGER_ANGLE  = 0.0f;     // 0° = homed position
-    activeBacklashDegAZM    = 0.033f;   // 2' — harmonic drive elastic zone (default)
-    activeBacklashDegALT    = 0.033f;   // 2' — commercial tilt plate typical
   } else {
     cfg_profile_name        = "V2_CNC";
     cfg_ALT_MOTOR_GEARBOX   = 124.0f;   // V2_CNC empirical ALT mechanical ratio
@@ -602,8 +480,6 @@ void loadOrSelectProfile() {
     cfg_HOME_TRIGGER_ANGLE  = -2.0f;    // Physical home = -2° tilt
     // NOTE on cfg_HOME_TRIGGER_ANGLE=-2: if TPPA stops correcting after first jog,
     // suspect this value. Test with 0.0f to verify (TPPA may assume home=0').
-    activeBacklashDegAZM    = 0.033f;   // 2' — same harmonic drive as PROTO
-    activeBacklashDegALT    = 0.050f;   // 3' — T8 anti-backlash spring removed
   }
 
   // ── Compute ALT kinematics from profile ───────────────────────────
@@ -629,16 +505,6 @@ void resetAzmLearning() {
   azmLrnPrevDeltaDeg = 0.0f;
   azmLrnPrevDir      = 0;
   azmLrnValid        = false;
-}
-
-/* v15.04-p5 — persist backlash to EEPROM. Always writes BOTH slots so the
-   idle slot is never left uninitialized (which used to produce NaN garbage
-   in the AZM slot after the first ALT learning write). */
-void saveBacklashSlots() {
-  EEPROM.put(EEPROM_ADDR_AZM_BLC, activeBacklashDegAZM);
-  EEPROM.put(EEPROM_ADDR_ALT_BLC, activeBacklashDegALT);
-  EEPROM.put(EEPROM_ADDR_BLC_MAGIC, BACKLASH_MAGIC);
-  EEPROM.commit();
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════════════════
@@ -744,11 +610,6 @@ void scanSerialRealtime();
 // Returns false if queue is empty.
 bool startNextJob() {
   if (jobCount == 0) return false;
-  // v15.04-p5: refuse to clobber an active motion. When user rapid-clicks
-  // GUI buttons, the command handler's startNextJob() call would overwrite
-  // `mot` mid-motion, aborting the first move (two BACKLASH logs, one observe).
-  // The tickMotion completion path (line ~960) picks up the queued job cleanly.
-  if (mot.active) return true;
 
   MotionJob job = jobQueue[0];
   jobQueue[0] = jobQueue[1];  // Shift queue
@@ -762,44 +623,35 @@ bool startNextJob() {
   bool logicalDir = (stepsTot > 0) ? !inv : inv;
   bool isUp      = (job.deltaDeg > 0);
 
-  /* ── AZM/ALT BACKLASH COMPENSATION ──
-     On direction reversal, inject extra dead steps to eat through mechanical
-     lost motion (AZM: harmonic drive elastic zone; ALT: T8 nut backlash).
-     Motor moves, but posDeg is not updated during backlashSteps — TPPA sees a
-     clean linear response. ── */
+  /* ── AZM BACKLASH COMPENSATION ──
+     On direction reversal, inject extra dead steps to eat through the harmonic
+     drive's elastic deformation zone. Motor moves, but posDegAZM is not updated
+     until the actual movement begins. TPPA sees a clean, uninterrupted position. ── */
   long backlashExtra = 0;
-  if (isAzm && activeBacklashDegAZM > 0.0f) {
+  if (isAzm && AZM_BACKLASH_DEG > 0.0f) {
     int8_t newDir = (stepsTot > 0) ? 1 : -1;
     if (lastAzmDir != 0 && newDir != lastAzmDir) {
-      backlashExtra = lroundf(activeBacklashDegAZM * job.stepsPerDeg);
+      backlashExtra = lroundf(AZM_BACKLASH_DEG * job.stepsPerDeg);
       diagPrintf("AZM BACKLASH: %ld dead steps (%.1f')\n",
-                 backlashExtra, activeBacklashDegAZM * 60.0f);
+                 backlashExtra, AZM_BACKLASH_DEG * 60.0f);
     }
     lastAzmDir = newDir;
-  } else if (!isAzm && activeBacklashDegALT > 0.0f) {
-    int8_t newDir = (stepsTot > 0) ? 1 : -1;
-    if (lastAltDir != 0 && newDir != lastAltDir) {
-      backlashExtra = lroundf(activeBacklashDegALT * job.stepsPerDeg);
-      diagPrintf("ALT BACKLASH: %ld dead steps (%.1f')\n",
-                 backlashExtra, activeBacklashDegALT * 60.0f);
-      learningIsReversal = true;  // v15.04: signal backlash learning path
-    }
-    lastAltDir = newDir;
   }
 
   /* ── ALT MPU LEARNING SETUP ──
-     Capture the start angle before motion begins.
-     v15.04: on direction reversal, we still capture startAngle — but the observed
-     movement will feed BACKLASH learning (via learningIsReversal) instead of
-     ratio learning. This is the only way to learn the true backlash value. ── */
+     Capture the start angle before motion begins. Only valid for same-direction
+     moves (direction reversals would include backlash, corrupting the ratio). ── */
   if (!isAzm && mpuAvailable) {
-    float startRaw = readMPUAngleY();
-    if (startRaw > -900.0f) {
-      learningStartAngle    = startRaw - mpuOffset;
-      learningRequestedDelta = job.deltaDeg;
+    if (isUp == lastMoveWasUp) {
+      float startRaw = readMPUAngleY();
+      if (startRaw > -900.0f) {
+        learningStartAngle    = startRaw - mpuOffset;
+        learningRequestedDelta = job.deltaDeg;
+      } else {
+        learningRequestedDelta = 0.0f;  // I2C failure — skip learning this jog
+      }
     } else {
-      learningRequestedDelta = 0.0f;  // I2C failure — skip learning
-      learningIsReversal     = false;
+      learningRequestedDelta = 0.0f;  // Direction reversal — backlash would corrupt
     }
     lastMoveWasUp = isUp;
 
@@ -899,52 +751,11 @@ void tickMotion() {
     diagPrintf("MPU: act=%.3f tgt=%.3f err=%.3f (observe)\n",
                actualAngle, targetAltAngle, error);
 
-    /* MACHINE LEARNING (ALT axis) — v15.04 routes reversal moves to backlash
-       learning instead of ratio learning (backlash comp is a distinct signal). */
-    if (learningIsReversal) {
-      /* ── BACKLASH LEARNING (reversal move) ──
-         residual = |commanded| - |actualMoved| (positive = under-compensated).
-         Adaptive α: fast at startup, conservative after warmup. Guardrails on
-         sign agreement, MPU noise floor, and outlier magnitude. ── */
-      if (fabsf(learningRequestedDelta) >= MIN_BLC_LEARNING_ANGLE) {
-        float actualMoved = actualAngle - learningStartAngle;
-        // Sign check: actualMoved must go the same way as commanded
-        bool signsAgree = (actualMoved * learningRequestedDelta > 0);
-        if (signsAgree && fabsf(actualMoved) > BLC_MIN_ACTUAL) {
-          float residual = fabsf(learningRequestedDelta) - fabsf(actualMoved);
-          float maxSwing = BACKLASH_MAX_SINGLE_UPDATE * BACKLASH_HARDSTOP_ALT_DEG;
-
-          if (fabsf(residual) <= maxSwing) {
-            float alpha = (altBacklashSamples < BACKLASH_WARMUP_SAMPLES)
-                          ? BACKLASH_LEARNING_RATE_INIT
-                          : BACKLASH_LEARNING_RATE_STEADY;
-            float oldBlc = activeBacklashDegALT;
-            activeBacklashDegALT += alpha * residual;
-            // Clamp to [0, HARDSTOP]
-            if (activeBacklashDegALT < 0.0f) activeBacklashDegALT = 0.0f;
-            if (activeBacklashDegALT > BACKLASH_HARDSTOP_ALT_DEG)
-              activeBacklashDegALT = BACKLASH_HARDSTOP_ALT_DEG;
-            altBacklashSamples++;
-
-            diagPrintf("ALT BLC ML: residual=%.2f' α=%.2f  %.4f→%.4f (n=%u)\n",
-                       residual * 60.0f, alpha, oldBlc, activeBacklashDegALT,
-                       altBacklashSamples);
-
-            if (fabsf(activeBacklashDegALT - oldBlc) > BACKLASH_EEPROM_THRESHOLD) {
-              saveBacklashSlots();  // v15.04-p5: writes both slots + magic
-            }
-          } else {
-            diagPrintf("ALT BLC ML: outlier residual %.2f' > max %.2f' — skip\n",
-                       residual * 60.0f, maxSwing * 60.0f);
-          }
-        } else {
-          diagPrintf("ALT BLC ML: sign disagreement or tiny move — skip\n");
-        }
-      }
-      learningIsReversal = false;  // consume the flag
-
-    } else if (fabsf(learningRequestedDelta) >= MIN_LEARNING_ANGLE) {
-      /* ── RATIO LEARNING (same-direction move) — unchanged from v15.03g ── */
+    /* MACHINE LEARNING RATIO ADAPTATION (ALT axis)
+       If the actual movement differs from commanded, adjust activeStepsPerDegALT.
+       EWMA blend: 10% new measurement, 90% running average.
+       Sanity band: only accept measurements within ±20% of theoretical. */
+    if (fabsf(learningRequestedDelta) >= MIN_LEARNING_ANGLE) {
       float actualMoved = actualAngle - learningStartAngle;
       if (fabsf(actualMoved) > LEARNING_MIN_ACTUAL) {
         float stepsSent     = learningRequestedDelta * activeStepsPerDegALT;
@@ -1049,9 +860,7 @@ void tickMotion() {
 
     // For ALT moves above tolerance: enter MPU observation instead of settling directly.
     // This is where the machine learning measurement happens.
-    // v15.04: also observe on reversal even if ratio converged (backlash learning path)
-    if (!mot.isAzm && mpuAvailable && !feedHold &&
-        (!altRatioConverged || learningIsReversal) &&
+    if (!mot.isAzm && mpuAvailable && !feedHold && !altRatioConverged &&
         fabsf(mot.deltaDeg) >= ALT_TOLERANCE_DEG) {
       diagPrintf("Observe: tgt=%.3f start=%.3f\n", targetAltAngle, feedbackStartPos);
       settlingForObserve = true;
@@ -1127,12 +936,6 @@ void softReset() {
   learningRequestedDelta = 0;
   altStableCount         = 0;       // re-validate ALT ratio after reset
   altRatioConverged      = false;
-  learningIsReversal     = false;   // v15.04
-  altBacklashSamples     = 0;       // v15.04: restart warmup α on next reversal
-  azmStableCount         = 0;       // v15.04
-  azmRatioStable         = false;   // v15.04
-  azmBacklashLearnPending = false;  // v15.04
-  azmBacklashSamples     = 0;       // v15.04
   resetAzmLearning();   // Atomically clear all AZM learning state
   diagClear();
   Serial.println("\r\nGrbl 1.1h ['$' for help]");
@@ -1225,7 +1028,6 @@ void startHoming() {
   targetAltAngle = cfg_HOME_TRIGGER_ANGLE;   // FIX: prevent stale pre-homing value
   posDegAZM = 0.0f;    // AZM has no absolute sensor — always resets to 0 at homing
   lastAzmDir = 0;
-  lastAltDir = 0;
 
   // Tare the gyroscope at the homed position
   if (mpuAvailable) {
@@ -1251,12 +1053,6 @@ void startHoming() {
   learningRequestedDelta = 0;
   altStableCount         = 0;       // re-validate ALT ratio over first few jogs of session
   altRatioConverged      = false;
-  learningIsReversal     = false;   // v15.04
-  altBacklashSamples     = 0;       // v15.04: restart warmup α (mechanics may have shifted)
-  azmStableCount         = 0;       // v15.04
-  azmRatioStable         = false;   // v15.04
-  azmBacklashLearnPending = false;  // v15.04
-  azmBacklashSamples     = 0;       // v15.04
   resetAzmLearning();  // Fresh start — previous session's AZM learning is invalid
 
   // Persist homing state to EEPROM so it survives a DTR-triggered reboot
@@ -1278,7 +1074,7 @@ void startHoming() {
    Everything that can help debug a field issue is included here.
    ═══════════════════════════════════════════════════════════════════════════════════════ */
 void printDiagnostic() {
-  Serial.print("\n--- SYSTEM DIAGNOSTIC (v15.04-p5) [");
+  Serial.print("\n--- SYSTEM DIAGNOSTIC (v15.03g-auto-p4) [");
   Serial.print(cfg_profile_name);
   Serial.println("] ---");
 
@@ -1320,8 +1116,8 @@ void printDiagnostic() {
   Serial.println("");
 
   // AZM details
-  Serial.print("AZM backlash comp     : "); Serial.print(activeBacklashDegAZM * 60.0f, 1);
-  Serial.print("' ("); Serial.print(activeBacklashDegAZM, 4); Serial.println(" deg)");
+  Serial.print("AZM backlash comp     : "); Serial.print(AZM_BACKLASH_DEG * 60.0f, 1);
+  Serial.print("' ("); Serial.print(AZM_BACKLASH_DEG, 4); Serial.println(" deg)");
   Serial.print("lastAzmDir            : ");
   Serial.println(lastAzmDir ==  1 ? "+1 (positive)" :
                  lastAzmDir == -1 ? "-1 (negative)" : "0 (unknown)");
@@ -1331,25 +1127,6 @@ void printDiagnostic() {
     Serial.print(azmLrnPrevDeltaDeg * 60.0f, 2);
     Serial.print("'  dir="); Serial.println(azmLrnPrevDir == 1 ? "+1" : "-1");
   }
-  // AZM ratio stability + backlash learning (v15.04)
-  Serial.print("AZM ratio stable      : ");
-  Serial.print(azmRatioStable ? "YES" : "NO");
-  Serial.print("  (stableCount="); Serial.print(azmStableCount);
-  Serial.print("/"); Serial.print(AZM_STABLE_COUNT); Serial.println(")");
-  Serial.print("AZM backlash samples  : "); Serial.print(azmBacklashSamples);
-  Serial.print(azmBacklashSamples < BACKLASH_WARMUP_SAMPLES ? " (fast α)" : " (steady α)");
-  if (azmBacklashLearnPending) Serial.print("  [probe armed]");
-  Serial.println("");
-
-  // ALT details (v15.04)
-  Serial.print("ALT backlash comp     : "); Serial.print(activeBacklashDegALT * 60.0f, 1);
-  Serial.print("' ("); Serial.print(activeBacklashDegALT, 4); Serial.println(" deg)");
-  Serial.print("ALT backlash samples  : "); Serial.print(altBacklashSamples);
-  Serial.print(altBacklashSamples < BACKLASH_WARMUP_SAMPLES ? " (fast α)" : " (steady α)");
-  Serial.println("");
-  Serial.print("lastAltDir            : ");
-  Serial.println(lastAltDir ==  1 ? "+1 (up)" :
-                 lastAltDir == -1 ? "-1 (down)" : "0 (unknown)");
 
   Serial.println("");
 
@@ -1384,17 +1161,6 @@ void printDiagnostic() {
   Serial.print("EEPROM Homing State   : ");
   Serial.println(storedMagic == HOMING_MAGIC ?
                  "SAVED (persists across reboot)" : "NOT SAVED");
-  uint32_t storedBlcMagic2 = 0; EEPROM.get(EEPROM_ADDR_BLC_MAGIC, storedBlcMagic2);
-  Serial.print("EEPROM Backlash slots : ");
-  if (storedBlcMagic2 == BACKLASH_MAGIC) {
-    float bA = 0.0f, bL = 0.0f;
-    EEPROM.get(EEPROM_ADDR_AZM_BLC, bA);
-    EEPROM.get(EEPROM_ADDR_ALT_BLC, bL);
-    Serial.print("SAVED  AZM="); Serial.print(bA * 60.0f, 2);
-    Serial.print("'  ALT="); Serial.print(bL * 60.0f, 2); Serial.println("'");
-  } else {
-    Serial.println("NOT SAVED (using profile defaults)");
-  }
   Serial.print("Diag buffer used      : "); Serial.print(diagLen);
   Serial.print("/"); Serial.println(sizeof(diagLog));
 
@@ -1419,54 +1185,6 @@ void processCommand(const char* line) {
   if (strcmp(line, "RST") == 0)                      { softReset(); return; }
   if (strcmp(line, "HOME") == 0 || strcmp(line, "$H") == 0) { startHoming(); return; }
   if (strcmp(line, "DIAG") == 0 || strcmp(line, "MPU?") == 0) { printDiagnostic(); return; }
-
-  /* ── BLC: backlash compensation query & set (v15.04) ── */
-  if (strcmp(line, "BLC?") == 0) {
-    Serial.print("BLC:AZM="); Serial.print(activeBacklashDegAZM, 4);
-    Serial.print(" ALT="); Serial.print(activeBacklashDegALT, 4);
-    Serial.print(" ("); Serial.print(activeBacklashDegAZM * 60.0f, 2); Serial.print("'/");
-    Serial.print(activeBacklashDegALT * 60.0f, 2); Serial.print("')  AZM stable=");
-    Serial.print(azmRatioStable ? "YES" : "NO");
-    Serial.print(" samples AZM/ALT="); Serial.print(azmBacklashSamples);
-    Serial.print("/"); Serial.println(altBacklashSamples);
-    return;
-  }
-  if (strcmp(line, "BLC:AZM?") == 0) {
-    Serial.print("BLC:AZM="); Serial.print(activeBacklashDegAZM, 4);
-    Serial.print(" ("); Serial.print(activeBacklashDegAZM * 60.0f, 2); Serial.println("')");
-    return;
-  }
-  if (strcmp(line, "BLC:ALT?") == 0) {
-    Serial.print("BLC:ALT="); Serial.print(activeBacklashDegALT, 4);
-    Serial.print(" ("); Serial.print(activeBacklashDegALT * 60.0f, 2); Serial.println("')");
-    return;
-  }
-  if (strncmp(line, "BLC:AZM:", 8) == 0) {
-    float v = atof(line + 8);
-    if (v < 0.0f || v > BACKLASH_HARDSTOP_AZM_DEG || isnan(v)) {
-      Serial.print("!BLC:AZM out of range [0, ");
-      Serial.print(BACKLASH_HARDSTOP_AZM_DEG, 3); Serial.println("]");
-      return;
-    }
-    activeBacklashDegAZM = v;
-    saveBacklashSlots();  // v15.04-p5
-    Serial.print("BLC:AZM set to "); Serial.print(v, 4);
-    Serial.print(" ("); Serial.print(v * 60.0f, 2); Serial.println("') [saved]");
-    return;
-  }
-  if (strncmp(line, "BLC:ALT:", 8) == 0) {
-    float v = atof(line + 8);
-    if (v < 0.0f || v > BACKLASH_HARDSTOP_ALT_DEG || isnan(v)) {
-      Serial.print("!BLC:ALT out of range [0, ");
-      Serial.print(BACKLASH_HARDSTOP_ALT_DEG, 3); Serial.println("]");
-      return;
-    }
-    activeBacklashDegALT = v;
-    saveBacklashSlots();  // v15.04-p5
-    Serial.print("BLC:ALT set to "); Serial.print(v, 4);
-    Serial.print(" ("); Serial.print(v * 60.0f, 2); Serial.println("') [saved]");
-    return;
-  }
 
   /* ── Lightweight MPU query (GUI status bar polling, avoids full DIAG overhead) ── */
   if (strcmp(line, "MPU") == 0) {
@@ -1505,10 +1223,7 @@ void processCommand(const char* line) {
       settlingForObserve     = false;
       waitingForGlobalSettle = false;
       learningRequestedDelta = 0;
-      learningIsReversal     = false; // v15.04
-      azmBacklashLearnPending = false; // v15.04-p1: interrupted reversal must not leak
       lastAzmDir             = 0;   // FIX: prevent spurious backlash on interrupted jog
-      lastAltDir             = 0;   // v15.04: same fix for ALT axis
     }
 
     const char* rest = strchr(line, '=');
@@ -1556,47 +1271,6 @@ void processCommand(const char* line) {
         if (azmLrnValid && newAzmDir == azmLrnPrevDir &&
             fabsf(azmLrnPrevDeltaDeg) >= MIN_AZM_LEARNING_ANGLE) {
 
-          /* v15.04 — BACKLASH LEARNING PROBE (fires on same-direction move
-             immediately following a reversal, only if ratio has stabilized).
-             The current jog magnitude is treated as a signal proportional to
-             the residual backlash. Small biases are averaged out by EWMA. ── */
-          if (azmBacklashLearnPending && azmRatioStable) {
-            float signal = fabsf(azmDeltaDeg);
-            if (signal <= MAX_AZM_BLC_SIGNAL_DEG) {
-              float alpha = (azmBacklashSamples < BACKLASH_WARMUP_SAMPLES)
-                            ? BACKLASH_LEARNING_RATE_INIT
-                            : BACKLASH_LEARNING_RATE_STEADY;
-              float oldBlc = activeBacklashDegAZM;
-              activeBacklashDegAZM += alpha * signal;
-              // v15.04-p2: leaky bucket, steady-state only.
-              // Without leak, positive-only signal ratchets C monotonically upward
-              // (noise + residual TPPA correction work never fully vanish),
-              // slowly walking C to the hardstop over dozens of sessions.
-              // Leak applied only after warmup so first 10 samples converge cleanly
-              // to true B, then a gentle 0.5% decay per probe caps the equilibrium.
-              if (azmBacklashSamples >= BACKLASH_WARMUP_SAMPLES) {
-                activeBacklashDegAZM *= 0.995f;
-              }
-              // Clamp
-              if (activeBacklashDegAZM < 0.0f) activeBacklashDegAZM = 0.0f;
-              if (activeBacklashDegAZM > BACKLASH_HARDSTOP_AZM_DEG)
-                activeBacklashDegAZM = BACKLASH_HARDSTOP_AZM_DEG;
-              azmBacklashSamples++;
-
-              diagPrintf("AZM BLC ML: signal=%.2f' α=%.2f  %.4f→%.4f (n=%u)\n",
-                         signal * 60.0f, alpha, oldBlc, activeBacklashDegAZM,
-                         azmBacklashSamples);
-
-              if (fabsf(activeBacklashDegAZM - oldBlc) > BACKLASH_EEPROM_THRESHOLD) {
-                saveBacklashSlots();  // v15.04-p5
-              }
-            } else {
-              diagPrintf("AZM BLC ML: signal too large (%.2f' > %.2f') — skip\n",
-                         signal * 60.0f, MAX_AZM_BLC_SIGNAL_DEG * 60.0f);
-            }
-            azmBacklashLearnPending = false;   // consume the flag regardless
-          }
-
           float prevAbs       = fabsf(azmLrnPrevDeltaDeg);
           float currAbs       = fabsf(azmDeltaDeg);
           float effectiveMoved = prevAbs - currAbs;
@@ -1614,23 +1288,6 @@ void processCommand(const char* line) {
               diagPrintf("AZM ML: %.2f→%.2f (prev=%.2f' curr=%.2f' eff=%.2f')\n",
                          oldRatio, activeStepsPerDegAZM,
                          prevAbs * 60.0f, currAbs * 60.0f, effectiveMoved * 60.0f);
-
-              /* v15.04 — STABILITY TRACKING for backlash-learning gate */
-              if (fabsf(activeStepsPerDegAZM - oldRatio) < AZM_STABLE_DELTA_STEPS) {
-                if (!azmRatioStable && ++azmStableCount >= AZM_STABLE_COUNT) {
-                  azmRatioStable = true;
-                  diagPrintf("AZM ratio STABLE (%.2f) — backlash learning enabled\n",
-                             activeStepsPerDegAZM);
-                }
-              } else {
-                azmStableCount = 0;
-                // Big ratio change → un-stabilize (rare, but be safe)
-                if (azmRatioStable) {
-                  azmRatioStable = false;
-                  diagPrintf("AZM ratio DESTABILIZED — backlash learning paused\n");
-                }
-              }
-
               if (fabsf(activeStepsPerDegAZM - oldRatio) > EEPROM_WRITE_THRESHOLD) {
                 EEPROM.put(EEPROM_ADDR_AZM_RATIO, activeStepsPerDegAZM);
                 EEPROM.commit();
@@ -1647,30 +1304,8 @@ void processCommand(const char* line) {
           // azmLrnValid stays true
 
         } else if (newAzmDir != azmLrnPrevDir && azmLrnValid) {   // Guard 3
-          // Direction reversal: stale ratio data — wipe and start fresh
-          // v15.04: if ratio is stable, arm backlash learning for the NEXT jog
-          if (azmRatioStable) {
-            /* v15.04-p3 — PING-PONG DETECTION (over-compensation penalty)
-               If pending is already true when we enter Guard 3, it means the
-               previous reversal overshot so badly that TPPA had to immediately
-               reverse again. The steady-state 0.995 leak can never fire (probe
-               requires same-direction follow-up, never arrives during ping-pong),
-               so C would stay stuck. Apply an aggressive 20% penalty per
-               ping-pong to knock C back down toward true B. ── */
-            if (azmBacklashLearnPending) {
-              float oldBlc = activeBacklashDegAZM;
-              activeBacklashDegAZM *= 0.80f;
-              if (fabsf(activeBacklashDegAZM - oldBlc) > BACKLASH_EEPROM_THRESHOLD) {
-                saveBacklashSlots();  // v15.04-p5
-              }
-              diagPrintf("AZM BLC ML: ping-pong detected → penalty  %.4f→%.4f\n",
-                         oldBlc, activeBacklashDegAZM);
-            }
-            azmBacklashLearnPending = true;
-            diagPrintf("AZM ML: dir reversal → backlash probe armed\n");
-          } else {
-            diagPrintf("AZM ML: dir reversal → reset\n");
-          }
+          // Direction reversal: stale data — wipe and start fresh
+          diagPrintf("AZM ML: dir reversal → reset\n");
           resetAzmLearning();
           azmLrnPrevDeltaDeg = azmDeltaDeg;
           azmLrnPrevDir      = newAzmDir;
@@ -1688,8 +1323,6 @@ void processCommand(const char* line) {
         diagPrintf("AZM ML: tiny move (%.2f' < 1') → not recorded\n",
                    fabsf(azmDeltaDeg) * 60.0f);
         azmLrnValid = false;
-        azmBacklashLearnPending = false; // v15.04-p1: stale pending flag would
-                                          // be consumed with unrelated sequence data
       }
 
       enqueueMotion(PIN_STEP_AZM, PIN_DIR_AZM, azmDeltaDeg, activeStepsPerDegAZM, &posDegAZM);
@@ -1764,7 +1397,7 @@ void setup() {
   loadOrSelectProfile();
 
   Serial.println("\n=======================================================");
-  Serial.print("  BOOT: V15.04-p5 ["); Serial.print(cfg_profile_name); Serial.println("] (ESP32)");
+  Serial.print("  BOOT: V15.03g-auto-p4 ["); Serial.print(cfg_profile_name); Serial.println("] (ESP32)");
   Serial.print("  Profile: "); Serial.print(cfg_profile_name);
   Serial.print("  ALT_GEARBOX="); Serial.print(cfg_ALT_MOTOR_GEARBOX,1);
   Serial.print("  AXIS_REV_ALT="); Serial.println(cfg_AXIS_REV_ALT ? "true":"false");
@@ -1801,38 +1434,8 @@ void setup() {
   } else {
     activeStepsPerDegAZM = STEPS_PER_DEG_AZM;
     Serial.print("MSG: Using theoretical AZM Ratio: ");
-    // v15.04-p4: overwrite invalid stored value so DIAG stops showing "nan"
-    EEPROM.put(EEPROM_ADDR_AZM_RATIO, activeStepsPerDegAZM);
-    EEPROM.commit();
   }
   Serial.println(activeStepsPerDegAZM);
-
-  /* ── Load backlash values (v15.04) — migration-safe ──
-     If BACKLASH_MAGIC is invalid (fresh flash, upgrade from v15.03g), keep the
-     profile-default values that loadOrSelectProfile() already installed. ── */
-  uint32_t storedBlcMagic = 0;
-  EEPROM.get(EEPROM_ADDR_BLC_MAGIC, storedBlcMagic);
-  if (storedBlcMagic == BACKLASH_MAGIC) {
-    float bAZM = 0.0f, bALT = 0.0f;
-    EEPROM.get(EEPROM_ADDR_AZM_BLC, bAZM);
-    EEPROM.get(EEPROM_ADDR_ALT_BLC, bALT);
-    // Guardrails: reject NaN/Inf/negative/out-of-band
-    if (!isnan(bAZM) && !isinf(bAZM) && bAZM >= 0.0f && bAZM <= 0.50f) {
-      activeBacklashDegAZM = bAZM;
-    }
-    if (!isnan(bALT) && !isinf(bALT) && bALT >= 0.0f && bALT <= 1.00f) {
-      activeBacklashDegALT = bALT;
-    }
-    Serial.print("MSG: Loaded backlash comp — AZM=");
-    Serial.print(activeBacklashDegAZM * 60.0f, 2);
-    Serial.print("' ALT="); Serial.print(activeBacklashDegALT * 60.0f, 2);
-    Serial.println("'");
-  } else {
-    Serial.print("MSG: Backlash defaults from profile — AZM=");
-    Serial.print(activeBacklashDegAZM * 60.0f, 2);
-    Serial.print("' ALT="); Serial.print(activeBacklashDegALT * 60.0f, 2);
-    Serial.println("'");
-  }
 
   Serial.print("MSG: AZM limits "); Serial.print(AZM_LIMIT_NEG);
   Serial.print("° to "); Serial.print(AZM_LIMIT_POS); Serial.println("°");
@@ -1955,10 +1558,7 @@ void loop() {
 
   while (Serial.available()) {
     char c = Serial.peek();
-    // v15.04-p4: only intercept realtime chars when they are the FIRST byte
-    // of a new command. Otherwise 'BLC?' etc. would be truncated to 'BLC'
-    // and the '?' would spuriously trigger a GRBL status query.
-    if (lineIdx == 0 && (c == '?' || c == '!' || c == '~' || c == 0x18)) break;
+    if (c == '?' || c == '!' || c == '~' || c == 0x18) break;  // Hand off to realtime
     Serial.read();
     if (c == '\n' || c == '\r') {
       if (lineIdx > 0) {

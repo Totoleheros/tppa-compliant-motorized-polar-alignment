@@ -128,16 +128,20 @@ JOG_ARCSEC_STEPS = [
 # ─────────────────────────────────────────────────────────────
 PROFILES = {
     "Proto V1": {
-        "TILT_CRANK_RATIO": 4.96,
-        "AXIS_REV_ALT":     True,
-        "ALT_LIMIT_NEG":    0.0,
-        "ALT_LIMIT_POS":    5.0,
+        "TILT_CRANK_RATIO":   4.96,
+        "AXIS_REV_ALT":       True,
+        "ALT_LIMIT_NEG":      0.0,
+        "ALT_LIMIT_POS":      5.0,
+        "BACKLASH_AZM_INIT":  0.033,
+        "BACKLASH_ALT_INIT":  0.033,
     },
     "V2 CNC": {
-        "TILT_CRANK_RATIO": 6.94,
-        "AXIS_REV_ALT":     False,
-        "ALT_LIMIT_NEG":   -2.0,
-        "ALT_LIMIT_POS":   10.0,
+        "TILT_CRANK_RATIO":   6.94,
+        "AXIS_REV_ALT":       False,
+        "ALT_LIMIT_NEG":     -2.0,
+        "ALT_LIMIT_POS":     10.0,
+        "BACKLASH_AZM_INIT":  0.033,
+        "BACKLASH_ALT_INIT":  0.050,
     },
 }
 
@@ -298,7 +302,7 @@ class SerialManager:
             try:
                 raw = self.ser.readline()
                 if not raw: continue
-                line = raw.decode("ascii", errors="replace").strip()
+                line = raw.decode("utf-8", errors="replace").strip()
                 if not line: continue
                 m = self._re.search(line)
                 if m:
@@ -342,12 +346,18 @@ CONFIG_PARAMS = [
     ("ALT_LIMIT_NEG",      "ALT travel limit (negative)",          0.0,  float, "degrees  (Proto=0 / V2=−2)"),
     ("ALT_LIMIT_POS",      "ALT travel limit (positive)",         10.0,  float, "degrees  (Proto=5 / V2=10)"),
     ("FEEDBACK_MIN_SCALE", "Feedback report minimum scale",        0.50, float, "(0–1)"),
+    ("BACKLASH_AZM_INIT",  "AZM backlash initial value",          0.033, float, "degrees  (~2' typical)"),
+    ("BACKLASH_ALT_INIT",  "ALT backlash initial value",          0.033, float, "degrees  (Proto=0.033 / V2=0.050)"),
 ]
 
 # Regex patterns for parsing firmware learning output
 RE_ALT_RATIO = re.compile(r"ML Ratio:\s*([\d.]+)\s*\(was\s*([\d.]+)\)")
 RE_ALT_MPU   = re.compile(r"MPU:\s*act=([\d.+-]+)\s+tgt=([\d.+-]+)\s+err=([\d.+-]+)")
 RE_AZM_ML    = re.compile(r"AZM ML:\s*([\d.]+)→([\d.]+)\s*\(prev=([\d.]+)' curr=([\d.]+)'")
+# v15.04 backlash learning
+RE_ALT_BLC   = re.compile(r"ALT BLC ML:.*?([\d.]+)→([\d.]+)\s*\(n=(\d+)\)")
+RE_AZM_BLC   = re.compile(r"AZM BLC ML:.*?([\d.]+)→([\d.]+)\s*\(n=(\d+)\)")
+RE_AZM_STABLE = re.compile(r"AZM ratio STABLE")
 
 
 # ─────────────────────────────────────────────────────────────
@@ -464,6 +474,12 @@ class App:
                                       font=(MONO, 10), fg="#aaaaaa", bg=BG,
                                       width=14, anchor="w")
         self._lbl_azm_upd.pack(side="left", padx=(4, 0))
+        tk.Label(azm_lrn, text="blc:", font=(MONO, 10),
+                 fg=TXT_DIM, bg=BG).pack(side="left")
+        self._lbl_azm_blc = tk.Label(azm_lrn, text="—",
+                                      font=(MONO, 10), fg="#aaaaaa", bg=BG,
+                                      width=13, anchor="w")
+        self._lbl_azm_blc.pack(side="left", padx=(4, 0))
 
         # Vertical separator between AZM and ALT learning blocks
         ttk.Separator(row2, orient="vertical").pack(side="left", fill="y", padx=6)
@@ -491,6 +507,12 @@ class App:
                                          font=(MONO, 10), fg="#aaaaaa", bg=BG,
                                          width=18, anchor="w")
         self._lbl_alt_acttgt.pack(side="left", padx=(4, 0))
+        tk.Label(alt_lrn, text="blc:", font=(MONO, 10),
+                 fg=TXT_DIM, bg=BG).pack(side="left")
+        self._lbl_alt_blc = tk.Label(alt_lrn, text="—",
+                                      font=(MONO, 10), fg="#aaaaaa", bg=BG,
+                                      width=13, anchor="w")
+        self._lbl_alt_blc.pack(side="left", padx=(4, 0))
 
         # — Main area: PanedWindow (left ~75% controls, right ~25% log) —
         self._paned = tk.PanedWindow(self.root, orient="horizontal",
@@ -795,6 +817,26 @@ class App:
             self._lbl_azm_upd.configure(
                 text=f"{prev_arc:.1f}'→{curr_arc:.1f}'")
 
+        # v15.04 — ALT backlash learning: "ALT BLC ML: ... 0.0500→0.0510 (n=3)"
+        m = RE_ALT_BLC.search(line)
+        if m:
+            new_blc = float(m.group(2))
+            n = int(m.group(3))
+            self._lbl_alt_blc.configure(
+                text=f"{new_blc*60.0:.2f}' ({n})", fg="#4CAF50")
+
+        # v15.04 — AZM backlash learning: "AZM BLC ML: ... 0.0330→0.0340 (n=2)"
+        m = RE_AZM_BLC.search(line)
+        if m:
+            new_blc = float(m.group(2))
+            n = int(m.group(3))
+            self._lbl_azm_blc.configure(
+                text=f"{new_blc*60.0:.2f}' ({n})", fg="#4CAF50")
+
+        # v15.04 — AZM ratio stable → backlash learning enabled
+        if RE_AZM_STABLE.search(line):
+            self._lbl_azm_blc.configure(fg="#00bcd4")  # cyan tint = probe armed
+
         self._log(line)
 
     # ── CONNECTION ───────────────────────────────────────────
@@ -948,6 +990,12 @@ class App:
             "",
             "/* ───── FEEDBACK REPORT SCALING ───── */",
             f"constexpr float FEEDBACK_MIN_SCALE = {v['FEEDBACK_MIN_SCALE']:.2f}f;",
+            "",
+            f"/* ───── BACKLASH INITIAL VALUES ({self.profile_name}) ─────",
+            "   Paste inside loadOrSelectProfile(), matching profile branch:",
+            f"     activeBacklashDegAZM = {v['BACKLASH_AZM_INIT']:.4f}f;   // {v['BACKLASH_AZM_INIT']*60.0:.1f}'",
+            f"     activeBacklashDegALT = {v['BACKLASH_ALT_INIT']:.4f}f;   // {v['BACKLASH_ALT_INIT']*60.0:.1f}'",
+            "   These are seed values only — auto-learned & persisted after use. */",
         ]
         code = "\n".join(lines)
 
