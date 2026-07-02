@@ -210,10 +210,10 @@ This creates a fundamental speed/precision tradeoff:
 | 20 | 100 arcmin | 1 arcmin | Rough-in only — too coarse for final alignment |
 
 **Recommended strategy:**
-1. **Start at GearRatio = 5–10** (or higher if initial error > 2°)
-2. Watch TPPA converge — it will slow down naturally as it approaches the target
-3. **Never go below GearRatio = 2** — the resulting tiny physical moves make convergence unreliable under average seeing
-4. For final precision (< 1 arcmin), keep GearRatio at 5 — don't chase 0.2 arcmin unless seeing is excellent
+1. **Set GearRatio = 5 and leave it there for the whole session.** In field testing with v15.04, a fixed value of 5 converges reliably from initial errors of several arcminutes down to the sub-arcmin range in one continuous run — no manual adjustment mid-session. This is largely a consequence of firmware-side backlash compensation removing the main reason for having to dynamically re-tune (see below).
+2. **If you regularly start with initial error > 2°**, raise GearRatio to 8–10 for the first minute, then drop back to 5.
+3. **Never go below GearRatio = 2** — the resulting tiny physical moves make convergence unreliable under average seeing.
+4. For sub-arcmin precision, GearRatio = 5 with a target tolerance of 0.3–0.5 arcmin is a solid combination in average conditions. Don't chase 0.2 arcmin unless seeing is excellent.
 
 > 💡 **On the `Speed` parameter:** this maps to the GRBL `F` feed rate. ALT is physically capped at ~462 arcmin/min by `RAMP_CRUISE_ALT_US = 150 µs` — setting Speed above this value has no effect on ALT without a firmware change.
 
@@ -222,14 +222,14 @@ This creates a fundamental speed/precision tradeoff:
 TPPA's `AutomatedAdjustmentController` is a learning adaptive controller. It builds a 2×2 response matrix from observed corrections and resets the model if any corrective move worsens total error by more than 5%. When this happens, TPPA drops back to 1 arcmin probe moves and rebuilds from scratch — you'll see this as a sudden slow-down mid-session.
 
 **What triggers a model reset:**
-- T8 mechanical backlash on direction reversals (ALT axis — main culprit)
+- ~~T8 mechanical backlash on direction reversals (ALT axis — main culprit)~~ **Handled by firmware since v15.04** — dead-step injection on direction reversals with auto-learned per-axis values.
 - Seeing-induced plate-solve noise above ~1 arcmin
 - Firmware travel limit reached mid-move
 
 **What helps:**
-- Pre-aligning with the GUI to minimize direction reversals during TPPA
 - Targeting < 1 arcmin tolerance rather than < 0.2 arcmin in average conditions
 - Keeping GearRatio ≥ 2 so each move is physically meaningful
+- Pre-aligning with the GUI to minimize the initial polar error before starting TPPA (still useful, though direction reversals themselves are no longer the concern they were in v15.03g)
 
 > 🔍 **Debugging "no movement":** If motors don't move during a TPPA auto session, the cause is almost always a plugin setting. Check in order: (1) *Do automated adjustments* = **ON**, (2) back-office connection test passes on second attempt, (3) *Polar Alignment System* = `UPAS`. Note that reconnecting the GUI after a TPPA session triggers a DTR reboot that clears the diagnostic log — `DIAG` will always be empty in this scenario.
 
