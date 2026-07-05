@@ -295,12 +295,17 @@ Retrieve with `DIAG` from the GUI console. The buffer clears on `RST` or DTR reb
 │   ├── PolarAlignGUI_v15_03g_V4.py  ← ✅ Current GUI
 │   └── archive/                     ← Legacy versions (reference only)
 ├── 3D STEP Models/
-│   ├── Manufacturing_Drawings_V2/          ← Original V2 fabrication drawings
-│   ├── Manufacturing_Drawings_V2_2_reinforced/ ← ✅ V2.2 reinforced fabrication drawings
+│   ├── Manufacturing_Drawings_V2/               ← Original V2 fabrication drawings
+│   ├── Manufacturing_Drawings_V2_2_reinforced/  ← V2.2 reinforced fabrication drawings
 │   ├── PolarALIGN_Proto_STEP.zip
-│   ├── PolarALIGN_V2_STEP.zip              ← Original V2 (reference)
-│   ├── PolarALIGN_V2_STEP_reinforced.zip   ← First reinforced version (kept for compatibility)
-│   └── PolarALIGN_V2_2_STEP_reinforced.zip ← ✅ Recommended for new builds
+│   ├── PolarALIGN_V2_STEP.zip                   ← Original V2 (reference)
+│   ├── PolarALIGN_V2_STEP_reinforced.zip        ← First reinforced version (kept for compatibility)
+│   ├── PolarALIGN_V2_2_STEP_reinforced.zip      ← V2.2 reinforced
+│   └── PolarALIGN_V2_2_2_STEP_reinforced.zip   ← ✅ Recommended for new builds
+├── IMAGES/
+│   ├── ASSEMBLY_Proto/
+│   ├── ASSEMBLY_V2/
+│   └── ASSEMBLY_V2_Reinforced/                  ← ✅ V2.2.2 assembly photos
 ├── IMAGES/
 ├── HARDWARE_Prototype.md
 ├── HARDWARE_V2.md

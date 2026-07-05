@@ -38,19 +38,20 @@ All electronics, firmware logic, MPU wiring, and GRBL protocol are **identical t
 > | File | Status | Manufacturing drawings | Recommendation |
 > |------|--------|----------------------|----------------|
 > | `PolarALIGN_V2_STEP_reinforced.zip` | First reinforced version | ❌ Not included | Available for those who already ordered from this version |
-> | `PolarALIGN_V2_2_STEP_reinforced.zip` | ✅ **Latest — V2.2** | ✅ **Included** in `3D STEP Models/Manufacturing_Drawings_V2_2_reinforced/` | **Recommended for new builds** |
+> | `PolarALIGN_V2_2_STEP_reinforced.zip` | Reinforced V2.2 | ✅ Included in `Manufacturing_Drawings_V2_2_reinforced/` | Superseded by V2.2.2 |
+> | `PolarALIGN_V2_2_2_STEP_reinforced.zip` | ✅ **Latest — V2.2.2** | ✅ **Included** (`BrideHarmonicReducerCorrected.pdf`) | **Recommended for new builds** |
+>
+> **What changed in V2.2.2:** The `BrideHarmonicReducer` (harmonic drive flange) has been optimized now that it's CNC-machined. The corrected version is easier to assemble. The previous version (`BrideHarmonicReducer.pdf`) still works — this is a convenience improvement, not a structural change. The updated drawing is `BrideHarmonicReducerCorrected.pdf`.
 >
 > Both reinforced versions feature: increased wall thickness on bielles and ALT brackets, additional material on upper and lower ALT plates. **The original V2 is not at risk** — safety margins were already comfortable at 25 kg. The reinforced versions provide additional margin for setups pushing toward 30+ kg.
 >
 > ⚠️ **Fasteners:** some screws will need to be longer to accommodate the increased material thickness — check all screw lengths against the STEP file before ordering. In particular, **shoulder screws holding the bielles must have a shoulder length of 8 mm** (M6 shoulder diameter). All other components (motors, bearings, lead screw, electronics) are identical.
->
-> The differences between V2_reinforced and V2_2_reinforced are minor adjustments — **V2.2 is recommended for all new builds.**
 
 > 💡 All CNC part dimensions are directly readable from the STEP file. The sections below describe architecture and design rationale; refer to the STEP for fabrication tolerances and exact dimensions.
 
 > ⚠️ **Manufacturing drawings** (2D technical PDFs as submitted to JLCCNC) are available in `3D STEP Models/Manufacturing_Drawings_V2/`. These reflect the design **as fabricated**. If the design is revised post-validation, the STEP file is the source of truth.
 
-- 👉 [Shapr3D Project Viewer](https://app.shapr3d.com/p/c5be962f-1274-4f6f-9b4a-4f21080a35d3/v/tPa6U5BlQVnb4cDBH3I2a) — parts in **green**: CNC aluminium; parts in **blue**: 3D-printed.
+- 👉 [Shapr3D Project Viewer](https://app.shapr3d.com/v/UjWbgsNEgHF-Rt5lnJ6Ju) — parts in **green**: CNC aluminium; parts in **blue**: 3D-printed.
 
 - 🎬 **Kinematic simulation (Fusion 360):** [V2 ALT Bielle — Full Travel Range](https://youtu.be/YnkVJ2hzqB0) — bielle mechanism sweeping −2° to +10°, pivot geometry and T8 drive in motion.
 
