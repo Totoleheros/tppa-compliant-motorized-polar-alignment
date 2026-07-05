@@ -38,13 +38,14 @@ All electronics, firmware logic, MPU wiring, and GRBL protocol are **identical t
 > | File | Status | Manufacturing drawings | Recommendation |
 > |------|--------|----------------------|----------------|
 > | `PolarALIGN_V2_STEP_reinforced.zip` | First reinforced version | ❌ Not included | Available for those who already ordered from this version |
-> | `PolarALIGN_V2_2_STEP_reinforced.zip` | ✅ **Latest — V2.2** | ✅ **Included** in `3D STEP Models/Manufacturing_Drawings_V2_2_reinforced/` | **Recommended for new builds** |
+> | `PolarALIGN_V2_2_STEP_reinforced.zip` | Reinforced V2.2 | ✅ Included in `Manufacturing_Drawings_V2_2_reinforced/` | Superseded by V2.2.2 |
+> | `PolarALIGN_V2_2_2_STEP_reinforced.zip` | ✅ **Latest — V2.2.2** | ✅ **Included** (`BrideHarmonicReducerCorrected.pdf`) | **Recommended for new builds** |
+>
+> **What changed in V2.2.2:** The `BrideHarmonicReducer` (harmonic drive flange) has been optimized now that it's CNC-machined. The corrected version is easier to assemble. The previous version (`BrideHarmonicReducer.pdf`) still works — this is a convenience improvement, not a structural change. The updated drawing is `BrideHarmonicReducerCorrected.pdf`.
 >
 > Both reinforced versions feature: increased wall thickness on bielles and ALT brackets, additional material on upper and lower ALT plates. **The original V2 is not at risk** — safety margins were already comfortable at 25 kg. The reinforced versions provide additional margin for setups pushing toward 30+ kg.
 >
 > ⚠️ **Fasteners:** some screws will need to be longer to accommodate the increased material thickness — check all screw lengths against the STEP file before ordering. In particular, **shoulder screws holding the bielles must have a shoulder length of 8 mm** (M6 shoulder diameter). All other components (motors, bearings, lead screw, electronics) are identical.
->
-> The differences between V2_reinforced and V2_2_reinforced are minor adjustments — **V2.2 is recommended for all new builds.**
 
 > 💡 All CNC part dimensions are directly readable from the STEP file. The sections below describe architecture and design rationale; refer to the STEP for fabrication tolerances and exact dimensions.
 
