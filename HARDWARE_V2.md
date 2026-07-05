@@ -436,13 +436,20 @@ None are in the telescope load path.
 
 ## 📸 Assembly Photos
 
-### Annotated Setup Overview
+### V2 — Annotated Setup
 
 ![V2 Setup — Annotated](IMAGES/ASSEMBLY_V2/Real_World/setup_annotated_V2.jpg)
 
 ![V2 Setup — Zoom](IMAGES/ASSEMBLY_V2/Real_World/setup_annotated_V2ZOOM.jpg)
 
 You can find 3D model assembly views in `IMAGES/ASSEMBLY_V2/3D_Model/`.
+
+### V2.2 Reinforced — Assembly Step-by-Step
+
+Detailed assembly photos of the V2.2.2 reinforced build are available in `IMAGES/ASSEMBLY_V2_Reinforced/Real_World/`.
+
+![V2.2 Assembly](IMAGES/ASSEMBLY_V2_Reinforced/Real_World/IMG_2903.jpg)
+![V2.2 Assembly](IMAGES/ASSEMBLY_V2_Reinforced/Real_World/IMG_2904.jpg)
 
 ---
 
