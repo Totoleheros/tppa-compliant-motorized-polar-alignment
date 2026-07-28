@@ -19,7 +19,7 @@ This project supports two hardware configurations. A **single firmware binary** 
 | Base | Monolithic 15180 aluminium profiles | Two-piece CNC aluminium plates |
 | Firmware profile | `1` — PROTO | `2` — V2 |
 | `ALT_MOTOR_GEARBOX` | 148.8 (UMOT 30:1 × 4.96 crank) | ~124 (initial estimate — ML converges within 2–3 jogs) |
-| ALT travel | −2° to +10° (mechanical limit) | −2° to +10° (mechanical limit) |
+| ALT travel | 0° to +10° (homes at the bottom) | −2° to +10° (mechanical limit) |
 | ALT home / limit switch | Physical limit switch at **0°** | Physical limit switch at **−2°** |
 | AZM travel | ±30° (firmware limit) | ±30° (firmware limit) |
 | Status | ✅ **Field-validated** | 🔧 **Delivered & under testing** |
@@ -43,11 +43,11 @@ This project supports two hardware configurations. A **single firmware binary** 
 
 Most motorized polar alignment projects stop at "move a motor when TPPA says so." This one goes further on three fronts:
 
-**🧠 It learns.** After every ALT move, the MPU-6500 gyroscope measures the real physical movement and silently refines the steps-per-degree ratio (EWMA, saved to EEPROM). The AZM axis infers its own ratio from TPPA's correction residuals — no sensor needed. The mount gets more accurate with every session.
+**🧠 It learns — where a sensor actually observes it.** After every ALT move, the MPU-6500 gyroscope measures the real physical movement and silently refines the ALT steps-per-degree ratio (EWMA, saved to EEPROM). The mount gets more accurate with every session. The AZM axis is *not* learned: since **v16.00** its ratio is frozen at the machined theoretical value (888.889 steps/deg for the 100:1 harmonic drive). See [What's new in v16.00](#-whats-new-in-v1600) — the AZM estimators were removed after a full audit showed they were tracking plate-solve noise, not mechanics.
 
 **⚡ It never blocks.** The entire firmware is a non-blocking state machine. Motor pulses, gyroscope sampling, settle timers, and serial communication are all interleaved — N.I.N.A. polls status 10×/second and never gets a timeout. No `delay()` anywhere in the motion path.
 
-**🔬 It understands TPPA.** The firmware knows that TPPA's `GearRatio` is not a physical gear ratio but a software scaling multiplier — a lever for balancing convergence speed against final precision. The `Speed` parameter is capped by the firmware's cruise step interval (`RAMP_CRUISE_ALT_US = 150 µs` → ~462 arcmin/min on ALT); values above this have no effect without a firmware change. TPPA's adaptive controller (`AutomatedAdjustmentController`) builds a 2×2 response matrix and resets it when any corrective move worsens total error by more than 5% — which means backlash on direction reversals can indefinitely stall convergence. **v15.04 fixes this at the source**: firmware injects dead steps on every direction reversal (both AZM and ALT), sized by auto-learned per-axis backlash values (MPU-observed on ALT, TPPA-residual inferred on AZM once the ratio is stable, both persisted to EEPROM). TPPA sees a clean linear response; the matrix stays intact.
+**🔬 It understands TPPA.** The firmware knows that TPPA's `GearRatio` is not a physical gear ratio but a scaling multiplier between the plugin's internal nudge units and the arcminutes it puts on the wire — set it to **1** and read [the settings section](#-the-tppa-settings-we-recommend-read-this-first--it-will-save-you-hours) for why. The `Speed` parameter is not a setting at all here: the `$J=` parser reads only `X` and `Y` and never looks at `F`, so real speed is fixed by the profile's cruise step interval (`cfg_RAMP_CRUISE_ALT_US`: 120 µs on PROTO → ~481 arcmin/min, 150 µs on V2_CNC → ~462 arcmin/min). TPPA's adaptive controller (`AutomatedAdjustmentController`) builds a 2×2 response matrix and resets it when any corrective move worsens total error by more than 5% — which means backlash on direction reversals can indefinitely stall convergence. **v15.04 fixed this at the source**: the firmware injects dead steps on every direction reversal (both AZM and ALT). TPPA sees a clean linear response; the matrix stays intact. Since **v16.00** the ALT value is still auto-learned from the MPU (gated on ratio convergence, capped at 0.3°), while the AZM value is **set once by hand** with `BLC:AZM:<deg>` and persisted to EEPROM — the AZM auto-learner was removed because it had no sensor to observe and was estimating from plate-solve residuals.
 
 | Feature | Detail |
 |---------|--------|
@@ -55,6 +55,36 @@ Most motorized polar alignment projects stop at "move a motor when TPPA says so.
 | 🔘 **Physical HOME button + ALT limit switch** | Button triggers full homing sequence; limit switch defines mechanical zero (0° on Prototype, −2° on V2) |
 | ⏱️ **Optimised timing** | RAMP_LENGTH = 500 steps, GLOBAL_SETTLE = 500 ms — inside N.I.N.A.'s 7 s timeout |
 | 📐 **Arcminute protocol** | TPPA jogs (arcmin) ↔ internal degrees ↔ MPos reports (arcmin) — transparent to TPPA |
+
+---
+
+## 🆕 What's new in v16.00
+
+v16.00 is the outcome of a **full critical audit of v15.04-p5** (four independent review passes over the whole firmware). It is field-validated on the Prototype. Nothing in the protocol, the wiring or the mechanics changed — the changes are all firmware-internal robustness, plus the removal of one subsystem that turned out to be measuring noise.
+
+**Removed — AZM machine learning (ratio *and* backlash).**
+The AZM axis has no sensor: both estimators inferred their value from TPPA's own correction residuals. The audit showed each was structurally biased rather than merely noisy. The ratio estimator was one-sided (overshoot evidence always landed in the reversal branch, which learns nothing), so it drifted monotonically to the +10 % acceptance-band edge. The backlash estimator had a leak equilibrium around ten times the input signal — with a 1′ signal floor and typical 2–3′ residuals it settled at 10–30′ of "backlash" that does not exist — and its ping-pong penalty fired on the perfectly normal sign alternation of TPPA corrections near convergence. The AZM harmonic drive is machined 100:1 and stable, so its ratio is now **frozen at the theoretical 888.889 steps/deg**. AZM backlash *compensation* is kept; the value is set once with `BLC:AZM:<deg>` and persisted. EEPROM slot 12 (AZM ratio) is retired.
+
+**Kept and hardened — ALT learning.** ALT has a real MPU-6500 measurement behind it. Ratio learning is unchanged in principle; backlash learning is now gated on ALT ratio convergence (no cross-contamination while the ratio is still moving) and **decoupled from injection** — in p5 the `> 0` injection gate also controlled reversal detection, so once the learned compensation reached zero the firmware stopped noticing reversals at all and could never learn its way back.
+
+**Robustness fixes.**
+
+| Area | v15.04-p5 | v16.00 |
+|------|-----------|--------|
+| ALT ratio stability threshold | absolute, 0.5 steps/deg (≈ 8 ppm of 62 000) — never reachable, so `altRatioConverged` never latched, the fast-path optimisation was dead code and every ALT jog paid ~750 ms of observe | relative, 0.3 % of theoretical |
+| MPU observe phase | an I²C failure mid-observe left the mount in `<Run>` forever | 3 s timeout → clean abort; 2 consecutive timeouts → MPU disabled for the session |
+| Gyro tare failure at homing | homing "succeeded" with a bad tare | homing **fails**, no EEPROM magic written, stale magic invalidated; boot restore averages ~10 reads |
+| `HOME` / `$H` during motion | the stale job resumed after homing and snapped to a pre-homing target in the *new* coordinate frame | active job + queue purged |
+| First-boot profile menu | byte scan — latched on the first `1`/`2` in *any* traffic, including `$J=G91G21X…` | line-based (`1` or `2` + Enter); `PROFILE:RESET` now actually implemented |
+| Realtime chars | `?` handling was bypassable when the `?` of `BLC?` arrived in a separate UART chunk | `?` only at line start, `!` `~` `0x18` anywhere, and no more `ok` reply to `!`/`~` |
+| `diagLog` | filled after ~25 jogs and silently stopped | 4 KB **ring** buffer — `DIAG` shows the end of a long session |
+| ALT backlash hardstop | 1.0° — 1° of dead steps takes 7.5 s with a frozen reported position, i.e. a guaranteed N.I.N.A. 7 s timeout | 0.3° (18′); a p5 value above it is **clamped, not discarded**, at upgrade |
+| Ramp | resumed at full cruise speed after a pause | restarts after any pause > 20 ms (feed-hold resume, serial stall) |
+| Status report | `<Idle\|MPos:a,b,0\|` | `<Idle\|MPos:a,b,0\|>` — properly closed |
+| Unknown commands | silently ignored | `error:20 (unsupported: …)` |
+| Driver enable | EN released before TMC2209 config | drivers held disabled until the UART config is applied |
+
+> ✅ **Upgrading from v15.x is a plain reflash.** Keep `Erase All Flash Before Upload` **disabled** so the NVS profile survives. Your learned ALT ratio and backlash are preserved (an ALT backlash above 0.3° is clamped to 0.3°). The retired AZM ratio slot is simply ignored. **Do set your AZM backlash once** with `BLC:AZM:<deg>` — check the current value with `BLC?`.
 
 ---
 
@@ -103,20 +133,24 @@ Open Serial Monitor (115200 baud) — the firmware displays:
 ```
 +---------------------------------------------------+
 |  HARDWARE PROFILE NOT SET                         |
-|  Send '1'  -> PROTO  (commercial tilt plate)      |
-|  Send '2'  -> V2     (CNC + RU42 — v15.03g-auto-p4) |
+|  Required once after each firmware flash.         |
++---------------------------------------------------+
+|  Send '1'  -> PROTO                               |
+|  Send '2'  -> V2_CNC                              |
 +---------------------------------------------------+
 ```
 
-Send `1` or `2`. The profile is saved to NVS and survives all subsequent reflashes, **provided** `Tools → Erase All Flash Before Upload` = **Disabled**.
+Send `1` or `2` **followed by Enter** — the selection is line-based since v16.00, and only an exact `1` or `2` line is accepted. Anything else is ignored, so connecting N.I.N.A. or the GUI before you have chosen can no longer pick a profile for you (in v15.x the reader latched on the first `1`/`2` byte of *any* traffic, and `$J=G91G21X…` contains both).
 
-To change later: `PROFILE:RESET` — To verify: `PROFILEINFO`
+The board saves the profile to NVS and reboots. It survives all subsequent reflashes, **provided** `Tools → Erase All Flash Before Upload` = **Disabled**.
+
+To change later: `PROFILE:RESET` (implemented since v16.00 — it was documented but missing in v15.x) — To verify: `PROFILEINFO`
 
 ---
 
 ### The GUI
 
-`GUI/PolarAlignGUI_v15_03g_V4.py` controls the mount without N.I.N.A. — essential for bench testing, pre-alignment, and diagnostics.
+`GUI/PolarAlignGUI_v16_00.py` controls the mount without N.I.N.A. — essential for bench testing, pre-alignment, and diagnostics.
 
 <p align="center">
   <img src="IMAGES/GUI/SelectHardware.jpg" alt="Profile selector at startup" width="45%"/>
@@ -128,14 +162,15 @@ To change later: `PROFILE:RESET` — To verify: `PROFILEINFO`
 **Run from source (Windows / macOS / Linux):**
 ```bash
 pip3 install pyserial
-python3 GUI/PolarAlignGUI_v15_03g_V4.py
+python3 GUI/PolarAlignGUI_v16_00.py
 ```
 > No pre-built executable. Python 3.8+ and pyserial are the only dependencies.
 
 **Key panels:**
 - **Jog controls** — AZM (West/East) and ALT (Up/Down) from ±1° down to ±10″, color-coded per axis (AZM blue, ALT orange)
 - **Absolute positioning** — Go to any angle directly
-- **Live position + Learning Monitor** — real-time AZM/ALT position, MPU error, learned ratios (all in the top status bar)
+- **Live position + Learning Monitor** — real-time AZM/ALT position, MPU error, learned ALT ratio (all in the top status bar). The AZM ratio/backlash learning readouts were removed in v16.00 along with the firmware subsystem behind them.
+- **AZM backlash panel** *(new in v16.00)* — shows the firmware's current AZM compensation, with an arcmin entry + **Set** button (sends `BLC:AZM:<deg>`) and a refresh (sends `BLC?`). The GUI queries `BLC?` automatically ~1 s after connecting.
 - **System commands** — HOME, DIAG, RST, AZM:ZERO in one click
 - **Raw serial console** — send any command, see full log
 - **Firmware Config tab** — edit hardware constants and generate ready-to-paste Arduino code
@@ -178,60 +213,84 @@ Before launching TPPA in full auto mode, **use the GUI to get within ~1° of tru
 
 ### Step 3 — TPPA Session
 
-#### 🚨 Plugin Settings (read this first — it will save you hours)
+#### 🚨 The TPPA settings we recommend (read this first — it will save you hours)
 
-| Setting | Value | Why |
-|---------|:-----:|-----|
-| **Do automated adjustments?** | **ON** | ⚠️ If OFF, TPPA measures but sends zero commands. Motors never move. **Check this first.** |
-| **Polar Alignment System** | `UPAS` | Selects the Avalon/GRBL dialect. |
-| **Reverse AZM / ALT Axis** | `OFF` | Direction set by firmware profile. **Toggle here if a motor moves the wrong way.** |
-| **Default Move Rate** | `10` | Factory default `3` is too slow for this hardware. |
-| **Settle Time** | `3 s` | 5 s is unnecessary — firmware settle absorbs vibration first. |
-| **Alignment Tolerance** | `0.2–1.0 arcmin` | See convergence strategy below. |
-| **AZM Backlash Compensation** | **OFF** | v15.04+ handles both-axis backlash inside the firmware with auto-learned values. Leaving TPPA's plugin comp on causes double-correction. |
+Every value below was checked against the plugin's own source code (`isbeorn/nina.plugin.polaralignment`) and against this firmware. Where a setting has **no effect** — on this firmware, or at all — that is said plainly rather than left ambiguous. Knowing which knobs are inert saves a lot of pointless tuning in the dark.
+
+**Avalon Polar Alignment System panel** — appears once `UPAS` is selected
+
+| Setting | Recommended | Why |
+|---------|:-----------:|-----|
+| **Azimuth GearRatio** | **1** | This firmware speaks arcminutes natively on the wire, and the plugin's own footer note asks for exactly that: *"Make sure to set your gear ratio to achieve 1 arcminute per step for each axis!"* With `GearRatio = 1`, one TPPA unit = one arcminute. The plugin ships with `2` / `22` because a real Avalon reports raw motor steps — we don't. |
+| **Altitude GearRatio** | **1** | Same reasoning, and it matters more on ALT — see the deadband discussion below. |
+| **Azimuth / Altitude Speed** | `600` (any value works) | **The firmware ignores it.** The `$J=` parser reads only `X` and `Y`; the `F` field is never parsed. Real speed is fixed by the profile's cruise interval: ~16 875 ′/min AZM, ~481 ′/min ALT (PROTO) / ~462 ′/min (V2_CNC). Speed only feeds TPPA's *own* move timeout — `2 × distance/Speed × 60 + 5 s` — which at 600 stays comfortably above anything the mount actually needs. |
+| **Azimuth backlash compensation** | **0 steps** | A non-zero value makes TPPA send a two-part jog `(−comp, +comp)` before the real move. This firmware already injects its own dead steps on every direction reversal — and it sees that pair as *two more* reversals. The result is triple compensation and a corrupted response matrix. Leave it at 0 and let the firmware do the job (`BLC?` / `BLC:AZM:<deg>`). |
+| **Reverse Azimuth / Reverse Altitude** | whatever makes the manual nudge buttons move the right way | Far less critical than it looks in **automatic** mode: `AutomatedAdjustmentController` learns the sign of each axis from its own probe moves, so an inverted axis simply yields a negative matrix coefficient and the controller absorbs it. These toggles matter for the manual ±0.1 / ±1 / ±10 buttons, and cost at most one wasted probe iteration at the start of an auto run. |
+
+**Options → Plugins → Three Point Polar Alignment**
+
+| Setting | Recommended | Why |
+|---------|:-----------:|-----|
+| **Do automated adjustments** | **ON** | If OFF, TPPA measures and displays but sends no command at all. Motors never move. **Check this first.** |
+| **Polar Alignment System** | `UPAS` | Selects the Avalon/GRBL dialect this firmware emulates. If motors never move, check this second. |
+| **Automated adjustment settle time** | `3 s` | Seconds TPPA waits after each adjustment before the next solve. The firmware has its own 500 ms settle, but a tripod under 20 kg does not stop ringing that fast. 5 s is not harmful, only slow; below ~2 s you start plate-solving a moving image. |
+| **Alignment Tolerance** | `0.5 arcmin` | Total-error threshold at which TPPA declares success. **Must be non-zero, or automated adjustments will not run at all.** Decimal values require plugin ≥ 2.2.6.4. In average seeing 0.5–1.0 is realistic; chasing 0.2 mostly makes the controller chase plate-solve noise. |
+| **Default Target Distance** | `10°` | **This is the triangulation angle** — the RA separation between the three measurement points. Larger gives better geometry, but needs more clear sky and risks a bad solve field or a meridian problem. |
+| **Default Search Radius** | `30°` | Plate-solve search radius — *not* a movement, and frequently confused with the setting above. It is **clamped to 30–180** in the plugin (`Math.Max(30, Math.Min(180, value))`), so anything below 30 silently becomes 30: the factory default of 10 is inert. Set 30 so the displayed value tells the truth. |
+| **Default Move Rate** | `3 °/s` | Nothing to do with our board. This is the **mount's** RA rate, issued through ASCOM `MoveAxis`, used to slew between the three measurement points — and it is clamped to what your telescope driver advertises in `PrimaryAxisRates`. There is no reason to raise it for this hardware. |
+| **Axis move timeout factor** | `2` | Multiplier on the computed RA-move timeout (distance ÷ rate × factor). Leave alone unless your mount is genuinely slower than its driver claims. |
+| **East Direction** | either | Which side of the meridian the RA sweep goes to. Pick whichever gives you 10° of clear sky. |
+| **Manual mode azimuth / altitude offset** | `1°` / `2°` | Only used when TPPA builds its own start coordinates instead of starting from the current pointing. Irrelevant to the full-auto flow described here. |
+| **Refraction adjustment** | `OFF` | |
+| **Continuous error estimator** | `OFF` | Flagged experimental in the plugin. Every field result quoted in this README was obtained with the legacy image-plane calculation. |
+| **Auto pause** | `OFF` | Pauses TPPA after each continuous-correction update — the opposite of what you want in an unattended run. |
+| **Log error** | `OFF` | Debug aid only. |
+| **Stop tracking when done** | `ON` | |
 
 > 💡 **Initial error alert.** If TPPA displays *"Initial Polar Alignment error is large. Correction phase will be unreliable."*, corrections still proceed as long as moves stay within firmware travel limits. Pre-aligning with the GUI avoids this.
 
-#### Understanding Gear Ratio — the most misunderstood TPPA setting
+#### Understanding GearRatio — the most misunderstood TPPA setting
 
-> ⚠️ **`GearRatio` is not a physical gear ratio.** It is a pure software scaling multiplier applied to every command TPPA sends to the firmware:
+> ⚠️ **`GearRatio` is not a physical gear ratio.** It is a pure scaling multiplier between the dimensionless "nudge units" TPPA's controller works in and the numbers it puts on the wire:
 > ```
-> command_sent = position_plan_units × GearRatio
+> value sent in $J=  =  nudge units × GearRatio     (arcminutes, for this firmware)
 > ```
-> The firmware receives this value in arcminutes and moves accordingly. TPPA's internal cap is ±5 plan units per iteration, so the effective physical cap per iteration is `5 × GearRatio` arcminutes.
 
-This creates a fundamental speed/precision tradeoff:
+The controller learns the mount's *response* empirically — a 2×2 matrix in degrees of polar error per nudge unit — so GearRatio is not a calibration you can get "wrong" in an absolute sense: the loop adapts to whatever you set. What it does change is the **granularity** of every move, because the controller's own magnitudes are hard-coded (probe = 1.0, minimum = 0.05, maximum = 5.0 nudge units).
 
-| GearRatio | Max move/iteration | Minimum move (deadband) | Practical use |
-|:---------:|:-----------------:|:-----------------------:|---------------|
-| 1 | 5 arcmin | 0.05 arcmin | Precision phase only — very slow from large errors |
-| **5** | **25 arcmin** | **0.25 arcmin** | **Good all-round starting point** |
-| 10 | 50 arcmin | 0.5 arcmin | Fast initial convergence, good final precision |
-| 20 | 100 arcmin | 1 arcmin | Rough-in only — too coarse for final alignment |
+| GearRatio | Probe move | Max move / iteration | Deadband (below this, no move at all) | Manual buttons |
+|:---------:|:----------:|:--------------------:|:-------------------------------------:|:--------------:|
+| **1** | **1′** | **5′** | **0.05′** | 0.1 / 1 / 10′ |
+| 2 | 2′ | 10′ | 0.1′ | 0.2 / 2 / 20′ |
+| 5 | 5′ | 25′ | 0.25′ | 0.5 / 5 / 50′ |
 
-**Recommended strategy:**
-1. **Set GearRatio = 5 and leave it there for the whole session.** In field testing with v15.04, a fixed value of 5 converges reliably from initial errors of several arcminutes down to the sub-arcmin range in one continuous run — no manual adjustment mid-session. This is largely a consequence of firmware-side backlash compensation removing the main reason for having to dynamically re-tune (see below).
-2. **If you regularly start with initial error > 2°**, raise GearRatio to 8–10 for the first minute, then drop back to 5.
-3. **Never go below GearRatio = 2** — the resulting tiny physical moves make convergence unreliable under average seeing.
-4. For sub-arcmin precision, GearRatio = 5 with a target tolerance of 0.3–0.5 arcmin is a solid combination in average conditions. Don't chase 0.2 arcmin unless seeing is excellent.
+**Use 1.** Three reasons, in order of importance:
 
-> 💡 **On the `Speed` parameter:** this maps to the GRBL `F` feed rate. ALT is physically capped at ~462 arcmin/min by `RAMP_CRUISE_ALT_US = 150 µs` — setting Speed above this value has no effect on ALT without a firmware change.
+1. It is what the plugin itself asks for — "1 arcminute per step" — and what this firmware's wire protocol already is.
+2. **Coarse ALT moves fight the firmware's own feedback.** `ALT_TOLERANCE_DEG = 0.05°` = 3′: any ALT move above that threshold starts the MPU observe cycle, during which `sendStatus()` deliberately reports a position held short of the target (`FEEDBACK_REPORT_MARGIN = 0.10°`, floored at 50 % of real progress) while the gyroscope measures the true displacement. Meanwhile TPPA declares a motor "stuck" after **6 consecutive 300 ms polls** with less than 0.01 of change — roughly **1.8 s**. Settle (500 ms) plus an observe cycle (up to 3 s) can exceed that window. GearRatio 1 keeps ordinary corrections below the 3′ threshold and out of the observe path entirely; GearRatio 5 puts every single ALT move into it.
+3. Convergence speed is not really lost. At 5′ per iteration instead of 25′ you spend a few more iterations on the first correction *if* you started far out — which is exactly what the GUI pre-alignment step above is for.
+
+> ⚠️ **Keep ALT backlash compensation modest.** The 0.3° hardstop is a safety ceiling, not a recommendation: 0.3° of dead steps on ALT takes 2.2–2.3 s during which the reported position is frozen *by design* — past TPPA's ~1.8 s stuck detector. Anything up to ~0.15° (9′) is safe. Check the current value with `BLC?`.
+
+> ⚠️ **A clipped jog is a guaranteed timeout.** If TPPA commands ALT beyond the travel limits (`−2°/+10°` on V2_CNC, `0°/+10°` on the Prototype), the firmware clamps the move and the reported position can never reach TPPA's computed target — so the plugin polls until it throws. This is the concrete reason for setting your EQ mount's latitude ~1° low, per Step 2.
 
 #### Convergence behaviour
 
-TPPA's `AutomatedAdjustmentController` is a learning adaptive controller. It builds a 2×2 response matrix from observed corrections and resets the model if any corrective move worsens total error by more than 5%. When this happens, TPPA drops back to 1 arcmin probe moves and rebuilds from scratch — you'll see this as a sudden slow-down mid-session.
+TPPA's `AutomatedAdjustmentController` is a learning adaptive controller. It builds a 2×2 response matrix from observed corrections and resets the model if any corrective move worsens total error by more than 5%. When this happens, TPPA drops back to a 1 nudge-unit probe move and rebuilds from scratch — you'll see this as a sudden slow-down mid-session.
 
 **What triggers a model reset:**
-- ~~T8 mechanical backlash on direction reversals (ALT axis — main culprit)~~ **Handled by firmware since v15.04** — dead-step injection on direction reversals with auto-learned per-axis values.
+- ~~T8 mechanical backlash on direction reversals (ALT axis — main culprit)~~ **Handled by firmware since v15.04** — dead-step injection on direction reversals (ALT value MPU-learned, AZM value set once with `BLC:AZM:`).
 - Seeing-induced plate-solve noise above ~1 arcmin
 - Firmware travel limit reached mid-move
 
 **What helps:**
 - Targeting < 1 arcmin tolerance rather than < 0.2 arcmin in average conditions
-- Keeping GearRatio ≥ 2 so each move is physically meaningful
+- Keeping GearRatio at 1, so ordinary corrections stay under the firmware's 3′ observe threshold
 - Pre-aligning with the GUI to minimize the initial polar error before starting TPPA (still useful, though direction reversals themselves are no longer the concern they were in v15.03g)
 
 > 🔍 **Debugging "no movement":** If motors don't move during a TPPA auto session, the cause is almost always a plugin setting. Check in order: (1) *Do automated adjustments* = **ON**, (2) back-office connection test passes on second attempt, (3) *Polar Alignment System* = `UPAS`. Note that reconnecting the GUI after a TPPA session triggers a DTR reboot that clears the diagnostic log — `DIAG` will always be empty in this scenario.
+>
+> 🔌 **If one axis alone is dead** — it responds to no command, from TPPA *and* from the GUI, while the other axis moves normally — stop debugging the software and **check that motor's connector first.** A partially unseated 4-pin plug on MOT-Y produces exactly this: the firmware pulses STEP, reports the move as completed, and nothing turns. It cost us an entire field session before we looked at the cable.
 
 > ⚠️ **Known bug — connection test always fails on first attempt.** Before launching a TPPA auto session, go to the plugin back-office (Options → Settings) and run the connection test. It will fail the first time — this is a known, unresolved issue. **Run the test a second time** — it will succeed. Then disconnect from the back-office and launch TPPA from the front-end as normal.
 
@@ -247,8 +306,8 @@ Open the Serial Monitor (115200 baud, Newline terminator) or the GUI Raw console
 
 | Command | Action |
 |---------|--------|
-| `PROFILEINFO` | Show active profile and all runtime cfg_ values |
-| `PROFILE:RESET` | Clear profile from NVS → prompts re-selection at next boot |
+| `PROFILE:RESET` | Clear profile from NVS → prompts re-selection at next boot (**implemented in v16.00**; documented but missing in v15.x) |
+| `DIAG` | Also prints the active profile name and every runtime `cfg_` value (travel limits, cruise intervals, ratios) |
 
 #### Motion & Diagnostics
 
@@ -262,7 +321,9 @@ Open the Serial Monitor (115200 baud, Newline terminator) or the GUI Raw console
 | `RST` | Soft reset — abort motion, clear log |
 | `MPU` | Lightweight gyroscope query → `MPU:tared,raw` |
 | `BLC?` | Query both backlash values + learning state |
-| `BLC:AZM:<deg>` / `BLC:ALT:<deg>` | Force a backlash value (persisted immediately). Ex: `BLC:ALT:0.04` = 2.4′ |
+| `BLC:AZM?` / `BLC:ALT?` | Query one axis |
+| `BLC:AZM:<deg>` / `BLC:ALT:<deg>` | Force a backlash value (persisted immediately). Ex: `BLC:ALT:0.04` = 2.4′. Accepted range 0–0.5° on AZM, 0–0.3° on ALT. **`BLC:AZM:` is the only way to set AZM compensation since v16.00.** |
+| *(anything else)* | `error:20 (unsupported: …)` since v16.00 — unknown lines used to be silently ignored |
 
 #### GRBL Protocol (used by N.I.N.A./TPPA)
 
@@ -272,14 +333,16 @@ All TPPA commands arrive in arcminutes via the GRBL dialect. The firmware conver
 |---------|---------|
 | `$J=G53X+300.00F400` | Absolute jog: AZM to +300' (= 5.0°) |
 | `$J=G91G21Y-390.00F300` | Relative jog: ALT −390' (= −6.5°) |
-| `?` | Status poll → `<Idle\|MPos:x,y,0\|>` (MPos in arcminutes) |
-| `!` / `~` | Feed-Hold / Resume |
+| `?` | Status poll → `<Idle\|MPos:x,y,0\|>` (MPos in arcminutes). v15.x omitted the closing `>`; v16.00 emits a properly closed report. |
+| `!` / `~` | Feed-Hold / Resume. Silent since v16.00 — GRBL realtime characters do not get an `ok` reply. |
 
 > ⚠️ TPPA Free Field sends absolute G53 commands. Preset buttons and auto-alignment send relative G91.
 
 #### Diagnostics in depth
 
-The firmware maintains a 4 KB RAM diagnostic buffer (`diagLog`) invisible to N.I.N.A. Every ALT jog logs: commanded delta, MPU-measured delta, computed ratio, EWMA update, and EEPROM write decision. Every AZM learning event logs: prevDelta, currDelta, effectiveMoved, measured ratio, guard outcomes.
+The firmware maintains a 4 KB RAM diagnostic buffer (`diagLog`) invisible to N.I.N.A. Every ALT jog logs: commanded delta, MPU-measured delta, computed ratio, EWMA update, and EEPROM write decision. Backlash injections, travel-limit clamps and observe-phase timeouts are logged too.
+
+> 🆕 **Since v16.00 `diagLog` is a ring buffer.** In v15.x it filled after roughly 25 jogs and then silently stopped recording, so `DIAG` on a long session showed only the beginning. It now overwrites the oldest entries — `DIAG` always shows the **end** of the session, which is the part you actually want.
 
 Retrieve with `DIAG` from the GUI console. The buffer clears on `RST` or DTR reboot — never reconnect the GUI during a TPPA session.
 
@@ -289,10 +352,10 @@ Retrieve with `DIAG` from the GUI console. The buffer clears on `RST` or DTR reb
 
 ```
 ├── Arduino code/
-│   ├── PolarAlign_auto.ino          ← ✅ Current unified firmware (PROTO + V2)
+│   ├── PolarAlign_auto.ino          ← ✅ Current unified firmware v16.00 (PROTO + V2)
 │   └── archive/                     ← Legacy versions (reference only)
 ├── GUI/
-│   ├── PolarAlignGUI_v15_03g_V4.py  ← ✅ Current GUI
+│   ├── PolarAlignGUI_v16_00.py      ← ✅ Current GUI v16.00 (pairs with firmware v16.00)
 │   └── archive/                     ← Legacy versions (reference only)
 ├── 3D STEP Models/
 │   ├── Manufacturing_Drawings_V2/               ← Original V2 fabrication drawings
