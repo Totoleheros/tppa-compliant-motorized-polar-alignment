@@ -1,6 +1,6 @@
 /*****************************************************************************************
  * FYSETC-E4 (ESP32 + TMC2209) — POLAR ALIGNMENT CONTROLLER
- * Version : 16.00  (post-audit overhaul — AZM learning frozen, robustness fixes)
+ * Version : 15.04-p5  (backlash comp + auto-learning for both axes)
  *
  * ══════════════════════════════════════════════════════════════════════
  * PROFILE SELECTION — uncomment ONE profile before compiling
@@ -34,54 +34,6 @@
  * ──────────────────────────────────────────────────────────────────────────────────────
  * CHANGELOG
  * ──────────────────────────────────────────────────────────────────────────────────────
- * v16.00 vs v15.04-p5 (full audit — 4 independent review passes, scope validated):
- *   REMOVED : AZM backlash auto-learning (probe / 0.995 leak / ping-pong penalty /
- *         stability gate). Root cause: leak equilibrium C* ≈ 10×signal (signal
- *         floor 1' → C* ≥ 10'; typical 2-3' residuals → 20-30'), and the
- *         ping-pong penalty fires on the normal sign alternation of TPPA
- *         corrections near convergence. The learner tracked noise statistics,
- *         not backlash. Compensation itself is KEPT — value set via BLC:AZM:
- *         (persisted to EEPROM). Calibrate once, manually.
- *   REMOVED : AZM ratio learning. The estimator was one-sided: every accepted
- *         sample had measuredRatio > activeRatio (overshoot evidence lands in
- *         the reversal branch which learns nothing) → monotonic drift to the
- *         +10% band edge. Harmonic drive 100:1 is machined and stable: ratio
- *         frozen at the theoretical 888.9 steps/deg. EEPROM slot 12 retired.
- *   KEPT  : ALT backlash learning (real MPU signal), now gated on ALT ratio
- *         convergence (no cross-contamination while the ratio is still moving)
- *         and decoupled from injection (learning no longer dies if comp
- *         reaches 0 — the >0 gate used to control learningIsReversal too).
- *   FIX : HOME/$H during motion now purges the active job + queue. Previously
- *         the stale job resumed after homing and snapped to a pre-homing
- *         target in the NEW coordinate frame.
- *   FIX : realtime-char handling unified. '?' intercepted only at line start
- *         (lineIdx==0 shared with the reader — the p4 fix was bypassable when
- *         the '?' of BLC? arrived in a separate UART chunk); '!' '~' 0x18
- *         intercepted anywhere (they never occur inside commands). No more
- *         "ok" reply to '!' / '~' (GRBL realtime chars are silent).
- *   FIX : ALT ratio stability/EEPROM threshold now RELATIVE (0.3% of
- *         theoretical) instead of 0.5 steps/deg absolute (8 ppm of 62k —
- *         unreachable → altRatioConverged never latched, Optimization B was
- *         dead code, every ALT jog paid ~750 ms observe, EEPROM churned).
- *   FIX : MPU observe phase has a timeout (3 s without a valid sample →
- *         clean abort; 2 consecutive timeouts → MPU disabled for the session).
- *         Previously an I2C failure mid-observe left <Run forever.
- *   FIX : failed gyro tare now FAILS the homing (no EEPROM magic written,
- *         stale magic invalidated). Boot-time restore averages ~10 MPU reads
- *         instead of trusting a single one.
- *   FIX : first-boot profile menu is line-based ("1"+Enter) — it used to
- *         latch on the first '1'/'2' byte of ANY traffic ($J=G91G21X…).
- *         PROFILE:RESET implemented (was documented but missing).
- *   NEW : trapezoidal ramp restarts after any pause > 20 ms (feedHold resume,
- *         serial stall) instead of resuming at full cruise speed.
- *   NEW : diagLog is a 4 KB ring buffer — DIAG now shows the END of a long
- *         session (it used to fill after ~25 jogs and silently stop).
- *   NEW : unknown serial lines get "error:20" (GRBL-ish strictness).
- *   CHG : BACKLASH_HARDSTOP_ALT 1.0° → 0.3° (1° of dead steps took 7.5 s with
- *         a frozen reported position — guaranteed NINA 7 s timeout).
- *   CHG : status report closed properly: <Idle|MPos:a,b,0|>
- *   CHG : drivers held disabled (EN high) until TMC2209 config is applied.
- *
  * v15.04-p5 vs v15.04-p4 (field testing round 2):
  *   FIX : startNextJob() would clobber active motion when called from a command
  *         handler (ALT:, AZM:, $J=) while the previous move was still running.
@@ -198,15 +150,12 @@
  *         AZM resets to 0 on every reboot (no absolute sensor — use AZM:ZERO).
  *
  * ──────────────────────────────────────────────────────────────────────────────────────
- * EEPROM LAYOUT (32 bytes total)
+ * EEPROM LAYOUT (16 bytes total)
  * ──────────────────────────────────────────────────────────────────────────────────────
  *  Offset  0 : float  activeStepsPerDegALT   (learned ALT ratio)
  *  Offset  4 : float  mpuOffset              (gyroscope tare value, saved at homing)
  *  Offset  8 : uint32 HOMING_MAGIC           (0x484F4D45 = "HOME" — homing validity)
- *  Offset 12 : (retired in v16 — was learned AZM ratio; AZM ratio is now fixed)
- *  Offset 16 : float  activeBacklashDegAZM   (manual/persisted AZM backlash comp)
- *  Offset 20 : float  activeBacklashDegALT   (learned ALT backlash comp)
- *  Offset 24 : uint32 BACKLASH_MAGIC         (0x424C4348 = "BLCH")
+ *  Offset 12 : float  activeStepsPerDegAZM   (learned AZM ratio)
  *
  * ──────────────────────────────────────────────────────────────────────────────────────
  * UNIT CONVENTION
@@ -357,12 +306,7 @@ constexpr float RATIO_BAND_HIGH       = 1.2f;
 constexpr float LEARNING_SMOOTHING    = 0.10f;
 
 constexpr float LEARNING_MIN_ACTUAL   = 0.1f;   // MPU must measure ≥0.1° actual movement
-
-// v16: stability / EEPROM-write threshold is RELATIVE to the theoretical ratio.
-// The old absolute 0.5 steps/deg was 8 ppm of ALT's ~62k steps/deg — unreachable,
-// so altRatioConverged never latched and every observation committed EEPROM.
-// 0.3% ≈ 190 steps/deg on ALT: reachable after the EWMA settles, still meaningful.
-constexpr float RATIO_STABLE_FRACT    = 0.003f;
+constexpr float EEPROM_WRITE_THRESHOLD = 0.5f;  // Only write EEPROM if ratio changed by ≥0.5
 
 // Backlash learning (v15.04) — adaptive α, applies to both AZM and ALT
 constexpr float   BACKLASH_LEARNING_RATE_INIT   = 0.15f;  // α for first N samples
@@ -370,10 +314,7 @@ constexpr float   BACKLASH_LEARNING_RATE_STEADY = 0.05f;  // α after warmup
 constexpr uint8_t BACKLASH_WARMUP_SAMPLES       = 10;     // sample count for α transition
 constexpr float   BACKLASH_MAX_SINGLE_UPDATE    = 0.30f;  // residual clamp = 30% of hardstop
 constexpr float   BACKLASH_HARDSTOP_AZM_DEG     = 0.50f;  // 30' max
-// v16: 1.0° of ALT dead steps = ~62k steps = 7.5 s with a frozen reported
-// position — guaranteed NINA 7 s timeout. 0.3° (18') is still 6-9× any
-// plausible T8 backlash and keeps worst-case dead time under ~2.3 s.
-constexpr float   BACKLASH_HARDSTOP_ALT_DEG     = 0.30f;  // 18' max
+constexpr float   BACKLASH_HARDSTOP_ALT_DEG     = 1.00f;  // 60' max
 constexpr float   BACKLASH_EEPROM_THRESHOLD     = 0.005f; // 0.3' → EEPROM write
 constexpr float   MIN_BLC_LEARNING_ANGLE        = 0.05f;  // 3' — smaller than MIN_LEARNING_ANGLE
 constexpr float   BLC_MIN_ACTUAL                = 0.03f;  // 1.8' — MPU noise floor guard
@@ -388,7 +329,7 @@ constexpr int      EEPROM_SIZE          = 32;
 constexpr int      EEPROM_ADDR_RATIO    = 0;    // float (4): activeStepsPerDegALT
 constexpr int      EEPROM_ADDR_MPU_OFF  = 4;    // float (4): mpuOffset (gyro tare)
 constexpr int      EEPROM_ADDR_MAGIC    = 8;    // uint32 (4): HOMING_MAGIC
-constexpr int      EEPROM_ADDR_AZM_RATIO = 12;  // RETIRED in v16 (was learned AZM ratio) — kept so offsets stay documented
+constexpr int      EEPROM_ADDR_AZM_RATIO = 12;  // float (4): activeStepsPerDegAZM
 constexpr int      EEPROM_ADDR_AZM_BLC  = 16;   // float (4): activeBacklashDegAZM   (v15.04)
 constexpr int      EEPROM_ADDR_ALT_BLC  = 20;   // float (4): activeBacklashDegALT   (v15.04)
 constexpr int      EEPROM_ADDR_BLC_MAGIC = 24;  // uint32 (4): BACKLASH_MAGIC        (v15.04)
@@ -396,12 +337,35 @@ constexpr uint32_t HOMING_MAGIC         = 0x484F4D45; // "HOME"
 constexpr uint32_t BACKLASH_MAGIC       = 0x424C4348; // "BLCH" — backlash slots valid
 
 /* ═══════════════════════════════════════════════════════════════════════════════════════
-   SECTION 8 — AZM: NO LEARNING (v16)
-   AZM ratio and AZM backlash auto-learning were REMOVED after the v15.04-p5 audit
-   (one-sided ratio estimator; backlash learner tracked noise — see header).
-   The ratio is the machined harmonic-drive theoretical value (STEPS_PER_DEG_AZM);
-   backlash compensation uses the persisted manual value (BLC:AZM:<deg>).
+   SECTION 8 — AZM RATIO LEARNING PARAMETERS
+   No sensor on AZM — the firmware infers the gear ratio from TPPA residuals.
+   Formula: effectiveMoved = prevDelta − currDelta
+            measuredRatio  = currentRatio × prevDelta / effectiveMoved
+   Three guards prevent the 3rd-jog deadlock (see v15.02 post-mortem in header).
    ═══════════════════════════════════════════════════════════════════════════════════════ */
+// Tighter band than ALT (±10% vs ±20%) — harmonic drive ratio is very stable.
+constexpr float AZM_RATIO_BAND_LOW     = 0.90f;
+constexpr float AZM_RATIO_BAND_HIGH    = 1.10f;
+
+// More conservative smoothing than ALT (5% vs 10%) — AZM signal is noisier
+// (plate-solve residuals conflate AZM error with flexure / seeing / ALT coupling).
+constexpr float AZM_LEARNING_SMOOTHING = 0.05f;
+
+// v15.04 — AZM RATIO STABILITY tracking (gates backlash learning)
+// After AZM_STABLE_COUNT consecutive ratio updates each < AZM_STABLE_DELTA_STEPS,
+// the ratio is considered "locked" and AZM backlash learning is enabled.
+constexpr float   AZM_STABLE_DELTA_STEPS = 1.0f;   // steps/deg change threshold
+constexpr uint8_t AZM_STABLE_COUNT       = 5;      // consecutive stable samples
+
+// v15.04 — AZM BACKLASH learning uses the *post-reversal probe* move as signal.
+// Guard: reject signals > MAX_AZM_BLC_SIGNAL_DEG (dominated by alignment error, not backlash).
+constexpr float   MAX_AZM_BLC_SIGNAL_DEG = 0.083f; // 5' cap
+
+// Guard 1: minimum jog size to record learning state (below this = noise)
+constexpr float MIN_AZM_LEARNING_ANGLE = 1.0f / 60.0f;  // 1 arcmin in degrees
+
+// Guard 1: minimum effectiveMoved before division (prevents NaN when prevDelta ≈ currDelta)
+constexpr float AZM_EFFECTIVE_MIN_DEG  = 0.5f / 60.0f;  // 0.5 arcmin in degrees
 
 /* ═══════════════════════════════════════════════════════════════════════════════════════
    SECTION 9 — MPU SAMPLING & TIMING
@@ -409,12 +373,6 @@ constexpr uint32_t BACKLASH_MAGIC       = 0x424C4348; // "BLCH" — backlash slo
 constexpr unsigned long SETTLE_DELAY_MS      = 500;   // Post-move settle before MPU sampling
 constexpr uint8_t       MPU_SAMPLE_TARGET    = 50;    // Number of samples to average
 constexpr unsigned long MPU_SAMPLE_INTERVAL_MS = 5;   // 5 ms between samples = 250 ms total
-
-// v16: if the MPU stops answering mid-observe, abort instead of spinning forever.
-// Budget = settle + sampling (~750 ms) + margin. After OBSERVE_FAIL_LIMIT
-// consecutive aborted observations the MPU is declared dead for the session.
-constexpr unsigned long OBSERVE_TIMEOUT_MS   = 3000;
-constexpr uint8_t       OBSERVE_FAIL_LIMIT   = 2;
 
 /* ═══════════════════════════════════════════════════════════════════════════════════════
    SECTION 10 — MOTION RAMP PARAMETERS
@@ -425,16 +383,6 @@ constexpr unsigned long RAMP_START_US     = 2000;  // Starting speed (slowest)
 constexpr unsigned long RAMP_CRUISE_AZM_US = 240;  // AZM cruise speed
 // RAMP_CRUISE_ALT_US: PROTO=120µs  V2_CNC=150µs — set at runtime via cfg_RAMP_CRUISE_ALT_US
 constexpr long          RAMP_LENGTH        = 500;   // 3000 was too long — caused NINA 7s timeout // Steps to reach cruise speed
-
-// v16: any pause longer than this (feedHold, serial stall, observe insertion)
-// restarts the acceleration ramp instead of resuming at full cruise speed
-// (instant-cruise restart from standstill risks lost steps on the ALT worm).
-constexpr unsigned long RAMP_RESUME_GAP_US = 20000;  // 20 ms
-
-// v16: homing search cap. Was 50° — with a failed-open switch that meant
-// ~6 minutes driving into the mechanical hard stop. 12° covers the full
-// 10° travel plus margin.
-constexpr float HOMING_SEARCH_RANGE_DEG = 12.0f;
 
 /* ═══════════════════════════════════════════════════════════════════════════════════════
    SECTION 11 — FEEDBACK REPORT SCALING
@@ -490,7 +438,7 @@ bool  mpuAvailable        = false;   // true if MPU-6500 responded on I2C
 // activeStepsPerDegALT is initialized to STEPS_PER_DEG_ALT in loadOrSelectProfile()
 // because STEPS_PER_DEG_ALT itself depends on cfg_ALT_MOTOR_GEARBOX (runtime value).
 float activeStepsPerDegALT = 0.0f;  // set by loadOrSelectProfile()
-// v16: AZM ratio is FIXED at the theoretical value — use STEPS_PER_DEG_AZM directly.
+float activeStepsPerDegAZM = STEPS_PER_DEG_AZM; // Updated by residual learning
 
 /* ── AZM/ALT BACKLASH COMPENSATION (v15.04 — runtime variables) ──
    Extra steps injected at direction reversal — motor moves but position isn't
@@ -541,10 +489,19 @@ bool  homingDone = false;  // TPPA jogs blocked until true
 int8_t lastAzmDir = 0;  // +1 = last move positive, -1 = negative, 0 = unknown
 int8_t lastAltDir = 0;  // v15.04: ALT backlash tracking (mirror of lastAzmDir)
 
-// v16: AZM learning state removed (ratio frozen, backlash manual — see header).
+/* ── AZM Learning state ──
+   resetAzmLearning() is the SINGLE point of truth for clearing this.
+   Called from: softReset(), startHoming(), direction reversal, AZM:ZERO. ── */
+float  azmLrnPrevDeltaDeg = 0.0f;  // Signed delta from the previous AZM jog (degrees)
+int8_t azmLrnPrevDir      = 0;     // Direction of previous AZM jog (+1 / -1)
+bool   azmLrnValid        = false; // true only when previous jog data is trustworthy
 
-// v16: MPU observe-phase failure tracking (see OBSERVE_TIMEOUT_MS)
-uint8_t mpuObserveFails = 0;
+// v15.04 — AZM ratio stability + backlash learning state
+uint8_t azmStableCount           = 0;     // consecutive stable ratio updates
+bool    azmRatioStable           = false; // ratio locked → backlash learning enabled
+bool    azmBacklashLearnPending  = false; // set on reversal (after stability),
+                                          // consumed on next same-direction move
+uint8_t azmBacklashSamples       = 0;     // EWMA sample count for adaptive α
 
 /* ── MPU sampling accumulators ── */
 int           mpuSampleCount  = 0;
@@ -560,44 +517,19 @@ unsigned long globalSettleStartMs   = 0;
    4 KB ring buffer accumulates all learning events, errors, and jog details.
    N.I.N.A. never sees this — retrieved on demand via the DIAG serial command.
    ═══════════════════════════════════════════════════════════════════════════════════════ */
-/* v16: ring buffer. The old linear buffer filled after ~25 jogs and silently
-   stopped logging — the END of a long session (the part being debugged) was
-   exactly what DIAG couldn't show. Now the oldest entries are overwritten. */
-static char     diagLog[4096];
-static uint16_t diagHead    = 0;      // next write position
-static bool     diagWrapped = false;  // true once the buffer has cycled
+static char    diagLog[4096];
+static uint16_t diagLen = 0;
 
-void diagClear() { diagHead = 0; diagWrapped = false; }
+void diagClear() { diagLen = 0; diagLog[0] = '\0'; }
 
 void diagPrintf(const char* fmt, ...) {
-  char tmp[192];
+  if (diagLen >= sizeof(diagLog) - 1) return;
   va_list args;
   va_start(args, fmt);
-  int n = vsnprintf(tmp, sizeof(tmp), fmt, args);
+  int n = vsnprintf(diagLog + diagLen, sizeof(diagLog) - diagLen, fmt, args);
   va_end(args);
-  if (n <= 0) return;
-  if (n >= (int)sizeof(tmp)) n = sizeof(tmp) - 1;  // entry truncated to tmp size
-  for (int i = 0; i < n; i++) {
-    diagLog[diagHead++] = tmp[i];
-    if (diagHead >= sizeof(diagLog)) { diagHead = 0; diagWrapped = true; }
-  }
+  if (n > 0 && diagLen + n < sizeof(diagLog)) diagLen += n;
 }
-
-// Dump the ring in chronological order (oldest → newest).
-void diagDump() {
-  if (diagWrapped) {
-    Serial.println("[...oldest entries overwritten...]");
-    Serial.write((const uint8_t*)diagLog + diagHead, sizeof(diagLog) - diagHead);
-  }
-  Serial.write((const uint8_t*)diagLog, diagHead);
-}
-
-/* ── Line-buffered command reader state ──
-   v16: file-scope so scanSerialRealtime() can honour "only intercept '?' at
-   the start of a line" (the p4 fix lived only in the loop() reader and was
-   bypassed when the '?' of BLC? arrived in a separate UART chunk). ── */
-static char    lineBuf[64];
-static uint8_t lineIdx = 0;
 
 /* ═══════════════════════════════════════════════════════════════════════════════════════
    HARDWARE PROFILE LOADER
@@ -629,35 +561,21 @@ void loadOrSelectProfile() {
     Serial.println("|  Send '2'  -> V2_CNC                              |");
     Serial.println("+---------------------------------------------------+");
 
-    /* v16: LINE-BASED selection. The old byte-by-byte reader latched on the
-       FIRST '1' or '2' seen in ANY traffic — "$J=G91G21X..." contains both,
-       so connecting N.I.N.A. or the GUI before selecting could silently pick
-       a (possibly wrong) profile and reboot. Now only an exact "1" or "2"
-       line (digit + Enter) is accepted; anything else is ignored. */
-    char    selBuf[8];
-    uint8_t selIdx = 0;
     while (true) {
       if (Serial.available()) {
         char c = Serial.read();
-        if (c == '\n' || c == '\r') {
-          if (selIdx == 1 && (selBuf[0] == '1' || selBuf[0] == '2')) {
-            profileId = selBuf[0] - '0';
-            prefs.putInt("profile", profileId);
-            prefs.end();
-            Serial.print("Profile ");
-            Serial.print(profileId == 1 ? "PROTO" : "V2");
-            Serial.println(" saved to NVS. Rebooting in 1 second...");
-            delay(1000);
-            ESP.restart();   // Clean reboot — firmware re-reads NVS on next boot
-          }
-          selIdx = 0;  // not a valid selection — discard the line
-        } else if (selIdx < sizeof(selBuf) - 1) {
-          selBuf[selIdx++] = c;
-        } else {
-          selIdx = sizeof(selBuf) - 1;  // overlong line — will never match
+        if (c == '1' || c == '2') {
+          profileId = c - '0';
+          prefs.putInt("profile", profileId);
+          prefs.end();
+          Serial.print("Profile ");
+          Serial.print(profileId == 1 ? "PROTO" : "V2");
+          Serial.println(" saved to NVS. Rebooting in 1 second...");
+          delay(1000);
+          ESP.restart();   // Clean reboot — firmware re-reads NVS on next boot
         }
       }
-      delay(10);
+      delay(50);
       yield();  // Keep watchdog happy while waiting
     }
     // Never reaches here — ESP.restart() above
@@ -699,6 +617,18 @@ void loadOrSelectProfile() {
   // Seed the learned ratio with the theoretical value.
   // If a valid EEPROM value exists it will be loaded and override this in setup().
   activeStepsPerDegALT = STEPS_PER_DEG_ALT;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════════════════
+   AZM LEARNING — ATOMIC RESET HELPER
+   All code that needs to wipe AZM learning state calls this function.
+   Having a single function prevents the "forgot one callsite" class of bugs
+   (which caused the deadlock in v15.02 for the AZM:ZERO case).
+   ═══════════════════════════════════════════════════════════════════════════════════════ */
+void resetAzmLearning() {
+  azmLrnPrevDeltaDeg = 0.0f;
+  azmLrnPrevDir      = 0;
+  azmLrnValid        = false;
 }
 
 /* v15.04-p5 — persist backlash to EEPROM. Always writes BOTH slots so the
@@ -793,8 +723,6 @@ struct {
   long     totalSteps;       // Total steps for this job (used for ramp calculation)
   long     stepsDone;        // Steps executed so far
   long     backlashSteps;    // Dead steps at start (position not updated during these)
-  long     rampCursor;       // v16: ramp position — reset to 0 after any pause
-                             // (feedHold, stall) so motion re-accelerates
 } mot = {false};
 
 MotionJob jobQueue[2];
@@ -807,7 +735,7 @@ void enqueueMotion(uint8_t stepPin, uint8_t dirPin, float deltaDeg,
 }
 
 // Forward declarations (implementations below)
-bool performPullOff(float stepsPerDeg);   // v16: returns false if aborted (0x18)
+void performPullOff(float stepsPerDeg);
 void softReset();
 void sendStatus();
 void scanSerialRealtime();
@@ -840,27 +768,21 @@ bool startNextJob() {
      Motor moves, but posDeg is not updated during backlashSteps — TPPA sees a
      clean linear response. ── */
   long backlashExtra = 0;
-  if (isAzm) {
+  if (isAzm && activeBacklashDegAZM > 0.0f) {
     int8_t newDir = (stepsTot > 0) ? 1 : -1;
-    if (lastAzmDir != 0 && newDir != lastAzmDir && activeBacklashDegAZM > 0.0f) {
+    if (lastAzmDir != 0 && newDir != lastAzmDir) {
       backlashExtra = lroundf(activeBacklashDegAZM * job.stepsPerDeg);
       diagPrintf("AZM BACKLASH: %ld dead steps (%.1f')\n",
                  backlashExtra, activeBacklashDegAZM * 60.0f);
     }
     lastAzmDir = newDir;
-  } else {
-    /* v16: direction tracking + reversal flag are DECOUPLED from the >0
-       injection gate. Previously, once the learned comp hit 0, reversals no
-       longer set learningIsReversal → backlash learning was dead forever
-       (and reversal moves contaminated ratio learning instead). */
+  } else if (!isAzm && activeBacklashDegALT > 0.0f) {
     int8_t newDir = (stepsTot > 0) ? 1 : -1;
     if (lastAltDir != 0 && newDir != lastAltDir) {
-      learningIsReversal = true;  // route the MPU observation to backlash learning
-      if (activeBacklashDegALT > 0.0f) {
-        backlashExtra = lroundf(activeBacklashDegALT * job.stepsPerDeg);
-        diagPrintf("ALT BACKLASH: %ld dead steps (%.1f')\n",
-                   backlashExtra, activeBacklashDegALT * 60.0f);
-      }
+      backlashExtra = lroundf(activeBacklashDegALT * job.stepsPerDeg);
+      diagPrintf("ALT BACKLASH: %ld dead steps (%.1f')\n",
+                 backlashExtra, activeBacklashDegALT * 60.0f);
+      learningIsReversal = true;  // v15.04: signal backlash learning path
     }
     lastAltDir = newDir;
   }
@@ -906,28 +828,8 @@ bool startNextJob() {
   mot.lastStepUs     = micros();
   mot.totalSteps     = mot.stepsRemaining;
   mot.stepsDone      = 0;
-  mot.rampCursor     = 0;    // v16: fresh ramp for every job
   isMoving           = true;
   return true;
-}
-
-/* v16 — purge any in-flight motion/observation state. Called before homing
-   and by command paths that must take over cleanly. Positions are snapped to
-   the current job target first so no phantom offset survives. */
-void purgeMotion() {
-  if (mot.active) { *mot.globalPos = mot.targetPos; mot.active = false; }
-  if (inFeedbackCycle || settlingForObserve) {
-    posDegALT       = targetAltAngle;
-    inFeedbackCycle = false;
-  }
-  jobCount               = 0;
-  isMoving               = false;
-  settlingForObserve     = false;
-  waitingForGlobalSettle = false;
-  learningRequestedDelta = 0;
-  learningIsReversal     = false;
-  lastAzmDir             = 0;
-  lastAltDir             = 0;
 }
 
 void enterGlobalSettle() {
@@ -957,7 +859,7 @@ void tickMotion() {
     return;
   }
 
-  /* ── GLOBAL SETTLE: anti-vibration delay (GLOBAL_SETTLE_MS) before <Idle> ── */
+  /* ── GLOBAL SETTLE: 2-second anti-vibration delay before <Idle> ── */
   if (waitingForGlobalSettle) {
     if (millis() - globalSettleStartMs < GLOBAL_SETTLE_MS) return;
     waitingForGlobalSettle = false;
@@ -983,38 +885,13 @@ void tickMotion() {
       }
       lastMpuSampleMs = millis();
     }
-    if (mpuSampleCount < MPU_SAMPLE_TARGET) {
-      /* v16: TIMEOUT GUARD. If the MPU stops answering (I2C glitch, wiring),
-         samples never accumulate and this phase used to spin forever with
-         isMoving=true → <Run forever → TPPA timeout, no escape. */
-      if (millis() - settleStartMs > SETTLE_DELAY_MS + OBSERVE_TIMEOUT_MS) {
-        mpuObserveFails++;
-        diagPrintf("OBSERVE TIMEOUT: %d/%d samples, fail #%u\n",
-                   mpuSampleCount, MPU_SAMPLE_TARGET, mpuObserveFails);
-        if (mpuObserveFails >= OBSERVE_FAIL_LIMIT) {
-          mpuAvailable = false;   // MPU dead for this session — skip all future observes
-          diagPrintf("MPU DISABLED for session (I2C unresponsive)\n");
-        }
-        settlingForObserve = false;
-        mpuSampleCount     = 0;
-        mpuSumAngles       = 0.0f;
-        learningIsReversal = false;
-        inFeedbackCycle    = false;
-        posDegALT          = targetAltAngle;   // snap — no learning this move
-        if (!startNextJob()) {
-          isMoving = false;
-          diagPrintf("IDLE (observe aborted)\n");
-        }
-      }
-      return;
-    }
+    if (mpuSampleCount < MPU_SAMPLE_TARGET) return;
 
     // Phase 3: compute average and update ratio
     float rawAngle         = mpuSumAngles / (float)mpuSampleCount;
     settlingForObserve     = false;
     mpuSampleCount         = 0;
     mpuSumAngles           = 0.0f;
-    mpuObserveFails        = 0;    // v16: healthy observation resets the fail streak
 
     float actualAngle = rawAngle - mpuOffset;
     float error       = targetAltAngle - actualAngle;
@@ -1029,13 +906,7 @@ void tickMotion() {
          residual = |commanded| - |actualMoved| (positive = under-compensated).
          Adaptive α: fast at startup, conservative after warmup. Guardrails on
          sign agreement, MPU noise floor, and outlier magnitude. ── */
-      if (!altRatioConverged) {
-        /* v16: GATE on ratio convergence. While the ALT ratio is still being
-           learned, a ratio error of a few % on a reversal move masquerades as
-           a backlash residual (e.g. 5% × 0.3° ≈ 0.9' of false signal vs a
-           true B of 2-3'). Learn backlash only once the ratio is locked. */
-        diagPrintf("ALT BLC ML: ratio not converged yet — skip\n");
-      } else if (fabsf(learningRequestedDelta) >= MIN_BLC_LEARNING_ANGLE) {
+      if (fabsf(learningRequestedDelta) >= MIN_BLC_LEARNING_ANGLE) {
         float actualMoved = actualAngle - learningStartAngle;
         // Sign check: actualMoved must go the same way as commanded
         bool signsAgree = (actualMoved * learningRequestedDelta > 0);
@@ -1085,8 +956,7 @@ void tickMotion() {
           activeStepsPerDegALT = (activeStepsPerDegALT * (1.0f - LEARNING_SMOOTHING))
                                + (measuredRatio * LEARNING_SMOOTHING);
           float change = fabsf(activeStepsPerDegALT - oldRatio);
-          // v16: threshold relative to the theoretical ratio (see RATIO_STABLE_FRACT)
-          if (change > STEPS_PER_DEG_ALT * RATIO_STABLE_FRACT) {
+          if (change > EEPROM_WRITE_THRESHOLD) {
             EEPROM.put(EEPROM_ADDR_RATIO, activeStepsPerDegALT);
             EEPROM.commit();
             altStableCount = 0;                 // significant change — not converged yet
@@ -1123,11 +993,9 @@ void tickMotion() {
   /* ── MOTOR PULSE GENERATION (trapezoidal ramp) ── */
   if (!mot.active || feedHold) return;
 
-  // Ramp position = min(ramp cursor, steps remaining, RAMP_LENGTH)
+  // Ramp position = min(steps done, steps remaining, RAMP_LENGTH)
   // This gives symmetric acceleration and deceleration.
-  // v16: the accel side uses rampCursor (not stepsDone) so a pause can
-  // restart the ramp without affecting position bookkeeping.
-  long rampPos    = mot.rampCursor;
+  long rampPos    = mot.stepsDone;
   long stepsFromEnd = mot.stepsRemaining;
   if (stepsFromEnd < rampPos) rampPos = stepsFromEnd;
   if (rampPos > RAMP_LENGTH)  rampPos = RAMP_LENGTH;
@@ -1142,17 +1010,7 @@ void tickMotion() {
   }
 
   unsigned long now = micros();
-  unsigned long sinceLast = now - mot.lastStepUs;
-  if (sinceLast < interval) return;  // Not time yet — yield
-
-  /* v16: RE-RAMP AFTER PAUSE. A gap ≫ interval means motion was suspended
-     (feedHold released, serial stall, DIAG dump…). Restarting at cruise
-     speed from a standstill risks lost steps — re-enter the ramp instead. */
-  if (sinceLast > RAMP_RESUME_GAP_US && mot.rampCursor > 0) {
-    mot.rampCursor = 0;
-    mot.lastStepUs = now;   // next step fires after the (slow) ramp-start interval
-    return;
-  }
+  if (now - mot.lastStepUs < interval) return;  // Not time yet — yield
   mot.lastStepUs = now;
 
   // Position update: skip during backlash dead steps (motor moves, position doesn't)
@@ -1165,7 +1023,6 @@ void tickMotion() {
   digitalWrite(mot.stepPin, LOW);
   mot.stepsRemaining--;
   mot.stepsDone++;
-  mot.rampCursor++;
 
   scanSerialRealtime();  // Service '?' polls mid-move for smooth N.I.N.A. status display
 
@@ -1175,15 +1032,11 @@ void tickMotion() {
   if (!mot.isAzm && mot.deltaDeg < 0 && digitalRead(PIN_HOME_SENSOR) == LOW) {
     Serial.println("\n!!! CRITICAL ALARM: PHYSICAL LIMIT SWITCH HIT OUTSIDE HOMING !!!");
     mot.active             = false;
+    isMoving               = false;
     jobCount               = 0;
     inFeedbackCycle        = false;
     waitingForGlobalSettle = false;
-    learningRequestedDelta = 0;      // v16: don't let the aborted move feed learning
-    learningIsReversal     = false;  // v16
-    lastAltDir             = 0;      // v16: direction history invalid after alarm
-    (void)performPullOff(mot.stepsPerDeg);  // abort inside is handled by tickMotion next pass
-    isMoving               = false;  // v16: only AFTER pull-off — the pull-off now answers
-                                     // '?' polls, which must report Run, not a stale Idle
+    performPullOff(mot.stepsPerDeg);
     *mot.globalPos = cfg_HOME_TRIGGER_ANGLE;
     posDegALT      = cfg_HOME_TRIGGER_ANGLE;
     sendStatus(); Serial.println();
@@ -1248,39 +1101,18 @@ void sendStatus() {
   else             Serial.print("Idle");
   Serial.print("|MPos:"); Serial.print(mposAZM, 3);
   Serial.print(','); Serial.print(mposALT, 3);
-  Serial.println(",0|>");   // v16: properly closed GRBL report (TPPA regex keeps matching)
+  Serial.println(",0|");
 }
 
-// v16: single point of truth for GRBL realtime characters.
-// '!' '~' 0x18 never occur inside a legitimate command → intercepted anywhere.
-// '?' DOES occur inside commands (BLC?, MPU?) → intercepted only at the start
-// of a line (lineIdx==0), which is the semantic the p4 fix intended but only
-// enforced in the loop() reader (bypassed when '?' arrived in its own chunk).
-// Realtime chars get no "ok" reply (GRBL realtime commands are silent).
-bool handleRealtimeChar(char c) {
-  if      (c == '!')  { feedHold = true;  return true; }
-  else if (c == '~')  { feedHold = false; return true; }
-  else if (c == 0x18) { abortCmd = true;  return true; }
-  return false;
-}
-
-// Called between motor step pulses and from blocking phases (homing, pull-off)
-// so N.I.N.A.'s 10 Hz '?' polls stay serviced during long operations.
+// Polled from inside the motor ISR to service GRBL realtime characters mid-move.
+// This is what gives N.I.N.A. smooth status updates even during long moves.
 void scanSerialRealtime() {
-  while (Serial.available()) {
-    char c = Serial.peek();
-    if (c == '!' || c == '~' || c == 0x18) { Serial.read(); handleRealtimeChar(c); continue; }
-    if (c == '?') {
-      if (lineIdx == 0) { Serial.read(); sendStatus(); Serial.println(); continue; }
-      // Mid-line '?' belongs to the command (BLC?, MPU?) — absorb it into
-      // lineBuf here so it can't sit at the queue head during a blocking
-      // phase and starve the '?'/'!'/0x18 characters queued behind it.
-      Serial.read();
-      if (lineIdx < sizeof(lineBuf) - 1) lineBuf[lineIdx++] = c;
-      continue;
-    }
-    break;  // ordinary command byte — leave it for the loop() reader
-  }
+  if (!Serial.available()) return;
+  char c = Serial.peek();
+  if      (c == '?')    { Serial.read(); sendStatus(); Serial.println(); }
+  else if (c == '!')    { Serial.read(); feedHold = true;  Serial.println("ok"); }
+  else if (c == '~')    { Serial.read(); feedHold = false; Serial.println("ok"); }
+  else if (c == 0x18)   { Serial.read(); abortCmd = true; }
 }
 
 void softReset() {
@@ -1297,7 +1129,11 @@ void softReset() {
   altRatioConverged      = false;
   learningIsReversal     = false;   // v15.04
   altBacklashSamples     = 0;       // v15.04: restart warmup α on next reversal
-  mpuObserveFails        = 0;       // v16
+  azmStableCount         = 0;       // v15.04
+  azmRatioStable         = false;   // v15.04
+  azmBacklashLearnPending = false;  // v15.04
+  azmBacklashSamples     = 0;       // v15.04
+  resetAzmLearning();   // Atomically clear all AZM learning state
   diagClear();
   Serial.println("\r\nGrbl 1.1h ['$' for help]");
 }
@@ -1308,9 +1144,7 @@ void softReset() {
 
 // Pull-off: after the limit switch triggers, move UP until the switch releases,
 // then advance by HOME_SAFETY_MARGIN to establish a clean mechanical zero.
-// v16: services serial ('?' polls answered, 0x18 honoured) and returns false
-// if aborted. Previously this ran deaf and blind for up to ~80 s worst-case.
-bool performPullOff(float stepsPerDeg) {
+void performPullOff(float stepsPerDeg) {
   bool dirUp = !cfg_AXIS_REV_ALT ? HIGH : LOW;
   digitalWrite(PIN_DIR_ALT, dirUp);
   delay(50);
@@ -1323,11 +1157,7 @@ bool performPullOff(float stepsPerDeg) {
     digitalWrite(PIN_STEP_ALT, HIGH); delayMicroseconds(60);
     digitalWrite(PIN_STEP_ALT, LOW);  delayMicroseconds(60);
     count++;
-    if (count % 64 == 0) {
-      scanSerialRealtime();          // v16: keep NINA polls alive
-      if (abortCmd) return false;    // v16: honour soft-reset
-      yield();
-    }
+    if (count % 2000 == 0) yield();  // Feed watchdog
     if (digitalRead(PIN_HOME_SENSOR) == HIGH) {
       confirmHigh++;
       if (confirmHigh > 20) break;   // 20 consecutive HIGH readings = switch released
@@ -1341,28 +1171,20 @@ bool performPullOff(float stepsPerDeg) {
   for (long s = 0; s < safetySteps; s++) {
     digitalWrite(PIN_STEP_ALT, HIGH); delayMicroseconds(60);
     digitalWrite(PIN_STEP_ALT, LOW);  delayMicroseconds(60);
-    if (s % 64 == 0) {
-      scanSerialRealtime();
-      if (abortCmd) return false;
-      yield();
-    }
+    if (s % 2000 == 0) yield();
   }
-  return true;
 }
 
 void startHoming() {
-  /* v16: purge ANY in-flight motion first. Previously a HOME received during
-     a move left mot.active=true — after homing, tickMotion resumed the stale
-     job and snapped to a pre-homing target in the new coordinate frame. */
-  purgeMotion();
-
   Serial.println("MSG: Homing ALT axis...");
   isMoving               = true;
+  inFeedbackCycle        = false;
+  waitingForGlobalSettle = false;
   diagClear();
 
   // If already on the switch, pull off first
   if (digitalRead(PIN_HOME_SENSOR) == LOW) {
-    if (!performPullOff(activeStepsPerDegALT)) { softReset(); return; }
+    performPullOff(activeStepsPerDegALT);
     delay(200);
   }
 
@@ -1374,9 +1196,8 @@ void startHoming() {
   int  confirmLow = 0;
   bool hit        = false;
 
-  // v16: search capped at 12° (full 10° travel + margin). The old 50° cap
-  // meant ~6 minutes driving into the hard stop if the switch had failed open.
-  for (long s = 0; s < (long)(HOMING_SEARCH_RANGE_DEG * activeStepsPerDegALT); s++) {
+  // Search up to 50° of travel (much more than needed, but safe)
+  for (long s = 0; s < (long)(50.0f * activeStepsPerDegALT); s++) {
     digitalWrite(PIN_STEP_ALT, HIGH); delayMicroseconds(60);
     digitalWrite(PIN_STEP_ALT, LOW);  delayMicroseconds(60);
     if (s % 2000 == 0) yield();
@@ -1397,7 +1218,7 @@ void startHoming() {
   }
 
   delay(200);
-  if (!performPullOff(activeStepsPerDegALT)) { softReset(); return; }
+  performPullOff(activeStepsPerDegALT);
 
   // Define mechanical zero
   posDegALT      = cfg_HOME_TRIGGER_ANGLE;
@@ -1421,18 +1242,7 @@ void startHoming() {
       mpuOffset = (sumAngles / (float)validSamples) - cfg_HOME_TRIGGER_ANGLE;
       Serial.print("MSG: Gyroscope tared. Offset = "); Serial.println(mpuOffset, 3);
     } else {
-      /* v16: a failed tare now FAILS the homing. Previously the code carried
-         on: homingDone=true and the stale/zero offset was committed to EEPROM
-         with a valid magic — the next boot restored a wrong absolute ALT
-         reference. Also invalidate any stale magic so no old state restores. */
       Serial.println("ALARM: Gyroscope Tare Failed (I2C Bus unresponsive).");
-      Serial.println("ALARM: Homing NOT completed — fix MPU wiring and re-run HOME.");
-      uint32_t noMagic = 0;
-      EEPROM.put(EEPROM_ADDR_MAGIC, noMagic);
-      EEPROM.commit();
-      isMoving   = false;
-      homingDone = false;
-      return;
     }
   }
 
@@ -1443,7 +1253,11 @@ void startHoming() {
   altRatioConverged      = false;
   learningIsReversal     = false;   // v15.04
   altBacklashSamples     = 0;       // v15.04: restart warmup α (mechanics may have shifted)
-  mpuObserveFails        = 0;       // v16
+  azmStableCount         = 0;       // v15.04
+  azmRatioStable         = false;   // v15.04
+  azmBacklashLearnPending = false;  // v15.04
+  azmBacklashSamples     = 0;       // v15.04
+  resetAzmLearning();  // Fresh start — previous session's AZM learning is invalid
 
   // Persist homing state to EEPROM so it survives a DTR-triggered reboot
   // (GUI and TPPA both toggle DTR when opening the serial port).
@@ -1464,7 +1278,7 @@ void startHoming() {
    Everything that can help debug a field issue is included here.
    ═══════════════════════════════════════════════════════════════════════════════════════ */
 void printDiagnostic() {
-  Serial.print("\n--- SYSTEM DIAGNOSTIC (v16.00) [");
+  Serial.print("\n--- SYSTEM DIAGNOSTIC (v15.04-p5) [");
   Serial.print(cfg_profile_name);
   Serial.println("] ---");
 
@@ -1511,7 +1325,21 @@ void printDiagnostic() {
   Serial.print("lastAzmDir            : ");
   Serial.println(lastAzmDir ==  1 ? "+1 (positive)" :
                  lastAzmDir == -1 ? "-1 (negative)" : "0 (unknown)");
-  Serial.println("AZM learning          : DISABLED (v16 — ratio fixed, backlash manual)");
+  Serial.print("AZM Lrn valid         : "); Serial.println(azmLrnValid ? "YES" : "NO");
+  if (azmLrnValid) {
+    Serial.print("AZM Lrn prevDelta     : ");
+    Serial.print(azmLrnPrevDeltaDeg * 60.0f, 2);
+    Serial.print("'  dir="); Serial.println(azmLrnPrevDir == 1 ? "+1" : "-1");
+  }
+  // AZM ratio stability + backlash learning (v15.04)
+  Serial.print("AZM ratio stable      : ");
+  Serial.print(azmRatioStable ? "YES" : "NO");
+  Serial.print("  (stableCount="); Serial.print(azmStableCount);
+  Serial.print("/"); Serial.print(AZM_STABLE_COUNT); Serial.println(")");
+  Serial.print("AZM backlash samples  : "); Serial.print(azmBacklashSamples);
+  Serial.print(azmBacklashSamples < BACKLASH_WARMUP_SAMPLES ? " (fast α)" : " (steady α)");
+  if (azmBacklashLearnPending) Serial.print("  [probe armed]");
+  Serial.println("");
 
   // ALT details (v15.04)
   Serial.print("ALT backlash comp     : "); Serial.print(activeBacklashDegALT * 60.0f, 1);
@@ -1538,7 +1366,8 @@ void printDiagnostic() {
   // Learned ratios
   Serial.print("Active ALT Ratio      : "); Serial.print(activeStepsPerDegALT, 3); Serial.println(" steps/deg");
   Serial.print("Theoretical ALT Ratio : "); Serial.print(STEPS_PER_DEG_ALT, 3);    Serial.println(" steps/deg");
-  Serial.print("AZM Ratio (fixed)     : "); Serial.print(STEPS_PER_DEG_AZM, 3);    Serial.println(" steps/deg");
+  Serial.print("Active AZM Ratio      : "); Serial.print(activeStepsPerDegAZM, 3); Serial.println(" steps/deg");
+  Serial.print("Theoretical AZM Ratio : "); Serial.print(STEPS_PER_DEG_AZM, 3);    Serial.println(" steps/deg");
   Serial.print("ALT RMS Current       : "); Serial.print(RMS_CURRENT_ALT); Serial.println(" mA");
   Serial.print("AZM Cruise            : "); Serial.print(RAMP_CRUISE_AZM_US); Serial.println(" µs");
   Serial.print("ALT Cruise            : "); Serial.print(cfg_RAMP_CRUISE_ALT_US); Serial.println(" µs");
@@ -1549,6 +1378,8 @@ void printDiagnostic() {
   // EEPROM
   Serial.print("EEPROM ALT Ratio      : ");
   float stored = 0.0f; EEPROM.get(EEPROM_ADDR_RATIO, stored); Serial.println(stored, 3);
+  Serial.print("EEPROM AZM Ratio      : ");
+  float storedAzm = 0.0f; EEPROM.get(EEPROM_ADDR_AZM_RATIO, storedAzm); Serial.println(storedAzm, 3);
   uint32_t storedMagic = 0; EEPROM.get(EEPROM_ADDR_MAGIC, storedMagic);
   Serial.print("EEPROM Homing State   : ");
   Serial.println(storedMagic == HOMING_MAGIC ?
@@ -1564,16 +1395,14 @@ void printDiagnostic() {
   } else {
     Serial.println("NOT SAVED (using profile defaults)");
   }
-  Serial.print("Diag buffer           : ");
-  Serial.print(diagWrapped ? (unsigned)sizeof(diagLog) : diagHead);
-  Serial.print("/"); Serial.print(sizeof(diagLog));
-  Serial.println(diagWrapped ? " (ring wrapped)" : "");
+  Serial.print("Diag buffer used      : "); Serial.print(diagLen);
+  Serial.print("/"); Serial.println(sizeof(diagLog));
 
-  // Command & learning log (v16: chronological ring dump)
-  if (diagHead > 0 || diagWrapped) {
+  // Command & learning log
+  if (diagLen > 0) {
     Serial.println("");
     Serial.println("--- COMMAND & FEEDBACK LOG ---");
-    diagDump();
+    Serial.print(diagLog);
     Serial.println("--- END LOG ---");
   }
   Serial.println("------------------------------------\n");
@@ -1591,25 +1420,15 @@ void processCommand(const char* line) {
   if (strcmp(line, "HOME") == 0 || strcmp(line, "$H") == 0) { startHoming(); return; }
   if (strcmp(line, "DIAG") == 0 || strcmp(line, "MPU?") == 0) { printDiagnostic(); return; }
 
-  /* ── PROFILE:RESET (v16 — was documented since v15 but never implemented) ──
-     Clears the NVS profile and reboots into the first-boot selection menu. */
-  if (strcmp(line, "PROFILE:RESET") == 0) {
-    Preferences prefs;
-    prefs.begin("polaralign", false);
-    prefs.putInt("profile", 0);
-    prefs.end();
-    Serial.println("MSG: Profile cleared from NVS — rebooting into selection menu...");
-    delay(200);
-    ESP.restart();
-  }
-
   /* ── BLC: backlash compensation query & set (v15.04) ── */
   if (strcmp(line, "BLC?") == 0) {
     Serial.print("BLC:AZM="); Serial.print(activeBacklashDegAZM, 4);
     Serial.print(" ALT="); Serial.print(activeBacklashDegALT, 4);
     Serial.print(" ("); Serial.print(activeBacklashDegAZM * 60.0f, 2); Serial.print("'/");
-    Serial.print(activeBacklashDegALT * 60.0f, 2); Serial.print("')  AZM=manual  ALT samples=");
-    Serial.println(altBacklashSamples);
+    Serial.print(activeBacklashDegALT * 60.0f, 2); Serial.print("')  AZM stable=");
+    Serial.print(azmRatioStable ? "YES" : "NO");
+    Serial.print(" samples AZM/ALT="); Serial.print(azmBacklashSamples);
+    Serial.print("/"); Serial.println(altBacklashSamples);
     return;
   }
   if (strcmp(line, "BLC:AZM?") == 0) {
@@ -1675,7 +1494,22 @@ void processCommand(const char* line) {
 
     // If a previous move is still settling, snap to its target and clear state.
     // This lets TPPA issue rapid-fire corrections without waiting for each settle.
-    if (isMoving) purgeMotion();   // v16: single purge helper (shared with HOME)
+    if (isMoving) {
+      if (mot.active) { *mot.globalPos = mot.targetPos; mot.active = false; }
+      if (inFeedbackCycle || settlingForObserve) {
+        posDegALT       = targetAltAngle;
+        inFeedbackCycle = false;
+      }
+      jobCount               = 0;
+      isMoving               = false;
+      settlingForObserve     = false;
+      waitingForGlobalSettle = false;
+      learningRequestedDelta = 0;
+      learningIsReversal     = false; // v15.04
+      azmBacklashLearnPending = false; // v15.04-p1: interrupted reversal must not leak
+      lastAzmDir             = 0;   // FIX: prevent spurious backlash on interrupted jog
+      lastAltDir             = 0;   // v15.04: same fix for ALT axis
+    }
 
     const char* rest = strchr(line, '=');
     if (!rest) return;
@@ -1703,14 +1537,162 @@ void processCommand(const char* line) {
       if (tgt > AZM_LIMIT_POS) { diagPrintf("!LIMIT AZM: clamped to %.1f\n", AZM_LIMIT_POS); tgt = AZM_LIMIT_POS; }
 
       float  azmDeltaDeg = tgt - posDegAZM;
-      long   azmStepsTot = lroundf(fabsf(azmDeltaDeg) * STEPS_PER_DEG_AZM);
+      long   azmStepsTot = lroundf(fabsf(azmDeltaDeg)*activeStepsPerDegAZM);
       diagPrintf("AZM delta=%.4f deg steps=%ld\n", azmDeltaDeg, azmStepsTot);
+      int8_t newAzmDir   = (azmDeltaDeg >= 0.0f) ? 1 : -1;
 
-      /* v16: AZM ratio + backlash learning REMOVED (see header).
-         The ratio is the machined theoretical value; backlash compensation
-         uses the persisted manual value and is injected in startNextJob(). */
+      /* ── AZM RATIO LEARNING (sensor-free, residual-based) ──
+         The algorithm infers the true gear ratio by observing consecutive TPPA
+         corrections. If TPPA sent prevDelta but still needs currDelta, the mount
+         only moved (prevDelta − currDelta) = effectiveMoved.
+         From that: measuredRatio = currentRatio × prevDelta / effectiveMoved
 
-      enqueueMotion(PIN_STEP_AZM, PIN_DIR_AZM, azmDeltaDeg, STEPS_PER_DEG_AZM, &posDegAZM);
+         Three guards prevent the deadlock seen in v15.02:
+           Guard 1 — effectiveMoved threshold: prevents NaN from tiny denominator
+           Guard 2 — NaN/Inf/band check:        prevents deadlock on corrupt ratio
+           Guard 3 — direction reset:            prevents stale data reuse          ── */
+      if (fabsf(azmDeltaDeg) >= MIN_AZM_LEARNING_ANGLE) {
+
+        if (azmLrnValid && newAzmDir == azmLrnPrevDir &&
+            fabsf(azmLrnPrevDeltaDeg) >= MIN_AZM_LEARNING_ANGLE) {
+
+          /* v15.04 — BACKLASH LEARNING PROBE (fires on same-direction move
+             immediately following a reversal, only if ratio has stabilized).
+             The current jog magnitude is treated as a signal proportional to
+             the residual backlash. Small biases are averaged out by EWMA. ── */
+          if (azmBacklashLearnPending && azmRatioStable) {
+            float signal = fabsf(azmDeltaDeg);
+            if (signal <= MAX_AZM_BLC_SIGNAL_DEG) {
+              float alpha = (azmBacklashSamples < BACKLASH_WARMUP_SAMPLES)
+                            ? BACKLASH_LEARNING_RATE_INIT
+                            : BACKLASH_LEARNING_RATE_STEADY;
+              float oldBlc = activeBacklashDegAZM;
+              activeBacklashDegAZM += alpha * signal;
+              // v15.04-p2: leaky bucket, steady-state only.
+              // Without leak, positive-only signal ratchets C monotonically upward
+              // (noise + residual TPPA correction work never fully vanish),
+              // slowly walking C to the hardstop over dozens of sessions.
+              // Leak applied only after warmup so first 10 samples converge cleanly
+              // to true B, then a gentle 0.5% decay per probe caps the equilibrium.
+              if (azmBacklashSamples >= BACKLASH_WARMUP_SAMPLES) {
+                activeBacklashDegAZM *= 0.995f;
+              }
+              // Clamp
+              if (activeBacklashDegAZM < 0.0f) activeBacklashDegAZM = 0.0f;
+              if (activeBacklashDegAZM > BACKLASH_HARDSTOP_AZM_DEG)
+                activeBacklashDegAZM = BACKLASH_HARDSTOP_AZM_DEG;
+              azmBacklashSamples++;
+
+              diagPrintf("AZM BLC ML: signal=%.2f' α=%.2f  %.4f→%.4f (n=%u)\n",
+                         signal * 60.0f, alpha, oldBlc, activeBacklashDegAZM,
+                         azmBacklashSamples);
+
+              if (fabsf(activeBacklashDegAZM - oldBlc) > BACKLASH_EEPROM_THRESHOLD) {
+                saveBacklashSlots();  // v15.04-p5
+              }
+            } else {
+              diagPrintf("AZM BLC ML: signal too large (%.2f' > %.2f') — skip\n",
+                         signal * 60.0f, MAX_AZM_BLC_SIGNAL_DEG * 60.0f);
+            }
+            azmBacklashLearnPending = false;   // consume the flag regardless
+          }
+
+          float prevAbs       = fabsf(azmLrnPrevDeltaDeg);
+          float currAbs       = fabsf(azmDeltaDeg);
+          float effectiveMoved = prevAbs - currAbs;
+
+          if (effectiveMoved >= AZM_EFFECTIVE_MIN_DEG) {           // Guard 1
+            float measuredRatio = activeStepsPerDegAZM * prevAbs / effectiveMoved;
+
+            if (!isnan(measuredRatio) && !isinf(measuredRatio) && // Guard 2
+                measuredRatio > (STEPS_PER_DEG_AZM * AZM_RATIO_BAND_LOW) &&
+                measuredRatio < (STEPS_PER_DEG_AZM * AZM_RATIO_BAND_HIGH)) {
+
+              float oldRatio      = activeStepsPerDegAZM;
+              activeStepsPerDegAZM = (activeStepsPerDegAZM * (1.0f - AZM_LEARNING_SMOOTHING))
+                                   + (measuredRatio * AZM_LEARNING_SMOOTHING);
+              diagPrintf("AZM ML: %.2f→%.2f (prev=%.2f' curr=%.2f' eff=%.2f')\n",
+                         oldRatio, activeStepsPerDegAZM,
+                         prevAbs * 60.0f, currAbs * 60.0f, effectiveMoved * 60.0f);
+
+              /* v15.04 — STABILITY TRACKING for backlash-learning gate */
+              if (fabsf(activeStepsPerDegAZM - oldRatio) < AZM_STABLE_DELTA_STEPS) {
+                if (!azmRatioStable && ++azmStableCount >= AZM_STABLE_COUNT) {
+                  azmRatioStable = true;
+                  diagPrintf("AZM ratio STABLE (%.2f) — backlash learning enabled\n",
+                             activeStepsPerDegAZM);
+                }
+              } else {
+                azmStableCount = 0;
+                // Big ratio change → un-stabilize (rare, but be safe)
+                if (azmRatioStable) {
+                  azmRatioStable = false;
+                  diagPrintf("AZM ratio DESTABILIZED — backlash learning paused\n");
+                }
+              }
+
+              if (fabsf(activeStepsPerDegAZM - oldRatio) > EEPROM_WRITE_THRESHOLD) {
+                EEPROM.put(EEPROM_ADDR_AZM_RATIO, activeStepsPerDegAZM);
+                EEPROM.commit();
+              }
+            } else {
+              diagPrintf("AZM ML: skipped (ratio=%.2f out-of-band or NaN)\n", measuredRatio);
+            }
+          } else {
+            diagPrintf("AZM ML: skipped (effectiveMoved=%.2f' < threshold)\n",
+                       effectiveMoved * 60.0f);
+          }
+          azmLrnPrevDeltaDeg = azmDeltaDeg;  // Update for next jog
+          // azmLrnPrevDir unchanged — still same direction
+          // azmLrnValid stays true
+
+        } else if (newAzmDir != azmLrnPrevDir && azmLrnValid) {   // Guard 3
+          // Direction reversal: stale ratio data — wipe and start fresh
+          // v15.04: if ratio is stable, arm backlash learning for the NEXT jog
+          if (azmRatioStable) {
+            /* v15.04-p3 — PING-PONG DETECTION (over-compensation penalty)
+               If pending is already true when we enter Guard 3, it means the
+               previous reversal overshot so badly that TPPA had to immediately
+               reverse again. The steady-state 0.995 leak can never fire (probe
+               requires same-direction follow-up, never arrives during ping-pong),
+               so C would stay stuck. Apply an aggressive 20% penalty per
+               ping-pong to knock C back down toward true B. ── */
+            if (azmBacklashLearnPending) {
+              float oldBlc = activeBacklashDegAZM;
+              activeBacklashDegAZM *= 0.80f;
+              if (fabsf(activeBacklashDegAZM - oldBlc) > BACKLASH_EEPROM_THRESHOLD) {
+                saveBacklashSlots();  // v15.04-p5
+              }
+              diagPrintf("AZM BLC ML: ping-pong detected → penalty  %.4f→%.4f\n",
+                         oldBlc, activeBacklashDegAZM);
+            }
+            azmBacklashLearnPending = true;
+            diagPrintf("AZM ML: dir reversal → backlash probe armed\n");
+          } else {
+            diagPrintf("AZM ML: dir reversal → reset\n");
+          }
+          resetAzmLearning();
+          azmLrnPrevDeltaDeg = azmDeltaDeg;
+          azmLrnPrevDir      = newAzmDir;
+          azmLrnValid        = true;
+
+        } else {
+          // First valid jog: record for next time, don't learn yet
+          azmLrnPrevDeltaDeg = azmDeltaDeg;
+          azmLrnPrevDir      = newAzmDir;
+          azmLrnValid        = true;
+        }
+
+      } else {
+        // Tiny move (< 1'): too small to learn from — mark state as invalid
+        diagPrintf("AZM ML: tiny move (%.2f' < 1') → not recorded\n",
+                   fabsf(azmDeltaDeg) * 60.0f);
+        azmLrnValid = false;
+        azmBacklashLearnPending = false; // v15.04-p1: stale pending flag would
+                                          // be consumed with unrelated sequence data
+      }
+
+      enqueueMotion(PIN_STEP_AZM, PIN_DIR_AZM, azmDeltaDeg, activeStepsPerDegAZM, &posDegAZM);
     }
 
     /* ── ALT jog ── */
@@ -1737,31 +1719,29 @@ void processCommand(const char* line) {
   /* ── Direct serial commands (bench testing, degrees) ── */
 
   // AZM:ZERO — redefine current AZM position as 0.0°.
-  // v16: guard widened — refuse during ANY motion/settle/observe (the old
-  // `isMoving && mot.isAzm` let it fire during ALT moves and during the AZM
-  // settle window after mot.active had already cleared).
+  // Also resets AZM learning state to prevent a stale azmLrnPrevDeltaDeg from
+  // being used after the referential jump (v15.03g fix).
   if (strcmp(line, "AZM:ZERO") == 0) {
-    if (isMoving || mot.active) { Serial.println("!BUSY — finish or abort motion first"); return; }
+    if (isMoving && mot.isAzm) return;  // Refuse during active AZM move
     posDegAZM  = 0.0f;
     lastAzmDir = 0;
+    resetAzmLearning();  // v15.03g FIX: prevents stale learning state after referential reset
     Serial.println("MSG: AZM absolute position forcefully reset to 0.0");
     sendStatus(); Serial.println();
     return;
   }
 
   if (strncmp(line, "AZM:", 4) == 0) {
-    if (isMoving) purgeMotion();  // v16: no more clobbering of settle/observe state
     float tgt = atof(line + 4);
     if (tgt < AZM_LIMIT_NEG) tgt = AZM_LIMIT_NEG;
     if (tgt > AZM_LIMIT_POS) tgt = AZM_LIMIT_POS;
-    enqueueMotion(PIN_STEP_AZM, PIN_DIR_AZM, tgt - posDegAZM, STEPS_PER_DEG_AZM, &posDegAZM);
+    enqueueMotion(PIN_STEP_AZM, PIN_DIR_AZM, tgt - posDegAZM, activeStepsPerDegAZM, &posDegAZM);
     startNextJob();
     Serial.println("OK"); sendStatus(); Serial.println();
     return;
   }
 
   if (strncmp(line, "ALT:", 4) == 0) {
-    if (isMoving) purgeMotion();  // v16: no more clobbering of settle/observe state
     float tgt = atof(line + 4);
     if (tgt < cfg_ALT_LIMIT_NEG) tgt = cfg_ALT_LIMIT_NEG;
     if (tgt > ALT_LIMIT_POS) tgt = ALT_LIMIT_POS;
@@ -1770,12 +1750,6 @@ void processCommand(const char* line) {
     Serial.println("OK"); sendStatus(); Serial.println();
     return;
   }
-
-  /* ── v16: GRBL-ish strictness — anything unrecognized gets an error reply
-     instead of silence (a send-and-wait host used to hang forever). ── */
-  Serial.print("error:20 (unsupported: ");
-  Serial.print(line);
-  Serial.println(")");
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════════════════
@@ -1785,21 +1759,16 @@ void setup() {
   Serial.begin(115200);
   delay(300);  // short — ESP32 must answer within TPPA's connection timeout (~1-1.5s)
 
-  // v16: hold the stepper drivers DISABLED before anything that can block
-  // (profile menu). Previously PIN_EN floated until GPIO init further down.
-  pinMode(PIN_EN, OUTPUT);
-  digitalWrite(PIN_EN, HIGH);   // Active LOW → HIGH = drivers disabled
-
-  // Loads profile from NVS, sets cfg_ vars, computes STEPS_PER_DEG_ALT.
-  // On first boot after flash: blocks until user sends "1" or "2" + Enter.
+  // MUST be first: loads profile from NVS, sets cfg_ vars, computes STEPS_PER_DEG_ALT
+  // On first boot after flash: blocks until user sends 1 or 2 on serial.
   loadOrSelectProfile();
 
   Serial.println("\n=======================================================");
-  Serial.print("  BOOT: V16.00 ["); Serial.print(cfg_profile_name); Serial.println("] (ESP32)");
+  Serial.print("  BOOT: V15.04-p5 ["); Serial.print(cfg_profile_name); Serial.println("] (ESP32)");
   Serial.print("  Profile: "); Serial.print(cfg_profile_name);
   Serial.print("  ALT_GEARBOX="); Serial.print(cfg_ALT_MOTOR_GEARBOX,1);
   Serial.print("  AXIS_REV_ALT="); Serial.println(cfg_AXIS_REV_ALT ? "true":"false");
-  Serial.println("  AZM: fixed ratio, manual BLC  TPPA: ARCMINUTES  HOME required");
+  Serial.println("  AZM: Residual learning  TPPA: ARCMINUTES  HOME required");
   Serial.println("=======================================================\n");
 
   initMPU_Silent();
@@ -1821,9 +1790,22 @@ void setup() {
   }
   Serial.println(activeStepsPerDegALT);
 
-  /* ── AZM ratio: fixed (v16) — EEPROM slot 12 retired, nothing to load ── */
-  Serial.print("MSG: AZM Ratio fixed at theoretical: ");
-  Serial.println(STEPS_PER_DEG_AZM);
+  /* ── Load learned AZM ratio ── */
+  float storedAzmRatio = 0.0f;
+  EEPROM.get(EEPROM_ADDR_AZM_RATIO, storedAzmRatio);
+  if (!isnan(storedAzmRatio) &&
+      storedAzmRatio > (STEPS_PER_DEG_AZM * AZM_RATIO_BAND_LOW) &&
+      storedAzmRatio < (STEPS_PER_DEG_AZM * AZM_RATIO_BAND_HIGH)) {
+    activeStepsPerDegAZM = storedAzmRatio;
+    Serial.print("MSG: Loaded learned AZM Ratio: ");
+  } else {
+    activeStepsPerDegAZM = STEPS_PER_DEG_AZM;
+    Serial.print("MSG: Using theoretical AZM Ratio: ");
+    // v15.04-p4: overwrite invalid stored value so DIAG stops showing "nan"
+    EEPROM.put(EEPROM_ADDR_AZM_RATIO, activeStepsPerDegAZM);
+    EEPROM.commit();
+  }
+  Serial.println(activeStepsPerDegAZM);
 
   /* ── Load backlash values (v15.04) — migration-safe ──
      If BACKLASH_MAGIC is invalid (fresh flash, upgrade from v15.03g), keep the
@@ -1834,15 +1816,12 @@ void setup() {
     float bAZM = 0.0f, bALT = 0.0f;
     EEPROM.get(EEPROM_ADDR_AZM_BLC, bAZM);
     EEPROM.get(EEPROM_ADDR_ALT_BLC, bALT);
-    // Guardrails: reject NaN/Inf/negative/out-of-band (v16: use the hardstop
-    // constants — a stored value above the new ALT hardstop is clamped out)
-    if (!isnan(bAZM) && !isinf(bAZM) && bAZM >= 0.0f && bAZM <= BACKLASH_HARDSTOP_AZM_DEG) {
+    // Guardrails: reject NaN/Inf/negative/out-of-band
+    if (!isnan(bAZM) && !isinf(bAZM) && bAZM >= 0.0f && bAZM <= 0.50f) {
       activeBacklashDegAZM = bAZM;
     }
-    if (!isnan(bALT) && !isinf(bALT) && bALT >= 0.0f) {
-      // Migration: a v15 value above the new 0.3° hardstop is CLAMPED, not discarded
-      activeBacklashDegALT = (bALT <= BACKLASH_HARDSTOP_ALT_DEG)
-                             ? bALT : BACKLASH_HARDSTOP_ALT_DEG;
+    if (!isnan(bALT) && !isinf(bALT) && bALT >= 0.0f && bALT <= 1.00f) {
+      activeBacklashDegALT = bALT;
     }
     Serial.print("MSG: Loaded backlash comp — AZM=");
     Serial.print(activeBacklashDegAZM * 60.0f, 2);
@@ -1861,11 +1840,12 @@ void setup() {
   Serial.print("° to "); Serial.print(ALT_LIMIT_POS); Serial.println("°");
   Serial.print("MSG: Global settle "); Serial.print(GLOBAL_SETTLE_MS); Serial.println(" ms");
 
-  /* ── GPIO init (PIN_EN already OUTPUT+HIGH since the top of setup) ── */
+  /* ── GPIO init ── */
+  pinMode(PIN_EN,          OUTPUT);
   pinMode(PIN_DIR_AZM,     OUTPUT); pinMode(PIN_STEP_AZM, OUTPUT);
   pinMode(PIN_DIR_ALT,     OUTPUT); pinMode(PIN_STEP_ALT, OUTPUT);
   pinMode(PIN_HOME_SENSOR, INPUT);  pinMode(PIN_BUTTON_HOME, INPUT);
-  // v16: drivers stay DISABLED until the TMC2209 config below is applied
+  digitalWrite(PIN_EN, LOW);   // Active LOW — enables drivers
 
   /* ── TMC2209 init ── */
   SerialDrivers.begin(115200, SERIAL_8N1, PIN_SERIAL_RX, PIN_SERIAL_TX);
@@ -1892,8 +1872,6 @@ void setup() {
     Serial.print("MSG: TMC2209 ALT UART: 0x"); Serial.print(vAlt, HEX);
     Serial.println(vAlt == 0x21 ? "  OK" : "  *** FAIL — check UART address/wiring ***"); }
 
-  digitalWrite(PIN_EN, LOW);   // v16: enable drivers only now that they are configured
-
   Serial.print("MSG: ALT motor current "); Serial.print(RMS_CURRENT_ALT); Serial.println(" mA");
 
   /* ── Auto-home or restore homing state ── */
@@ -1909,19 +1887,7 @@ void setup() {
     if (savedMagic == HOMING_MAGIC && mpuAvailable) {
       float savedOffset = 0.0f;
       EEPROM.get(EEPROM_ADDR_MPU_OFF, savedOffset);
-
-      /* v16: average ~10 reads instead of trusting a single one — the tare
-         this is compared against is a 50-sample average; one noisy read used
-         to become the absolute ALT reference for the whole session. */
-      float rawAngle = -999.0f;
-      { float sum = 0.0f; int n = 0;
-        for (int i = 0; i < 10; i++) {
-          float r = readMPUAngleY();
-          if (r > -900.0f) { sum += r; n++; }
-          delay(5);
-        }
-        if (n >= 5) rawAngle = sum / (float)n;   // ≥5 valid reads required
-      }
+      float rawAngle = readMPUAngleY();
 
       Serial.print("MSG: EEPROM restore: magic=VALID, offset=");
       Serial.print(savedOffset, 3);
@@ -1982,20 +1948,17 @@ void loop() {
     }
   }
 
-  // Line-buffered serial command reader (lineBuf/lineIdx are file-scope —
-  // shared with scanSerialRealtime so the '?' line-start rule is consistent).
+  // Line-buffered serial command reader
+  // Real-time characters (? ! ~ 0x18) are intercepted above and never reach here.
+  static char    lineBuf[64];
+  static uint8_t lineIdx = 0;
+
   while (Serial.available()) {
     char c = Serial.peek();
-    // v16: '!' '~' 0x18 are realtime ANYWHERE (they never occur inside a
-    // command — a mid-line 0x18 used to be swallowed into the command text).
-    if (c == '!' || c == '~' || c == 0x18) {
-      Serial.read();
-      handleRealtimeChar(c);
-      continue;
-    }
-    // '?' at line start belongs to scanSerialRealtime (status query);
-    // mid-line it is part of a command (BLC?, MPU?).
-    if (lineIdx == 0 && c == '?') break;
+    // v15.04-p4: only intercept realtime chars when they are the FIRST byte
+    // of a new command. Otherwise 'BLC?' etc. would be truncated to 'BLC'
+    // and the '?' would spuriously trigger a GRBL status query.
+    if (lineIdx == 0 && (c == '?' || c == '!' || c == '~' || c == 0x18)) break;
     Serial.read();
     if (c == '\n' || c == '\r') {
       if (lineIdx > 0) {
