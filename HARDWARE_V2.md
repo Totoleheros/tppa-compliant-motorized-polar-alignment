@@ -4,6 +4,8 @@
 >
 > For a proven, ready-to-build starting point, see [`HARDWARE_Prototype.md`](./HARDWARE_Prototype.md).
 > Use `PolarAlign_auto.ino` (unified firmware) and select profile `2` (V2) at first boot.
+>
+> 📌 **Firmware v16.00** — this document is up to date with firmware v16.00. **No hardware, wiring or mechanical change** was introduced by v16: it is a firmware-robustness release (AZM machine learning removed, various fixes). See *What's new in v16.00* in the [README](./README.md). Upgrading from v15.x is a plain reflash with `Erase All Flash Before Upload` **disabled**.
 
 ---
 
@@ -225,11 +227,13 @@ cfg_ALT_LIMIT_NEG      = -2.0f;    // Platform can go 2° below home for correct
 cfg_HOME_TRIGGER_ANGLE = -2.0f;    // Physical home = -2° tilt
 ```
 
-These values are computed once at boot and treated as read-only constants thereafter. The `#define PROFILE_PROTO` at the top of the `.ino` is a compile-time safety guard only — the actual profile is always driven by NVS.
+These values are computed once at boot and treated as read-only constants thereafter. The `#define PROFILE_PROTO` / `#define PROFILE_V2` pair at the top of the `.ino` is a **compile-time safety guard only** — it exists so the build fails if neither or both are defined, and it has no effect on runtime behaviour. The actual profile is always driven by NVS.
 
-> ⚠️ The `ALT_MOTOR_GEARBOX` value of 124 is a terrain-validated starting estimate. The MPU-6500 ML system will converge to the true ratio within 2–3 ALT jogs and save it to EEPROM. The ±20% acceptance band gives the learning system room to work regardless of exact geometry.
+Selection is **line-based since firmware v16.00**: send `2` **followed by Enter**. Only an exact `1` or `2` line is accepted. In v15.x the reader latched on the first `1` or `2` byte of *any* incoming traffic — and `$J=G91G21X…` contains both — so connecting N.I.N.A. or the GUI before choosing could silently select the wrong profile. To re-select later, send `PROFILE:RESET` (implemented in v16.00; documented but missing in v15.x).
 
-> 💡 **GUI users:** In the **Firmware Config tab**, select the **V2 CNC** profile at startup. `TILT_CRANK_RATIO` is pre-set to the correct value. No manual entry needed.
+> ⚠️ The `ALT_MOTOR_GEARBOX` value of 124 is a terrain-validated starting estimate. The MPU-6500 ML system will converge to the true ratio within 2–3 ALT jogs and save it to EEPROM. The ±20% acceptance band gives the learning system room to work regardless of exact geometry. **ALT learning is unaffected by v16.00** — it has a real sensor behind it. Only the *AZM* estimators were removed (see the README's *What's new in v16.00*); AZM backlash compensation is now set once by hand with `BLC:AZM:<deg>`.
+
+> 💡 **GUI users:** In the **Firmware Config tab**, select the **V2 CNC** profile at startup — `TILT_CRANK_RATIO` and the ALT travel limits are pre-set. Note that this tab is a **code generator for reference only**: the running firmware takes its ALT gearbox value from the NVS profile (`cfg_ALT_MOTOR_GEARBOX = 124.0f`, empirically measured on the V2 bielle), *not* from anything the GUI computes. Editing values here changes the generated snippet, never the board.
 
 ---
 
@@ -290,7 +294,7 @@ Electronics are **identical to the Prototype** for all shared components. The se
 | DIR ALT | 32 | MOT-Y |
 | SCL | 18 | SD Card `SCK` |
 | SDA | 19 | SD Card `MISO` |
-| Limit switch | 34 | Z-MIN |
+| Limit switch | 34 | X-MIN |
 | Home button | 35 | Y-MIN |
 
 ### UART Jumper Setup
