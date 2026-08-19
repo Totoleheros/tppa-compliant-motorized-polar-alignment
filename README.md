@@ -86,6 +86,14 @@ The AZM axis has no sensor: both estimators inferred their value from TPPA's own
 
 > ✅ **Upgrading from v15.x is a plain reflash.** Keep `Erase All Flash Before Upload` **disabled** so the NVS profile survives. Your learned ALT ratio and backlash are preserved (an ALT backlash above 0.3° is clamped to 0.3°). The retired AZM ratio slot is simply ignored. **Do set your AZM backlash once** with `BLC:AZM:<deg>` — check the current value with `BLC?`.
 
+### v16.01 → v16.03 — silencing the boot
+
+Three point releases followed the audit, all aimed at one symptom: the first connection from the TPPA plugin failed every time, while the Python GUI connected on the first try. The cause was that opening the COM port reset the ESP32, and the boot text landed in the plugin's read buffer where its status parser tried to parse it.
+
+**v16.01** moved every startup message into the `diagLog` ring buffer and left a single GRBL banner. **v16.02** made the handshake poll-aware and trimmed the startup delay. **v16.03** went the whole way — *machine-first boot*: no banner at all, an early `<Idle|MPos:0.000,0.000,0|>` probe frame about 50 ms after `Serial.begin`, and a real status frame at the end of `setup()`. The controller now emits nothing but valid GRBL frames, ever. See [Machine-first boot](#machine-first-boot-v1603).
+
+The historic `status: M...` parse failure has not reappeared since v16.01. What remains — a first connection attempt that reports `Unable to find` — was traced to the plugin's port-scan path and is not a firmware problem; a terminal on the same port in the same conditions answers `?` instantly. It is documented with its workaround in Step 3 of the field section. **No further firmware iteration is warranted on it.**
+
 ---
 
 ## 🎬 See It In Action
@@ -144,7 +152,7 @@ Send `1` or `2` **followed by Enter** — the selection is line-based since v16.
 
 The board saves the profile to NVS and reboots. It survives all subsequent reflashes, **provided** `Tools → Erase All Flash Before Upload` = **Disabled**.
 
-To change later: `PROFILE:RESET` (implemented since v16.00 — it was documented but missing in v15.x) — To verify: `PROFILEINFO`
+To change later: `PROFILE:RESET` (implemented since v16.00 — it was documented but missing in v15.x) — To verify: `DIAG`, which prints the active profile and every runtime `cfg_` value (`PROFILEINFO` was documented in v15.x but never existed)
 
 ---
 
@@ -201,13 +209,13 @@ Before launching TPPA in full auto mode, **use the GUI to get within ~1° of tru
 **Procedure:**
 1. Connect the GUI, run `HOME`
 2. **Set your EQ mount's latitude to your actual latitude minus ~1°.** This is important: the PA platform has only **−2° of downward ALT correction range** (V2) or 0° (Prototype, which homes at 0°). If your mount is set too high (ALT above your true latitude), TPPA will need to correct downward — and may hit the **mechanical travel limit** before converging. Setting the mount slightly low gives TPPA room to correct in both directions.
-3. **Close the GUI**, then open TPPA in N.I.N.A. Go to **Options → Settings** (back-office) and run the connection test. It will fail the first time — this is a known bug. Run it a second time — it will succeed. Then close the back-office.
+3. **Close the GUI**, then open TPPA in N.I.N.A. Go to **Options → Settings** (back-office) and run the connection test. It fails on the first attempt — a plugin-side issue, documented in Step 3. Run it a second time and it succeeds. Then close the back-office.
 4. Launch TPPA in measurement-only mode (automated adjustments **OFF**): TPPA will plate-solve and display the current AZM and ALT polar error in real time.
 5. **Reconnect the GUI** and use the jog buttons to apply corrections manually — exactly as you would turn the manual adjustment screws on a traditional mount. TPPA updates the error display after each plate-solve.
 6. Iterate until you're within ~1° on both axes.
 7. Close the GUI again, enable automated adjustments in TPPA and launch the full auto session.
 
-> ⚠️ **The GUI and TPPA cannot share the serial port.** Reconnecting the GUI after TPPA triggers a DTR reboot that clears the RAM diagnostic log. Always close TPPA before reconnecting the GUI, and vice versa.
+> ⚠️ **The GUI and TPPA cannot share the serial port.** Always close one before opening the other. On most builds, opening or closing the port toggles DTR and reboots the ESP32, which clears the RAM diagnostic log — a 10 µF capacitor between EN and GND suppresses that reset if it bothers you. Since v16.03 a reboot no longer corrupts the connecting client's read either way: the board is silent at boot.
 
 ---
 
@@ -288,11 +296,15 @@ TPPA's `AutomatedAdjustmentController` is a learning adaptive controller. It bui
 - Keeping GearRatio at 1, so ordinary corrections stay under the firmware's 3′ observe threshold
 - Pre-aligning with the GUI to minimize the initial polar error before starting TPPA (still useful, though direction reversals themselves are no longer the concern they were in v15.03g)
 
-> 🔍 **Debugging "no movement":** If motors don't move during a TPPA auto session, the cause is almost always a plugin setting. Check in order: (1) *Do automated adjustments* = **ON**, (2) back-office connection test passes on second attempt, (3) *Polar Alignment System* = `UPAS`. Note that reconnecting the GUI after a TPPA session triggers a DTR reboot that clears the diagnostic log — `DIAG` will always be empty in this scenario.
+> 🔍 **Debugging "no movement":** If motors don't move during a TPPA auto session, the cause is almost always a plugin setting. Check in order: (1) *Do automated adjustments* = **ON**, (2) the back-office connection test passes on the second attempt, (3) *Polar Alignment System* = `UPAS`. Note that reconnecting the GUI after a TPPA session reboots the board on most builds, which clears the diagnostic log — `DIAG` will show you the boot log, not the session.
 >
 > 🔌 **If one axis alone is dead** — it responds to no command, from TPPA *and* from the GUI, while the other axis moves normally — stop debugging the software and **check that motor's connector first.** A partially unseated 4-pin plug on MOT-Y produces exactly this: the firmware pulses STEP, reports the move as completed, and nothing turns. It cost us an entire field session before we looked at the cable.
 
-> ⚠️ **Known bug — connection test always fails on first attempt.** Before launching a TPPA auto session, go to the plugin back-office (Options → Settings) and run the connection test. It will fail the first time — this is a known, unresolved issue. **Run the test a second time** — it will succeed. Then disconnect from the back-office and launch TPPA from the front-end as normal.
+> ⚠️ **First connection attempt fails — and it is not the controller.** Open the plugin back-office (Options → Settings) and run the connection test. It fails the first time with `Unable to find Avalon Polar Alignment System`; **run it a second time and it succeeds.** In an automated N.I.N.A. sequence, set **`Attempts = 2`** on the polar-alignment connection instruction — the first attempt is a sacrificial connection and the whole thing costs about 4 seconds.
+>
+> This was chased down properly in August 2026 and the verdict is worth recording, because two obvious theories were wrong. Until v16.00 the controller *was* guilty: opening the COM port reset the ESP32, which then printed some twenty lines of boot text into the client's read buffer, and TPPA's status parser choked on them (`Failed to parse Avalon Polar Alignment System status: M...`). That failure mode is gone since v16.01 and the firmware is now fully silent at boot (see [Machine-first boot](#machine-first-boot-v1603)).
+>
+> What remains is a plugin-side scan-path problem, and the decisive evidence is a plain terminal: in the exact scenario that makes the plugin fail — right after the Python GUI has disconnected — opening the port in PuTTY produces no spontaneous output at all, and `?` answers **instantly** with a valid `<Idle|MPos:…|>`. The device is awake and correct while the plugin declares it missing. The failure depends on the line state left by the previous client and repairs itself once the plugin has opened the port once: quit and relaunch N.I.N.A. after a successful plugin session and the first connect works immediately. Reported upstream to the plugin author. **Do not spend firmware iterations on it — we spent three.**
 
 ---
 
@@ -338,13 +350,21 @@ All TPPA commands arrive in arcminutes via the GRBL dialect. The firmware conver
 
 > ⚠️ TPPA Free Field sends absolute G53 commands. Preset buttons and auto-alignment send relative G91.
 
+#### Machine-first boot (v16.03)
+
+**The controller never speaks unless it is asked to — including at boot.** There is no banner, no configuration dump, no `MSG:` chatter on the wire: the only bytes it ever emits spontaneously are valid GRBL status frames. Everything that used to be printed at startup now goes to the `diagLog` ring buffer and is read back on demand with `DIAG`.
+
+Concretely, on power-up or reset the firmware emits a probe frame `<Idle|MPos:0.000,0.000,0|>` about 50 ms after `Serial.begin` — *before* the slow initialisation — so a client that opens the port and immediately polls gets a parseable answer instead of a timeout, and a real status frame at the end of `setup()` once positions are restored. The GRBL banner survives in exactly one place: the response to a `0x18` soft reset, where a client is expecting it.
+
+This is the same rule that produced `diagLog` in v16.00, extended to initialisation. It is worth stating as a design rule rather than a fix, because the bug it closed cost a lot of time: a serial peripheral that volunteers information will eventually volunteer it into somebody's parser.
+
 #### Diagnostics in depth
 
 The firmware maintains a 4 KB RAM diagnostic buffer (`diagLog`) invisible to N.I.N.A. Every ALT jog logs: commanded delta, MPU-measured delta, computed ratio, EWMA update, and EEPROM write decision. Backlash injections, travel-limit clamps and observe-phase timeouts are logged too.
 
 > 🆕 **Since v16.00 `diagLog` is a ring buffer.** In v15.x it filled after roughly 25 jogs and then silently stopped recording, so `DIAG` on a long session showed only the beginning. It now overwrites the oldest entries — `DIAG` always shows the **end** of the session, which is the part you actually want.
 
-Retrieve with `DIAG` from the GUI console. The buffer clears on `RST` or DTR reboot — never reconnect the GUI during a TPPA session.
+Retrieve with `DIAG` from the GUI console. Since v16.01 the buffer also holds the **boot log** — profile, ratios, backlash values, travel limits, TMC2209 UART check, EEPROM/homing restore — which is no longer printed to the port. The buffer clears on `RST`, on `0x18`, and on any reboot, so never reconnect the GUI mid-session: what you will read afterwards is the boot log of the reboot you just caused, not the movement history you were looking for.
 
 ---
 
@@ -352,7 +372,7 @@ Retrieve with `DIAG` from the GUI console. The buffer clears on `RST` or DTR reb
 
 ```
 ├── Arduino code/
-│   ├── PolarAlign_auto.ino          ← ✅ Current unified firmware v16.00 (PROTO + V2)
+│   ├── PolarAlign_auto.ino          ← ✅ Current unified firmware v16.03 (PROTO + V2)
 │   └── archive/                     ← Legacy versions (reference only)
 ├── GUI/
 │   ├── PolarAlignGUI_v16_00.py      ← ✅ Current GUI v16.00 (pairs with firmware v16.00)
