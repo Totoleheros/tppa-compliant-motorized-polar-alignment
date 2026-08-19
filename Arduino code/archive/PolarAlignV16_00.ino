@@ -1,46 +1,6 @@
 /*****************************************************************************************
  * FYSETC-E4 (ESP32 + TMC2209) — POLAR ALIGNMENT CONTROLLER
- * Version : 16.03  (MACHINE-FIRST BOOT — banner removed, early probe frame)
- *
- * ── v16.03 ──────────────────────────────────────────────────────────────────────────
- *   CONTEXT : cold-power test with v16.02 still failed the FIRST TPPA connection.
- *         Root cause confirmed: the CH340 driver pulses DTR on the FIRST port-open
- *         after USB enumeration (not on subsequent opens) -> ESP32 resets during
- *         the plugin's port scan. The scan's '?' is lost while the boot ROM runs,
- *         and the v16.02 banner is then mis-parsed as the status line.
- *   NEW : early probe frame — a syntactically valid GRBL status line is emitted
- *         ~50 ms after Serial.begin(), BEFORE the slow init (NVS/MPU/TMC), so a
- *         scanning client gets a parseable answer well inside its 1000 ms window
- *         even when its port-open reset us. Position reads 0,0 at that instant:
- *         harmless, the scan only pattern-matches the frame.
- *   CHG : the human 'Grbl 1.1h' banner is REMOVED from boot entirely. End of
- *         setup() now emits one real status frame instead (machine-first).
- *         The banner survives only in softReset(), i.e. as the GRBL-standard
- *         answer to a client-requested 0x18 — never spontaneously.
- *   CHG : boot delay 150 ms -> 50 ms.
- *
- * ── v16.02 ──────────────────────────────────────────────────────────────────────────
- *   FIX : version string in printDiagnostic() still said v16.00.
- *   NEW : poll-aware end-of-boot handshake. The RX purge now REMEMBERS whether a
- *         '?' poll arrived while we were booting (plugin port-scan race: it opens,
- *         sends '?', waits ScanReadTimeout=1000 ms). If a machine client was
- *         polling, we answer with a status frame INSTEAD of the human banner —
- *         the banner would otherwise be mistaken for the status line by TPPA's
- *         ReadStatusLine() (leading blank line consumes its one-retry credit,
- *         then "Grbl 1.1h…" fails the parse: same bug class, another letter).
- *   CHG : boot delay 300 ms -> 150 ms, to fit the whole boot inside the plugin's
- *         1000 ms scan window when a DTR reset does occur at port-open.
- *
- * ── v16.01 ──────────────────────────────────────────────────────────────────────────
- *   FIX : first connection from N.I.N.A./TPPA failed systematically while the
- *         standalone GUI worked. Cause: opening the COM port toggles DTR -> ESP32
- *         resets -> ~20 lines of boot chatter (banner + MSG:) landed in the
- *         client's read buffer; TPPA's status parser choked on them
- *         ("Failed to parse ... status: M..."). All boot output now goes to the
- *         diagLog ring buffer (readable on demand via DIAG). The ONLY spontaneous
- *         boot output is the single standard GRBL banner, sent once at the end of
- *         setup() after purging RX — exactly what a real GRBL controller does.
- * ─────────────────────────────────────────────────────────────────────────────────────
+ * Version : 16.00  (post-audit overhaul — AZM learning frozen, robustness fixes)
  *
  * ══════════════════════════════════════════════════════════════════════
  * PROFILE SELECTION — uncomment ONE profile before compiling
@@ -1504,7 +1464,7 @@ void startHoming() {
    Everything that can help debug a field issue is included here.
    ═══════════════════════════════════════════════════════════════════════════════════════ */
 void printDiagnostic() {
-  Serial.print("\n--- SYSTEM DIAGNOSTIC (v16.03) [");
+  Serial.print("\n--- SYSTEM DIAGNOSTIC (v16.00) [");
   Serial.print(cfg_profile_name);
   Serial.println("] ---");
 
@@ -1823,15 +1783,7 @@ void processCommand(const char* line) {
    ═══════════════════════════════════════════════════════════════════════════════════════ */
 void setup() {
   Serial.begin(115200);
-  delay(50);   // v16.03: minimal settle before the early probe frame below.
-
-  /* v16.03 EARLY PROBE FRAME — beat the plugin's 1000 ms scan window even when
-     the DTR pulse of the first port-open (CH340 driver, first open after USB
-     enumeration) resets us mid-scan. The '?' the scanner sent is lost while the
-     boot ROM runs, so we answer UNPROMPTED with one syntactically valid GRBL
-     status line. Position is not restored yet — 0,0 is fine, the scan only
-     pattern-matches. Real positions follow once loop() services '?' polls. */
-  Serial.println("<Idle|MPos:0.000,0.000,0|>");
+  delay(300);  // short — ESP32 must answer within TPPA's connection timeout (~1-1.5s)
 
   // v16: hold the stepper drivers DISABLED before anything that can block
   // (profile menu). Previously PIN_EN floated until GPIO init further down.
@@ -1842,15 +1794,16 @@ void setup() {
   // On first boot after flash: blocks until user sends "1" or "2" + Enter.
   loadOrSelectProfile();
 
-  /* v16.01 QUIET BOOT — everything below goes to the diagLog ring buffer
-     (DIAG command), never spontaneously to Serial. See header changelog. */
+  Serial.println("\n=======================================================");
+  Serial.print("  BOOT: V16.00 ["); Serial.print(cfg_profile_name); Serial.println("] (ESP32)");
+  Serial.print("  Profile: "); Serial.print(cfg_profile_name);
+  Serial.print("  ALT_GEARBOX="); Serial.print(cfg_ALT_MOTOR_GEARBOX,1);
+  Serial.print("  AXIS_REV_ALT="); Serial.println(cfg_AXIS_REV_ALT ? "true":"false");
+  Serial.println("  AZM: fixed ratio, manual BLC  TPPA: ARCMINUTES  HOME required");
+  Serial.println("=======================================================\n");
+
   initMPU_Silent();
-  diagClear();                          // ring buffer ready BEFORE first diagPrintf
-  diagPrintf("BOOT: V16.03 [%s] (ESP32)\n", cfg_profile_name);
-  diagPrintf("Profile: %s  ALT_GEARBOX=%.1f  AXIS_REV_ALT=%s\n",
-             cfg_profile_name, (double)cfg_ALT_MOTOR_GEARBOX,
-             cfg_AXIS_REV_ALT ? "true" : "false");
-  diagPrintf("AZM: fixed ratio, manual BLC  TPPA: ARCMINUTES  HOME required\n");
+  diagClear();
 
   EEPROM.begin(EEPROM_SIZE);
 
@@ -1861,14 +1814,16 @@ void setup() {
       storedRatio > (STEPS_PER_DEG_ALT * RATIO_BAND_LOW) &&
       storedRatio < (STEPS_PER_DEG_ALT * RATIO_BAND_HIGH)) {
     activeStepsPerDegALT = storedRatio;
-    diagPrintf("MSG: Loaded learned ALT Ratio: %.2f\n", (double)activeStepsPerDegALT);
+    Serial.print("MSG: Loaded learned ALT Ratio: ");
   } else {
     activeStepsPerDegALT = STEPS_PER_DEG_ALT;  // explicit guarantee
-    diagPrintf("MSG: Using theoretical ALT Ratio: %.2f\n", (double)activeStepsPerDegALT);
+    Serial.print("MSG: Using theoretical ALT Ratio: ");
   }
+  Serial.println(activeStepsPerDegALT);
 
   /* ── AZM ratio: fixed (v16) — EEPROM slot 12 retired, nothing to load ── */
-  diagPrintf("MSG: AZM Ratio fixed at theoretical: %.2f\n", (double)STEPS_PER_DEG_AZM);
+  Serial.print("MSG: AZM Ratio fixed at theoretical: ");
+  Serial.println(STEPS_PER_DEG_AZM);
 
   /* ── Load backlash values (v15.04) — migration-safe ──
      If BACKLASH_MAGIC is invalid (fresh flash, upgrade from v15.03g), keep the
@@ -1889,20 +1844,22 @@ void setup() {
       activeBacklashDegALT = (bALT <= BACKLASH_HARDSTOP_ALT_DEG)
                              ? bALT : BACKLASH_HARDSTOP_ALT_DEG;
     }
-    diagPrintf("MSG: Loaded backlash comp — AZM=%.2f' ALT=%.2f'\n",
-               (double)(activeBacklashDegAZM * 60.0f),
-               (double)(activeBacklashDegALT * 60.0f));
+    Serial.print("MSG: Loaded backlash comp — AZM=");
+    Serial.print(activeBacklashDegAZM * 60.0f, 2);
+    Serial.print("' ALT="); Serial.print(activeBacklashDegALT * 60.0f, 2);
+    Serial.println("'");
   } else {
-    diagPrintf("MSG: Backlash defaults from profile — AZM=%.2f' ALT=%.2f'\n",
-               (double)(activeBacklashDegAZM * 60.0f),
-               (double)(activeBacklashDegALT * 60.0f));
+    Serial.print("MSG: Backlash defaults from profile — AZM=");
+    Serial.print(activeBacklashDegAZM * 60.0f, 2);
+    Serial.print("' ALT="); Serial.print(activeBacklashDegALT * 60.0f, 2);
+    Serial.println("'");
   }
 
-  diagPrintf("MSG: AZM limits %.1f° to %.1f°\n",
-             (double)AZM_LIMIT_NEG, (double)AZM_LIMIT_POS);
-  diagPrintf("MSG: ALT limits %.1f° to %.1f°\n",
-             (double)cfg_ALT_LIMIT_NEG, (double)ALT_LIMIT_POS);
-  diagPrintf("MSG: Global settle %d ms\n", (int)GLOBAL_SETTLE_MS);
+  Serial.print("MSG: AZM limits "); Serial.print(AZM_LIMIT_NEG);
+  Serial.print("° to "); Serial.print(AZM_LIMIT_POS); Serial.println("°");
+  Serial.print("MSG: ALT limits "); Serial.print(cfg_ALT_LIMIT_NEG);
+  Serial.print("° to "); Serial.print(ALT_LIMIT_POS); Serial.println("°");
+  Serial.print("MSG: Global settle "); Serial.print(GLOBAL_SETTLE_MS); Serial.println(" ms");
 
   /* ── GPIO init (PIN_EN already OUTPUT+HIGH since the top of setup) ── */
   pinMode(PIN_DIR_AZM,     OUTPUT); pinMode(PIN_STEP_AZM, OUTPUT);
@@ -1930,19 +1887,19 @@ void setup() {
 
   // FIX: UART health check — 0x21 = TMC2209 OK
   { uint8_t vAzm = drvAzm.version(); uint8_t vAlt = drvAlt.version();
-    diagPrintf("MSG: TMC2209 AZM UART: 0x%02X%s\n", (unsigned)vAzm,
-               vAzm == 0x21 ? "  OK" : "  *** FAIL — check UART address/wiring ***");
-    diagPrintf("MSG: TMC2209 ALT UART: 0x%02X%s\n", (unsigned)vAlt,
-               vAlt == 0x21 ? "  OK" : "  *** FAIL — check UART address/wiring ***"); }
+    Serial.print("MSG: TMC2209 AZM UART: 0x"); Serial.print(vAzm, HEX);
+    Serial.println(vAzm == 0x21 ? "  OK" : "  *** FAIL — check UART address/wiring ***");
+    Serial.print("MSG: TMC2209 ALT UART: 0x"); Serial.print(vAlt, HEX);
+    Serial.println(vAlt == 0x21 ? "  OK" : "  *** FAIL — check UART address/wiring ***"); }
 
   digitalWrite(PIN_EN, LOW);   // v16: enable drivers only now that they are configured
 
-  diagPrintf("MSG: ALT motor current %d mA\n", (int)RMS_CURRENT_ALT);
+  Serial.print("MSG: ALT motor current "); Serial.print(RMS_CURRENT_ALT); Serial.println(" mA");
 
   /* ── Auto-home or restore homing state ── */
   if (digitalRead(PIN_HOME_SENSOR) == LOW) {
     // Limit switch already pressed at boot — auto-recover
-    diagPrintf("MSG: Sensor triggered at boot — AUTO-HOMING\n");
+    Serial.println("MSG: Sensor triggered at boot — AUTO-HOMING");
     startHoming();
   } else {
     // Try to restore from EEPROM (survives DTR reboot)
@@ -1966,19 +1923,19 @@ void setup() {
         if (n >= 5) rawAngle = sum / (float)n;   // ≥5 valid reads required
       }
 
-      diagPrintf("MSG: EEPROM restore: magic=VALID, offset=%.3f, rawMPU=%.3f",
-                 (double)savedOffset, (double)rawAngle);
+      Serial.print("MSG: EEPROM restore: magic=VALID, offset=");
+      Serial.print(savedOffset, 3);
+      Serial.print(", rawMPU="); Serial.print(rawAngle, 3);
 
       if (isnan(savedOffset)) {
-        diagPrintf(" -> FAIL: offset is NaN. HOME required.\n");
+        Serial.println(" -> FAIL: offset is NaN. HOME required.");
       } else if (rawAngle <= -900.0f) {
-        diagPrintf(" -> FAIL: MPU read error. HOME required.\n");
+        Serial.println(" -> FAIL: MPU read error. HOME required.");
       } else {
         float restoredALT = rawAngle - savedOffset;
-        diagPrintf(", restoredALT=%.3f (limits: %.1f to %.1f)\n",
-                   (double)restoredALT,
-                   (double)(cfg_ALT_LIMIT_NEG - 0.5f),
-                   (double)(ALT_LIMIT_POS + 0.5f));
+        Serial.print(", restoredALT="); Serial.print(restoredALT, 3);
+        Serial.print(" (limits: "); Serial.print(cfg_ALT_LIMIT_NEG - 0.5f, 1);
+        Serial.print(" to "); Serial.print(ALT_LIMIT_POS + 0.5f, 1); Serial.println(")");
 
         if (restoredALT >= (cfg_ALT_LIMIT_NEG - 0.5f) &&
             restoredALT <= (ALT_LIMIT_POS + 0.5f)) {
@@ -1986,29 +1943,19 @@ void setup() {
           posDegALT      = restoredALT;
           targetAltAngle = restoredALT;
           homingDone     = true;
-          diagPrintf("MSG: *** HOMING STATE RESTORED *** — TPPA jogs enabled.\n");
+          Serial.println("MSG: *** HOMING STATE RESTORED *** — TPPA jogs enabled.");
         } else {
-          diagPrintf("MSG: *** EEPROM ALT OUT OF RANGE *** — HOME required.\n");
+          Serial.println("MSG: *** EEPROM ALT OUT OF RANGE *** — HOME required.");
         }
       }
     } else {
-      diagPrintf("MSG: EEPROM restore: magic=%s, MPU=%s\n",
-                 savedMagic == HOMING_MAGIC ? "VALID" : "INVALID",
-                 mpuAvailable ? "OK" : "MISSING");
-      diagPrintf("MSG: *** HOMING REQUIRED *** — send HOME or press button.\n");
+      Serial.print("MSG: EEPROM restore: magic=");
+      Serial.print(savedMagic == HOMING_MAGIC ? "VALID" : "INVALID");
+      Serial.print(", MPU="); Serial.println(mpuAvailable ? "OK" : "MISSING");
+      Serial.println("MSG: *** HOMING REQUIRED *** — send HOME or press button.");
     }
   }
-  diagPrintf("MSG: boot complete\n");
-
-  /* v16.03 MACHINE-FIRST END OF BOOT — purge whatever arrived on RX during
-     boot, then emit exactly ONE real status frame (now with restored
-     positions). No banner, ever, at boot: any listening client — TPPA scan,
-     N.I.N.A. polling across our reboot, the GUI, a human terminal — receives
-     something parseable. The 'Grbl 1.1h' banner remains only in softReset(),
-     as the GRBL-standard response to a client-requested 0x18. */
-  { while (Serial.available()) { Serial.read(); }
-    sendStatus(); Serial.println();
-  }
+  Serial.println("-------------------------------------------------------\n");
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════════════════
