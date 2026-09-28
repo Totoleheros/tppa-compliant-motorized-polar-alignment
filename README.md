@@ -86,8 +86,6 @@ The AZM axis has no sensor: both estimators inferred their value from TPPA's own
 
 > ✅ **Upgrading from v15.x is a plain reflash.** Keep `Erase All Flash Before Upload` **disabled** so the NVS profile survives. Your learned ALT ratio and backlash are preserved (an ALT backlash above 0.3° is clamped to 0.3°). The retired AZM ratio slot is simply ignored. **Do set your AZM backlash once** with `BLC:AZM:<deg>` — check the current value with `BLC?`.
 
-<<<<<<< Updated upstream
-=======
 ### v16.01 → v16.03 — silencing the boot
 
 Three point releases followed the audit, all aimed at one symptom: the first connection from the TPPA plugin failed every time, while the Python GUI connected on the first try. The cause was that opening the COM port reset the ESP32, and the boot text landed in the plugin's read buffer where its status parser tried to parse it.
@@ -96,7 +94,6 @@ Three point releases followed the audit, all aimed at one symptom: the first con
 
 The historic `status: M...` parse failure has not reappeared since v16.01. What remains — a first connection attempt that reports `Unable to find` — was traced to the plugin's port-scan path and is not a firmware problem; a terminal on the same port in the same conditions answers `?` instantly. It is documented with its workaround in Step 3 of the field section. **No further firmware iteration is warranted on it.**
 
->>>>>>> Stashed changes
 ---
 
 ## 🎬 See It In Action
@@ -155,11 +152,7 @@ Send `1` or `2` **followed by Enter** — the selection is line-based since v16.
 
 The board saves the profile to NVS and reboots. It survives all subsequent reflashes, **provided** `Tools → Erase All Flash Before Upload` = **Disabled**.
 
-<<<<<<< Updated upstream
-To change later: `PROFILE:RESET` (implemented since v16.00 — it was documented but missing in v15.x) — To verify: `PROFILEINFO`
-=======
 To change later: `PROFILE:RESET` (implemented since v16.00 — it was documented but missing in v15.x) — To verify: `DIAG`, which prints the active profile and every runtime `cfg_` value (`PROFILEINFO` was documented in v15.x but never existed)
->>>>>>> Stashed changes
 
 ---
 
@@ -303,11 +296,7 @@ TPPA's `AutomatedAdjustmentController` is a learning adaptive controller. It bui
 - Keeping GearRatio at 1, so ordinary corrections stay under the firmware's 3′ observe threshold
 - Pre-aligning with the GUI to minimize the initial polar error before starting TPPA (still useful, though direction reversals themselves are no longer the concern they were in v15.03g)
 
-<<<<<<< Updated upstream
-> 🔍 **Debugging "no movement":** If motors don't move during a TPPA auto session, the cause is almost always a plugin setting. Check in order: (1) *Do automated adjustments* = **ON**, (2) back-office connection test passes on second attempt, (3) *Polar Alignment System* = `UPAS`. Note that reconnecting the GUI after a TPPA session triggers a DTR reboot that clears the diagnostic log — `DIAG` will always be empty in this scenario.
-=======
 > 🔍 **Debugging "no movement":** If motors don't move during a TPPA auto session, the cause is almost always a plugin setting. Check in order: (1) *Do automated adjustments* = **ON**, (2) the back-office connection test passes on the second attempt, (3) *Polar Alignment System* = `UPAS`. Note that reconnecting the GUI after a TPPA session reboots the board on most builds, which clears the diagnostic log — `DIAG` will show you the boot log, not the session.
->>>>>>> Stashed changes
 >
 > 🔌 **If one axis alone is dead** — it responds to no command, from TPPA *and* from the GUI, while the other axis moves normally — stop debugging the software and **check that motor's connector first.** A partially unseated 4-pin plug on MOT-Y produces exactly this: the firmware pulses STEP, reports the move as completed, and nothing turns. It cost us an entire field session before we looked at the cable.
 
@@ -372,11 +361,6 @@ This is the same rule that produced `diagLog` in v16.00, extended to initialisat
 #### Diagnostics in depth
 
 The firmware maintains a 4 KB RAM diagnostic buffer (`diagLog`) invisible to N.I.N.A. Every ALT jog logs: commanded delta, MPU-measured delta, computed ratio, EWMA update, and EEPROM write decision. Backlash injections, travel-limit clamps and observe-phase timeouts are logged too.
-<<<<<<< Updated upstream
-
-> 🆕 **Since v16.00 `diagLog` is a ring buffer.** In v15.x it filled after roughly 25 jogs and then silently stopped recording, so `DIAG` on a long session showed only the beginning. It now overwrites the oldest entries — `DIAG` always shows the **end** of the session, which is the part you actually want.
-=======
->>>>>>> Stashed changes
 
 > 🆕 **Since v16.00 `diagLog` is a ring buffer.** In v15.x it filled after roughly 25 jogs and then silently stopped recording, so `DIAG` on a long session showed only the beginning. It now overwrites the oldest entries — `DIAG` always shows the **end** of the session, which is the part you actually want.
 
@@ -388,11 +372,7 @@ Retrieve with `DIAG` from the GUI console. Since v16.01 the buffer also holds th
 
 ```
 ├── Arduino code/
-<<<<<<< Updated upstream
-│   ├── PolarAlign_auto.ino          ← ✅ Current unified firmware v16.00 (PROTO + V2)
-=======
 │   ├── PolarAlign_auto.ino          ← ✅ Current unified firmware v16.03 (PROTO + V2)
->>>>>>> Stashed changes
 │   └── archive/                     ← Legacy versions (reference only)
 ├── GUI/
 │   ├── PolarAlignGUI_v16_00.py      ← ✅ Current GUI v16.00 (pairs with firmware v16.00)
