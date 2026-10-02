@@ -156,6 +156,32 @@ To change later: `PROFILE:RESET` (implemented since v16.00 — it was documented
 
 ---
 
+### 🔌 Serial Wiring — Direct UART (recommended)
+
+The E4's native USB passes through a CH340 whose auto-reset circuit (DTR/RTS → transistors → EN/IO0) reboots the ESP32 every time a program opens the COM port. That reboot is why the TPPA connection test historically failed on the first attempt, and why the RAM diagnostic log never survived a GUI reconnect. A 10 µF capacitor on the EXT-RST header does **not** fix it: EXT-RST sits behind a 1 kΩ series resistor (R21), so the capacitor never actually loads the EN net.
+
+The clean fix is to bypass the CH340 entirely: a **3.3 V USB-serial adapter** (CP2102/FT232 — e.g. DSD TECH SH-U09BL, whose individual female Dupont connectors plug straight onto the board) wired to the UART header: the **"TXD RXD GND 5V"** column of the 3×4 pin block next to the ESP32 module. This path reaches UART0 directly and has **no connection to EN/IO0**: opening the port physically cannot reboot the board.
+
+**Wiring** — pin numbering: rows top→bottom, columns left→right (pins 1–12); factory jumpers sit on 7-8 and 10-11, so **pins 9 and 12 are the free pins right of the jumpers**:
+
+| Adapter wire | Board pin | Signal |
+|---|:---:|---|
+| TXD | **9** | RXD0 |
+| RXD | **12** | TXD0 |
+| GND | **6** | GND |
+| VCC | — | **never connected** (board is self-powered) |
+
+Windows enumerates the adapter as a second COM port (Silicon Labs CP210x driver for the SH-U09BL). Use that port for everything — GUI and TPPA. The native USB keeps exactly one job: **flashing**.
+
+Two hard rules:
+
+- **Before flashing over native USB, physically unplug the adapter wire from pin 9.** The adapter drives RXD0 directly while the CH340 sits behind a 1 kΩ series resistor (R35): plugged in — powered or not — the adapter always wins the line and esptool cannot sync. The reverse is harmless: the adapter works whether the native USB is connected or not.
+- **One port open at a time** (GUI or TPPA, never both), as before.
+
+How to tell it works: connecting the GUI over the adapter shows **no boot log at all** — no reboot happened. The TPPA connection test passes on the **first** attempt, and `DIAG` after a TPPA session shows the session history instead of a boot log.
+
+---
+
 ### The GUI
 
 `GUI/PolarAlignGUI_v16_00.py` controls the mount without N.I.N.A. — essential for bench testing, pre-alignment, and diagnostics.
@@ -209,13 +235,13 @@ Before launching TPPA in full auto mode, **use the GUI to get within ~1° of tru
 **Procedure:**
 1. Connect the GUI, run `HOME`
 2. **Set your EQ mount's latitude to your actual latitude minus ~1°.** This is important: the PA platform has only **−2° of downward ALT correction range** (V2) or 0° (Prototype, which homes at 0°). If your mount is set too high (ALT above your true latitude), TPPA will need to correct downward — and may hit the **mechanical travel limit** before converging. Setting the mount slightly low gives TPPA room to correct in both directions.
-3. **Close the GUI**, then open TPPA in N.I.N.A. Go to **Options → Settings** (back-office) and run the connection test. It fails on the first attempt — a plugin-side issue, documented in Step 3. Run it a second time and it succeeds. Then close the back-office.
+3. **Close the GUI**, then open TPPA in N.I.N.A. Go to **Options → Settings** (back-office) and run the connection test. Over the direct-UART adapter (see *Serial Wiring*) it succeeds on the **first** attempt. Native USB only: the DTR reboot makes the first attempt fail — run it twice (explained in Step 3). Then close the back-office.
 4. Launch TPPA in measurement-only mode (automated adjustments **OFF**): TPPA will plate-solve and display the current AZM and ALT polar error in real time.
 5. **Reconnect the GUI** and use the jog buttons to apply corrections manually — exactly as you would turn the manual adjustment screws on a traditional mount. TPPA updates the error display after each plate-solve.
 6. Iterate until you're within ~1° on both axes.
 7. Close the GUI again, enable automated adjustments in TPPA and launch the full auto session.
 
-> ⚠️ **The GUI and TPPA cannot share the serial port.** Always close one before opening the other. On most builds, opening or closing the port toggles DTR and reboots the ESP32, which clears the RAM diagnostic log — a 10 µF capacitor between EN and GND suppresses that reset if it bothers you. Since v16.03 a reboot no longer corrupts the connecting client's read either way: the board is silent at boot.
+> ⚠️ **The GUI and TPPA cannot share the serial port.** Always close one before opening the other. Over native USB, opening or closing the port toggles DTR and reboots the ESP32, which clears the RAM diagnostic log — the direct-UART adapter (see *Serial Wiring*) removes that reset entirely. (The 10 µF capacitor this README used to suggest does **not** work: EXT-RST is behind a 1 kΩ resistor.) Since v16.03 a reboot no longer corrupts the connecting client's read either way: the board is silent at boot.
 
 ---
 
@@ -296,11 +322,11 @@ TPPA's `AutomatedAdjustmentController` is a learning adaptive controller. It bui
 - Keeping GearRatio at 1, so ordinary corrections stay under the firmware's 3′ observe threshold
 - Pre-aligning with the GUI to minimize the initial polar error before starting TPPA (still useful, though direction reversals themselves are no longer the concern they were in v15.03g)
 
-> 🔍 **Debugging "no movement":** If motors don't move during a TPPA auto session, the cause is almost always a plugin setting. Check in order: (1) *Do automated adjustments* = **ON**, (2) the back-office connection test passes on the second attempt, (3) *Polar Alignment System* = `UPAS`. Note that reconnecting the GUI after a TPPA session reboots the board on most builds, which clears the diagnostic log — `DIAG` will show you the boot log, not the session.
+> 🔍 **Debugging "no movement":** If motors don't move during a TPPA auto session, the cause is almost always a plugin setting. Check in order: (1) *Do automated adjustments* = **ON**, (2) the back-office connection test passes (first attempt over direct UART, second attempt over native USB), (3) *Polar Alignment System* = `UPAS`. Note that over native USB, reconnecting the GUI after a TPPA session reboots the board and clears the diagnostic log; over the direct-UART adapter the session log survives.
 >
 > 🔌 **If one axis alone is dead** — it responds to no command, from TPPA *and* from the GUI, while the other axis moves normally — stop debugging the software and **check that motor's connector first.** A partially unseated 4-pin plug on MOT-Y produces exactly this: the firmware pulses STEP, reports the move as completed, and nothing turns. It cost us an entire field session before we looked at the cable.
 
-> ⚠️ **First connection attempt fails — and it is not the controller.** Open the plugin back-office (Options → Settings) and run the connection test. It fails the first time with `Unable to find Avalon Polar Alignment System`; **run it a second time and it succeeds.** In an automated N.I.N.A. sequence, set **`Attempts = 2`** on the polar-alignment connection instruction — the first attempt is a sacrificial connection and the whole thing costs about 4 seconds.
+> ⚠️ **First connection attempt fails on native USB — and it is not the controller.** Opening the port toggles DTR, the CH340's auto-reset circuit reboots the ESP32, and the plugin's test reads exactly two lines — the ROM bootloader's messages, not the status reply (the `?` sent ~10 ms after open is lost during the reset). Second attempt: no reset, instant success. The cause is in the board's USB hardware, so no firmware can fix it. Two remedies: wire the **direct-UART adapter** (see *Serial Wiring* — no reset, first attempt passes, `Attempts = 1`), or stay on native USB and set **`Attempts = 2`** on the polar-alignment connection instruction in automated sequences — the first attempt is sacrificial and costs about 4 seconds.
 >
 > This was chased down properly in August 2026 and the verdict is worth recording, because two obvious theories were wrong. Until v16.00 the controller *was* guilty: opening the COM port reset the ESP32, which then printed some twenty lines of boot text into the client's read buffer, and TPPA's status parser choked on them (`Failed to parse Avalon Polar Alignment System status: M...`). That failure mode is gone since v16.01 and the firmware is now fully silent at boot (see [Machine-first boot](#machine-first-boot-v1603)).
 >
@@ -364,7 +390,7 @@ The firmware maintains a 4 KB RAM diagnostic buffer (`diagLog`) invisible to N.I
 
 > 🆕 **Since v16.00 `diagLog` is a ring buffer.** In v15.x it filled after roughly 25 jogs and then silently stopped recording, so `DIAG` on a long session showed only the beginning. It now overwrites the oldest entries — `DIAG` always shows the **end** of the session, which is the part you actually want.
 
-Retrieve with `DIAG` from the GUI console. Since v16.01 the buffer also holds the **boot log** — profile, ratios, backlash values, travel limits, TMC2209 UART check, EEPROM/homing restore — which is no longer printed to the port. The buffer clears on `RST`, on `0x18`, and on any reboot, so never reconnect the GUI mid-session: what you will read afterwards is the boot log of the reboot you just caused, not the movement history you were looking for.
+Retrieve with `DIAG` from the GUI console. Since v16.01 the buffer also holds the **boot log** — profile, ratios, backlash values, travel limits, TMC2209 UART check, EEPROM/homing restore — which is no longer printed to the port. The buffer clears on `RST`, on `0x18`, and on any reboot. Over native USB every reconnect is a reboot, so a post-session `DIAG` shows the boot log of the reboot you just caused; over the direct-UART adapter (see *Serial Wiring*) no reconnect reboots the board and the session history survives.
 
 ---
 
