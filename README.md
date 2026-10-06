@@ -58,7 +58,13 @@ Most motorized polar alignment projects stop at "move a motor when TPPA says so.
 
 ---
 
-## 🆕 What's new in v16.00
+## 🆕 What's new
+
+### GUI v17 — AUTO ALIGN: the alignment runs itself
+
+The headline since v16: the GUI now closes the TPPA correction loop on its own. TPPA measures (manual mode, no serial conflict), the GUI reads the error from the N.I.N.A. log in real time and drives the platform: sign/gain auto-calibration (then remembered across sessions), both axes corrected per cycle with per-axis adaptive caps, two-leg anti-backlash moves near the pole, and divergence/efficiency guards that abort rather than wander off. Field results on a 32 kg rig: **convergence in under 2 minutes, final error 0.1–0.5′**, and overnight PHD2 logs showing Dec drift at the noise floor (±0.01–0.03″/min across 3+ hours of guiding). Full guide in *Step 3, Mode A*. The window layout was also compacted (1080×560) so GUI and N.I.N.A. fit side by side.
+
+### Firmware v16.00 — audited and hardened
 
 v16.00 is the outcome of a **full critical audit of v15.04-p5** (four independent review passes over the whole firmware). It is field-validated on the Prototype. Nothing in the protocol, the wiring or the mechanics changed — the changes are all firmware-internal robustness, plus the removal of one subsystem that turned out to be measuring noise.
 
