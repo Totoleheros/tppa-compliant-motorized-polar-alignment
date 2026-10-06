@@ -303,6 +303,25 @@ To enable TMC2209 communication, place **2 jumper caps** on the TXD/RXD header. 
 
 > Driver addressing: AZM (Driver X) = Address 1 / ALT (Driver Y) = Address 2.
 
+### 🔌 Direct UART Serial Cable (TPPA/GUI port)
+
+The same 3×4 pin block carries the ESP32's UART0 on its right-hand column (silkscreen **TXD RXD GND 5V**). A 3.3 V USB-serial cable wired there bypasses the CH340 and its DTR auto-reset circuit entirely — this is the recommended session port for the GUI and TPPA (first-attempt connection test, persistent diagnostic log). Full rationale and rules in the [README, *Serial Wiring — Direct UART*](./README.md#-serial-wiring--direct-uart-recommended).
+
+**Cable used and validated:** DSD TECH **SH-U09BL** (CP2102N, 3.3 V signal levels, individually-labelled female Dupont connectors — they plug straight onto the board's male pins, no soldering). Note: the Amazon listing says USB Type-C, but the actual cable is **USB-A** on the PC side. Driver: Silicon Labs CP210x (install manually if Windows does not auto-detect).
+
+**Wiring** — pin numbering: rows top→bottom, columns left→right (1–12). The factory TMC jumpers sit on 7-8 and 10-11, so **pins 9 and 12 are the free pins right of the jumpers**:
+
+| Cable wire | Board pin | Signal |
+|:----------:|:---------:|--------|
+| TXD | **9** | RXD0 |
+| RXD | **12** | TXD0 |
+| GND | **6** | GND |
+| VCC, RTS, CTS | — | **not connected** (board is self-powered) |
+
+> ⚠️ **Before any firmware flash over the native USB, unplug the cable wire from pin 9.** The CP2102 drives RXD0 directly and always overrides the CH340 (which sits behind a 1 kΩ series resistor), powered or not — esptool cannot sync while it is plugged in. The reverse is harmless: the cable works whether the native USB is connected or not.
+
+> 💡 A bare CP2102 module with a female USB socket is electrically identical and suits a panel-mount install, if you prefer a detachable external cable.
+
 ### MPU-6500 I2C Wiring (via SD Card Sniffer)
 
 Insert the TF/microSD sniffer board into the FYSETC E4's SD card slot, then wire the MPU-6500:
@@ -314,7 +333,7 @@ Insert the TF/microSD sniffer board into the FYSETC E4's SD card slot, then wire
 | 🔵 Blue | SCL | SCK | GPIO 18 | |
 | 🟢 Green | SDA | MISO | GPIO 19 | |
 
-> ⚠️ Keep I2C wires away from stepper motor cables to prevent EMI. The firmware detects I2C failures and reports them via `DIAG`.
+> ⚠️ **Route the I2C wires physically apart from the stepper motor cables — never in a shared bundle.** Field-verified failure mode: with the MPU wires bundled alongside the ALT motor cable, the TMC2209's switching edges couple into the unshielded I2C lines and corrupt frames **while the ALT motor is moving** — transient `MPU:ERR` and absurd readings (+50° to +85° on a platform that physically stays between −2° and +10°). Those readings can poison the ALT auto-learning despite the firmware's sanity guards. Separating the bundles fixes it completely; twisting SDA with GND and SCL with VCC adds further margin. The homing/limit-switch cable may stay with the motor wires — it is a binary contact, immune to this noise. The firmware detects I2C failures and reports them via `DIAG`.
 
 ---
 

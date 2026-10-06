@@ -184,7 +184,7 @@ How to tell it works: connecting the GUI over the adapter shows **no boot log at
 
 ### The GUI
 
-`GUI/PolarAlignGUI_v16_00.py` controls the mount without N.I.N.A. — essential for bench testing, pre-alignment, and diagnostics.
+`GUI/PolarAlignGUI_v17.py` controls the mount without N.I.N.A. — essential for bench testing, pre-alignment, and diagnostics — and, since v17, can run the whole polar alignment on its own through the **AUTO ALIGN** module (see Step 3).
 
 <p align="center">
   <img src="IMAGES/GUI/SelectHardware.jpg" alt="Profile selector at startup" width="45%"/>
@@ -196,19 +196,19 @@ How to tell it works: connecting the GUI over the adapter shows **no boot log at
 **Run from source (Windows / macOS / Linux):**
 ```bash
 pip3 install pyserial
-python3 GUI/PolarAlignGUI_v16_00.py
+python3 GUI/PolarAlignGUI_v17.py
 ```
 > No pre-built executable. Python 3.8+ and pyserial are the only dependencies.
 
-**Key panels:**
-- **Jog controls** — AZM (West/East) and ALT (Up/Down) from ±1° down to ±10″, color-coded per axis (AZM blue, ALT orange)
-- **Absolute positioning** — Go to any angle directly
-- **Live position + Learning Monitor** — real-time AZM/ALT position, MPU error, learned ALT ratio (all in the top status bar). The AZM ratio/backlash learning readouts were removed in v16.00 along with the firmware subsystem behind them.
-- **AZM backlash panel** *(new in v16.00)* — shows the firmware's current AZM compensation, with an arcmin entry + **Set** button (sends `BLC:AZM:<deg>`) and a refresh (sends `BLC?`). The GUI queries `BLC?` automatically ~1 s after connecting.
-- **System commands** — HOME, DIAG, RST, AZM:ZERO in one click
-- **Raw serial console** — send any command, see full log
+**Key panels (v17 compact layout — fits beside N.I.N.A. in a 1080×560 window):**
+- **AUTO ALIGN** *(new in v17)* — closes the TPPA correction loop automatically; the recommended way to align (full description in Step 3)
+- **Jog controls** — AZM (West/East) and ALT (Up/Down) from ±1° down to ±10″, color-coded per axis (AZM blue, ALT orange), staggered rows to keep the window narrow
+- **Absolute positioning** — Go to any angle directly (entry on each axis' title row)
+- **Live status bar** — real-time AZM/ALT position and MPU angle, hardware profile badge
+- **System commands** — HOME, DIAG, RST, AZM:ZERO, on the connection row
+- **Raw serial console** — send any command, see full log. AZM backlash compensation is set from here (`BLC:AZM:<arcmin in deg>`, `BLC?` to read); the dedicated panel of v16 was removed in the v17 compaction
 - **Firmware Config tab** — edit hardware constants and generate ready-to-paste Arduino code
-- **Last COM port remembered** between sessions (`~/.polaralign_gui.json`)
+- **Settings remembered** between sessions (`~/.polaralign_gui.json`): COM port, NINA log folder, AUTO ALIGN tolerance/cap/gain, learned axis gains
 
 ---
 
@@ -235,7 +235,7 @@ Before launching TPPA in full auto mode, **use the GUI to get within ~1° of tru
 **Procedure:**
 1. Connect the GUI, run `HOME`
 2. **Set your EQ mount's latitude to your actual latitude minus ~1°.** This is important: the PA platform has only **−2° of downward ALT correction range** (V2) or 0° (Prototype, which homes at 0°). If your mount is set too high (ALT above your true latitude), TPPA will need to correct downward — and may hit the **mechanical travel limit** before converging. Setting the mount slightly low gives TPPA room to correct in both directions.
-3. **Close the GUI**, then open TPPA in N.I.N.A. Go to **Options → Settings** (back-office) and run the connection test. Over the direct-UART adapter (see *Serial Wiring*) it succeeds on the **first** attempt. Native USB only: the DTR reboot makes the first attempt fail — run it twice (explained in Step 3). Then close the back-office.
+3. *(Mode B only — with AUTO ALIGN the plugin never touches the serial port and no connection test is needed.)* **Close the GUI**, then open TPPA in N.I.N.A. Go to **Options → Settings** (back-office) and run the connection test. Over the direct-UART adapter (see *Serial Wiring*) it succeeds on the **first** attempt. Native USB only: the DTR reboot makes the first attempt fail — run it twice (explained in Step 3). Then close the back-office.
 4. Launch TPPA in measurement-only mode (automated adjustments **OFF**): TPPA will plate-solve and display the current AZM and ALT polar error in real time.
 5. **Reconnect the GUI** and use the jog buttons to apply corrections manually — exactly as you would turn the manual adjustment screws on a traditional mount. TPPA updates the error display after each plate-solve.
 6. Iterate until you're within ~1° on both axes.
@@ -247,7 +247,36 @@ Before launching TPPA in full auto mode, **use the GUI to get within ~1° of tru
 
 ### Step 3 — TPPA Session
 
-#### 🚨 The TPPA settings we recommend (read this first — it will save you hours)
+Two ways to run the correction phase:
+
+- **A — AUTO ALIGN from the GUI (recommended).** TPPA only measures; the GUI closes the loop. Faster, immune to the plugin's probe-move controller, and the serial port stays with the GUI the whole time.
+- **B — TPPA automated adjustments (UPAS).** The plugin drives the platform natively over the serial port. Fully supported; this is the historical mode, and the settings tables below apply to it.
+
+#### 🤖 Mode A — AUTO ALIGN (recommended)
+
+The principle: in manual mode TPPA logs its measured error to the N.I.N.A. log at every solve of the correction phase (`Calculated Error: Az: …, Alt: …, Tot: …`). The GUI tails that log in real time and applies the corrections itself: `correction = −k × error / gain` per axis, with the measured response re-checked after every move.
+
+**One-time setup**
+1. N.I.N.A. **Options → General → Log Level = Info** (the default; the error lines are not written at Warning or above)
+2. TPPA **Options → Plugins → Three Point Polar Alignment → Polar Alignment System = None** (TPPA never opens the serial port; the GUI keeps it for the whole session)
+3. GUI v17 connected on the direct-UART port. The **NINA log folder** field auto-detects `%LOCALAPPDATA%\NINA\Logs`; Tolerance 0.5′ / Cap 10′ / Gain k 0.95 are good defaults. All fields persist.
+
+**In the field**
+1. Start the TPPA instruction as usual (three-point measurement, mount slews, solves)
+2. When TPPA enters its correction phase (the live error display starts updating), press **START** in the GUI's AUTO ALIGN panel
+3. Watch it converge. When the total error stays below TPPA's own tolerance, TPPA auto-finishes and the module stops itself
+
+**What the controller does for you**
+- First run: one small probe move per axis to calibrate sign and gain; the gains are then stored and **calibration is skipped on every later session**
+- Both axes corrected per cycle when roughly aligned, with adaptive caps: AZM up to its full error at once (field-proven reliable), ALT limited to 20′ per cycle (long continuous climbs can skip steps at the stock 300 mA motor current)
+- Near the solution, direction reversals use a **two-leg anti-backlash move** (overshoot then return), which cancels the firmware's compensation error exactly whatever the true mechanical play is
+- Safety guards: aberrant solves ignored, response efficiency monitored per axis, automatic sign re-check, and a hard **abort** if an axis ever diverges — the module never walks away from the pole
+
+**Typical performance** (ClearSky ST25 + 140 mm APO + guide rig, ~32 kg on the platform): from a mount set within a degree or two of the pole, convergence in 3 to 6 correction cycles, **under 2 minutes**, final total error 0.1–0.5′. First-ever run adds ~45 s of calibration.
+
+> If the panel stays on "no fresh solve", TPPA is not in its correction phase yet, or the N.I.N.A. log level is not Info. If the module aborts, the guard tripped on an unreliable axis response: check the Serial Log for the reason, fix the mechanical cause if any, and press START again (the affected axis will recalibrate).
+
+#### 🚨 Mode B — the TPPA settings we recommend (read this first — it will save you hours)
 
 Every value below was checked against the plugin's own source code (`isbeorn/nina.plugin.polaralignment`) and against this firmware. Where a setting has **no effect** — on this firmware, or at all — that is said plainly rather than left ambiguous. Knowing which knobs are inert saves a lot of pointless tuning in the dark.
 
@@ -401,7 +430,7 @@ Retrieve with `DIAG` from the GUI console. Since v16.01 the buffer also holds th
 │   ├── PolarAlign_auto.ino          ← ✅ Current unified firmware v16.03 (PROTO + V2)
 │   └── archive/                     ← Legacy versions (reference only)
 ├── GUI/
-│   ├── PolarAlignGUI_v16_00.py      ← ✅ Current GUI v16.00 (pairs with firmware v16.00)
+│   ├── PolarAlignGUI_v17.py         ← ✅ Current GUI v17 (AUTO ALIGN; pairs with firmware v16.x)
 │   └── archive/                     ← Legacy versions (reference only)
 ├── 3D STEP Models/
 │   ├── Manufacturing_Drawings_V2/               ← Original V2 fabrication drawings
