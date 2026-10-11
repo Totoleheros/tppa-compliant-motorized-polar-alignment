@@ -252,7 +252,7 @@ Electronics are **identical to the Prototype** for all shared components. The se
 
 > ⚠️ **FYSETC E4 V1.0 only!** V2.0 has different pin mapping — not compatible.
 
-📊 [Annotated wiring diagram](IMAGES/cablage_tppa.html) — 8 connection points (open in browser)
+📊 [Annotated wiring diagram](https://htmlpreview.github.io/?https://github.com/Totoleheros/tppa-compliant-motorized-polar-alignment/blob/main/IMAGES/cablage_tppa.html) — 8 connection points (open in browser)
 
 ### Motors
 

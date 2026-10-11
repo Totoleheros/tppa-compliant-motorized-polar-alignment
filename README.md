@@ -122,7 +122,7 @@ Full wiring, part references, mechanical assembly and CNC fabrication details ar
 
 - **Prototype:** [`HARDWARE_Prototype.md`](./HARDWARE_Prototype.md) — tilt plate, igus bearing, FYSETC E4 wiring, MPU-6500 SD card hack, UMOT 30:1
 - **V2:** [`HARDWARE_V2.md`](./HARDWARE_V2.md) — CNC bielle mechanism, RU42 crossed roller bearing, Mean Well LRS-100-12 PSU
-- 📊 **Wiring diagram:** [`IMAGES/cablage_tppa.html`](./IMAGES/cablage_tppa.html) — annotated FYSETC E4 V1.0 board (8 connection points, open in browser)
+- 📊 **Wiring diagram:** [IMAGES/cablage_tppa.html](https://htmlpreview.github.io/?https://github.com/Totoleheros/tppa-compliant-motorized-polar-alignment/blob/main/IMAGES/cablage_tppa.html) — annotated FYSETC E4 V1.0 board (8 connection points, open in browser)
 
 ---
 

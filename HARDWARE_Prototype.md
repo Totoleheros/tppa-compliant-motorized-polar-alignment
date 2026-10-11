@@ -183,6 +183,7 @@ The firmware ships with **300 mA** for the ALT motor. Even at this reduced curre
 - Drivers: 4× TMC2209, factory-soldered, UART-addressed
 - Example: [AliExpress – ~30€](https://fr.aliexpress.com/item/1005001704413148.html)
 - ![FYSETC E4 Board](IMAGES/Parts_Proto/fysetc-e4.jpg)
+- 📊 [Annotated wiring diagram](https://htmlpreview.github.io/?https://github.com/Totoleheros/tppa-compliant-motorized-polar-alignment/blob/main/IMAGES/cablage_tppa.html) — 8 connection points (open in browser)
 
 ### 9. Homing & Control
 
