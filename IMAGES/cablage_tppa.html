@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>FYSETC E4 V1.0 – Câblage TPPA</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #111; color: #eee; font-family: 'Segoe UI', Arial, sans-serif; padding: 20px; }
+  h1 { color: #fff; font-size: 18px; margin-bottom: 8px; }
+  .subtitle { color: #aaa; font-size: 12px; margin-bottom: 16px; }
+
+  .diagram-wrap { position: relative; display: inline-block; border: 1px solid #444; background: #fff; max-width: 100%; }
+  .diagram-wrap img { display: block; max-width: 100%; height: auto; }
+
+  .marker { position: absolute; z-index: 10; }
+  .marker .circle { position: absolute; transform: translate(-50%, -50%); background: #ff4444; color: #fff; border: 2px solid #fff; border-radius: 50%; width: 28px; height: 28px; display: flex; justify-content: center; align-items: center; font-weight: bold; font-size: 14px; box-shadow: 0 2px 5px rgba(0,0,0,0.6); z-index: 3; }
+  .marker .label { position: absolute; background: rgba(255, 255, 255, 0.95); color: #111; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; white-space: nowrap; box-shadow: 0 2px 5px rgba(0,0,0,0.6); border: 1px solid #ccc; z-index: 2; top: -12px; left: 20px; }
+  .marker.label-left .label { left: auto; right: 20px; }
+  .marker.label-top .label { left: 0; transform: translateX(-50%); top: auto; bottom: 20px; }
+  .marker.label-bottom .label { left: 0; transform: translateX(-50%); top: 20px; }
+
+  table { border-collapse: collapse; margin-top: 24px; width: 100%; max-width: 1000px; font-size: 13px; background: #222; }
+  th { background: #2a2a2a; color: #ccc; padding: 8px 12px; border: 1px solid #444; text-align: left; }
+  td { padding: 8px 12px; border: 1px solid #333; vertical-align: middle; line-height: 1.5; }
+  tr:nth-child(even) td { background: #1a1a1a; }
+  .num { font-size: 16px; font-weight: bold; text-align: center; color: #ff4444; }
+
+  .wire-r { color: #ff4444; } .wire-bk { color: #aaa; } .wire-w { color: #fff; }
+  .wire-b { color: #4499ff; } .wire-g { color: #44cc44; } .wire-y { color: #ffcc00; }
+  .warn { color: #ffaa00; font-size: 11px; }
+</style>
+</head>
+<body>
+
+<h1>FYSETC E4 V1.0 – Schéma de câblage TPPA</h1>
+<p class="subtitle">ESP32 + 4× TMC2209 · Firmware v16.03 · 8 connexions annotées</p>
+
+<div class="diagram-wrap">
+  <img src="fysetc_e4_layout.jpg" alt="Vue schématique FYSETC E4 V1.0">
+  <div class="marker" style="top: 15.36%; left: 14.43%;">
+    <div class="circle">1</div>
+    <div class="label">+12V / GND</div>
+  </div>
+  <div class="marker label-top" style="top: 12.32%; left: 47.84%;">
+    <div class="circle">2</div>
+    <div class="label">Fin de course ALT</div>
+  </div>
+  <div class="marker label-top" style="top: 9.19%; left: 53.86%;">
+    <div class="circle">3</div>
+    <div class="label">Bouton HOME</div>
+  </div>
+  <div class="marker label-left" style="top: 24.64%; left: 89.51%;">
+    <div class="circle">4</div>
+    <div class="label">MPU-6500 SCL/SDA</div>
+  </div>
+  <div class="marker label-left" style="top: 68.81%; left: 75.93%;">
+    <div class="circle">5</div>
+    <div class="label">Flash IDE only</div>
+  </div>
+  <div class="marker label-left" style="top: 44.58%; left: 52.37%;">
+    <div class="circle">6</div>
+    <div class="label">CP2102N bypass</div>
+  </div>
+  <div class="marker label-bottom" style="top: 86.96%; left: 14.81%;">
+    <div class="circle">7</div>
+    <div class="label">Moteur AZM</div>
+  </div>
+  <div class="marker label-bottom" style="top: 87.06%; left: 24.99%;">
+    <div class="circle">8</div>
+    <div class="label">Moteur ALT</div>
+  </div>
+</div>
+
+<table>
+  <thead>
+    <tr>
+      <th>#</th><th>Connecteur</th><th>Emplacement sur la carte</th><th>Étiquette</th><th>Câblage TPPA</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td class="num">①</td><td>PWR IN</td><td>Bornier 2 vis, coin haut-gauche</td><td>+12V / GND</td><td><span class="wire-r">Rouge +12V</span> / <span class="wire-bk">Noir GND</span></td></tr>
+    <tr><td class="num">②</td><td>Z-MIN</td><td>3 broches, rangée du haut</td><td>Fin de course ALT</td><td><span class="wire-w">Blanc NO→SIG</span> / <span class="wire-bk">Noir GND</span></td></tr>
+    <tr><td class="num">③</td><td>Y-MIN</td><td>3 broches, rangée du haut, à droite de Z-MIN</td><td>Bouton HOME</td><td><span class="wire-w">Blanc NO→SIG</span> / <span class="wire-bk">Noir GND</span></td></tr>
+    <tr><td class="num">④</td><td>SD header</td><td>Carte fille rouge, droite</td><td>MPU-6500</td><td><span class="wire-r">Rouge 3.3V</span>, <span class="wire-y">Jaune GND</span>, <span class="wire-b">Bleu SCL</span>, <span class="wire-g">Vert SDA</span></td></tr>
+    <tr><td class="num">⑤</td><td>USB CH340</td><td>Côté droit de la carte</td><td>Flash IDE only</td><td>Câble USB standard — <span class="warn">Flash Arduino IDE UNIQUEMENT</span></td></tr>
+    <tr><td class="num">⑥</td><td>BERG 3×4</td><td>Centre-droit de la carte</td><td>CP2102N bypass</td><td><span class="wire-bk">Noir GND→pin6</span> / <span class="wire-y">Jaune TXD→pin9</span> / <span class="wire-g">Vert RXD→pin12</span></td></tr>
+    <tr><td class="num">⑦</td><td>MOT-X</td><td>Bornier 4 vis, bas 1er</td><td>Moteur AZM</td><td><span class="wire-bk">Noir A+</span>, <span class="wire-g">Vert A−</span>, <span class="wire-r">Rouge B+</span>, <span class="wire-b">Bleu B−</span></td></tr>
+    <tr><td class="num">⑧</td><td>MOT-Y</td><td>Bornier 4 vis, bas 2e</td><td>Moteur ALT</td><td><span class="wire-bk">Noir A+</span>, <span class="wire-g">Vert A−</span>, <span class="wire-r">Rouge B+</span>, <span class="wire-b">Bleu B−</span></td></tr>
+  </tbody>
+</table>
+
+</body>
+</html>
