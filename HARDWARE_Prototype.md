@@ -337,7 +337,7 @@ These plates are in the direct load path and must resist the tilting moment from
 |DIR ALT     |32   |MOT-Y                              |
 |SCL         |18   |SD Card `SCK`                      |
 |SDA         |19   |SD Card `MISO`                     |
-|Limit switch|34   |Z-MIN                              |
+|Limit switch|34   |X-MIN                              |
 |Home button |35   |Y-MIN                              |
 
 -----
