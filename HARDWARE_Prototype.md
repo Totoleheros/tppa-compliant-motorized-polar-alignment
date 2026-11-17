@@ -335,8 +335,8 @@ These plates are in the direct load path and must resist the tilting moment from
 |UART RX/TX  |21/22|Shared bus (Addr 1=AZM, Addr 2=ALT)|
 |STEP ALT    |33   |MOT-Y                              |
 |DIR ALT     |32   |MOT-Y                              |
-|SCL         |18   |SD Card `SCK`                      |
-|SDA         |19   |SD Card `MISO`                     |
+|SCL         |18   |SD Card `CLK` (sniffer)            |
+|SDA         |19   |SD Card `DAT0` (sniffer)           |
 |Limit switch|34   |X-MIN                              |
 |Home button |35   |Y-MIN                              |
 
@@ -375,12 +375,12 @@ Insert the TF/microSD sniffer board into the FYSETC E4’s SD card slot. Then co
 |Wire Color|Signal         |Sniffer Pin|ESP32 GPIO|Notes                        |
 |:--------:|---------------|:---------:|:--------:|-----------------------------|
 |🔴 Red     |VCC            |3.3V       |—         |**3.3V only!** Do not use 5V.|
-|🟡 Yellow  |GND            |GND        |—         |                             |
-|🔵 Blue    |SCL (I2C Clock)|SCK        |GPIO 18   |Originally SD card clock     |
-|🟢 Green   |SDA (I2C Data) |MISO       |GPIO 19   |Originally SD card data out  |
+|⚫ Black   |GND            |GND        |—         |                             |
+|🔵 Blue    |SCL (I2C Clock)|CLK        |GPIO 18   |Originally SD card clock     |
+|🟢 Green   |SDA (I2C Data) |DAT0       |GPIO 19   |Originally SD card data line |
 
 
-> ⚠️ **Anti-EMI Tip:** Keep the I2C wires (Blue/Green) as far away as possible from the stepper motor cables to prevent electromagnetic interference. If possible, twist the GND (Yellow) wire around the I2C lines to act as a shield. The firmware detects I2C failures and reports them via the `DIAG` command.
+> ⚠️ **Anti-EMI Tip:** Keep the I2C wires (Blue/Green) as far away as possible from the stepper motor cables to prevent electromagnetic interference. If possible, twist the GND (Black) wire around the I2C lines to act as a shield. The firmware detects I2C failures and reports them via the `DIAG` command.
 
 -----
 

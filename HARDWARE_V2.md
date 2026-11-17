@@ -284,6 +284,24 @@ Electronics are **identical to the Prototype** for all shared components. The se
 | ALT Limit Switch | 34 | X-MIN | Input only, active LOW |
 | Home Button | 35 | Y-MIN | Input only, active LOW |
 
+Both inputs are read with the board's own pull-up (GPIO 34/35 have no internal one): at rest the pin reads HIGH, and the contact must pull it to **GND** to trigger. The X-MIN and Y-MIN connectors have 3 pins (SIG / GND / VCC); **VCC is never used**.
+
+#### Wiring — ALT Limit Switch (V-156-1C25, SPDT)
+
+The switch has 3 terminals (COM / NO / NC). Only **COM + NO** are used; NC stays unconnected.
+
+| Switch terminal | X-MIN connector pin | Logic |
+|---|---|---|
+| **COM** | SIG | — |
+| **NO** | GND | Normally open, closes when the lever is hit |
+| ~~NC~~ | *(unconnected)* | — |
+
+> ⚠️ Do not use NC: the firmware would see the switch as permanently pressed, refuse every downward ALT move and run a homing at each boot. With COM + NO, `DIAG` shows `Limit Sensor (Pin 34) : OPEN (HIGH)` at rest and `TRIGGERED (LOW)` when pressed: a quick bench check after wiring.
+
+#### Wiring — Home Button (1NO momentary)
+
+Metal push button, **1NO, momentary (self-reset)**, 12 mm. Connect the 2 wires from Y-MIN (**SIG** and **GND**) to its two terminals, in either order: **no polarity**. When pressed, SIG is shorted to GND → LOW → firmware runs the full homing + MPU tare sequence.
+
 ### Full GPIO Map
 
 | Signal | GPIO | E4 silkscreen |
@@ -294,8 +312,8 @@ Electronics are **identical to the Prototype** for all shared components. The se
 | UART RX/TX | 21/22 | Shared bus (Addr 1=AZM, Addr 2=ALT) |
 | STEP ALT | 33 | MOT-Y |
 | DIR ALT | 32 | MOT-Y |
-| SCL | 18 | SD Card `SCK` |
-| SDA | 19 | SD Card `MISO` |
+| SCL | 18 | SD Card `CLK` (sniffer) |
+| SDA | 19 | SD Card `DAT0` (sniffer) |
 | Limit switch | 34 | X-MIN |
 | Home button | 35 | Y-MIN |
 
