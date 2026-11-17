@@ -284,23 +284,19 @@ Electronics are **identical to the Prototype** for all shared components. The se
 | ALT Limit Switch | 34 | X-MIN | Input only, active LOW |
 | Home Button | 35 | Y-MIN | Input only, active LOW |
 
-Both inputs are read with the board's own pull-up (GPIO 34/35 have no internal one): at rest the pin reads HIGH, and the contact must pull it to **GND** to trigger. The X-MIN and Y-MIN connectors have 3 pins (SIG / GND / VCC); **VCC is never used**.
+X-MIN and Y-MIN are **2-pin** connectors: signal and GND (Z-MIN is the only 3-pin endstop header, and is not used). Per the E4 V1.0 schematic, each signal line has a 10 kΩ pull-up to +3.3 V, a 100 Ω series resistor and a 100 nF filter capacitor on the board (GPIO 34/35 have no internal pull-up). At rest the pin reads HIGH; a closed contact shorts it to GND → LOW → triggered.
+
+**No polarity, for either input:** a mechanical contact just shorts the two pins together, so the two wires can go on the connector in either order.
 
 #### Wiring — ALT Limit Switch (V-156-1C25, SPDT)
 
-The switch has 3 terminals (COM / NO / NC). Only **COM + NO** are used; NC stays unconnected.
-
-| Switch terminal | X-MIN connector pin | Logic |
-|---|---|---|
-| **COM** | SIG | — |
-| **NO** | GND | Normally open, closes when the lever is hit |
-| ~~NC~~ | *(unconnected)* | — |
+The switch has 3 terminals (COM / NO / NC). Wire **COM and NO** to the two X-MIN pins, in either order (they are the two sides of the same contact). **NC stays unconnected.**
 
 > ⚠️ Do not use NC: the firmware would see the switch as permanently pressed, refuse every downward ALT move and run a homing at each boot. With COM + NO, `DIAG` shows `Limit Sensor (Pin 34) : OPEN (HIGH)` at rest and `TRIGGERED (LOW)` when pressed: a quick bench check after wiring.
 
 #### Wiring — Home Button (1NO momentary)
 
-Metal push button, **1NO, momentary (self-reset)**, 12 mm. Connect the 2 wires from Y-MIN (**SIG** and **GND**) to its two terminals, in either order: **no polarity**. When pressed, SIG is shorted to GND → LOW → firmware runs the full homing + MPU tare sequence.
+Metal push button, **1NO, momentary (self-reset)**, 12 mm. Connect the 2 Y-MIN pins (signal and GND) to its two terminals, in either order: **no polarity**. When pressed, SIG is shorted to GND → LOW → firmware runs the full homing + MPU tare sequence.
 
 ### Full GPIO Map
 

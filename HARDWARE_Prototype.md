@@ -193,22 +193,15 @@ The firmware ships with **300 mA** for the ALT motor. Even at this reduced curre
 
 #### Wiring — Limit Switch (V-156-1C25, SPDT)
 
-The switch has 3 terminals (COM / NO / NC). Only **COM + NO** are used — NC is left unconnected.
+The switch has 3 terminals (COM / NO / NC). Wire **COM and NO** to the two pins of the **2-pin** X-MIN connector (signal + GND), in either order; NC is left unconnected.
 
-|Switch terminal|X-MIN connector pin|Logic                                   |
-|---------------|-------------------|----------------------------------------|
-|**COM**        |SIG                |—                                       |
-|**NO**         |GND                |Normally open → closes when lever is hit|
-|~NC~           |*(unconnected)*    |—                                       |
-
-
-> The firmware is **Active-LOW** on GPIO 34. When the cam hits the lever, NO closes → SIG pulled to GND → LOW → firmware triggers stop/homing. No polarity concern (mechanical switch).
+> The firmware is **Active-LOW** on GPIO 34 (10 kΩ pull-up on the board). When the cam hits the lever, the COM-NO contact closes → signal shorted to GND → LOW → firmware triggers stop/homing. No polarity: a mechanical contact works both ways round.
 
 #### Wiring — Home Button (1NO momentary)
 
-Connect the 2 wires from Y-MIN (**SIG** and **GND**) to either terminal — **no polarity**.
+Connect the 2 pins of the **2-pin** Y-MIN connector (signal + GND) to the button's two terminals, in either order: **no polarity**.
 
-> The VCC pin on the 3-pin Y-MIN connector is unused. When pressed, SIG is shorted to GND → LOW → firmware triggers the full homing + MPU tare sequence.
+> When pressed, the signal is shorted to GND → LOW → firmware triggers the full homing + MPU tare sequence.
 
 ### 10. Active Feedback Sensor (Gyroscope)
 
